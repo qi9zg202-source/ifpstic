@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="zh-cn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IFP 文件索引</title>
+  <style>
+    :root{
+      --bg:#f4f6f8;
+      --card:#ffffff;
+      --accent:#0a6ed1;
+      --muted:#64748b;
+      --border:#d7e1ed;
+      --radius:12px;
+      --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+    }
+    html,body{margin:0;padding:0;background:var(--bg);font-family:var(--font);color:#182230;min-height:100%}
+    #app{max-width:960px;margin:40px auto;padding:0 20px 80px;box-sizing:border-box;display:flex;flex-direction:column;gap:18px;position:relative}
+    #header-card{background:var(--card);padding:20px 24px;border-radius:var(--radius);box-shadow:0 12px 28px rgba(15,23,42,0.08);display:flex;flex-direction:column;gap:12px;border:1px solid rgba(15,23,42,0.05)}
+    #title{font-size:22px;font-weight:600;color:var(--accent)}
+    #subtitle{font-size:13px;color:var(--muted)}
+    #search-wrapper{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    #search-input{flex:1;min-width:220px;padding:10px 14px;border-radius:10px;border:1px solid var(--border);font-size:14px;background:#f9fbff;transition:border 0.2s ease, box-shadow 0.2s ease}
+    #search-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(10,110,209,0.18)}
+    #total-count{font-size:12px;color:var(--muted)}
+    #time-range{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
+    #time-range input{padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:12px;color:#20304c}
+
+    #list-card{background:var(--card);border-radius:var(--radius);box-shadow:0 20px 32px rgba(15,23,42,0.12);border:1px solid rgba(15,23,42,0.05)}
+    #file-list{list-style:none;margin:0;padding:12px 0;display:flex;flex-direction:column}
+    .file-item{display:flex;flex-direction:column;padding:14px 22px;border-bottom:1px solid rgba(215,225,237,0.7);transition:background 0.2s ease, transform 0.2s ease}
+    .file-item:last-child{border-bottom:none}
+    .file-item:hover{background:#f1f6ff;transform:translateX(4px)}
+    .file-link{font-size:15px;font-weight:600;color:#20304c;text-decoration:none;word-break:break-all}
+    .file-link:hover{color:var(--accent)}
+    .file-meta{font-size:12px;color:var(--muted);margin-top:4px}
+    .hidden{display:none!important}
+
+    #about-btn{position:fixed;right:24px;bottom:24px;padding:12px 18px;border-radius:24px;background:var(--accent);color:#fff;font-weight:600;border:none;cursor:pointer;box-shadow:0 14px 32px rgba(10,110,209,0.22);display:flex;align-items:center;gap:6px}
+    #about-btn:hover{background:#095eb7}
+
+    #about-dialog{position:fixed;right:24px;bottom:84px;min-width:320px;background:#fff;border-radius:12px;box-shadow:0 18px 36px rgba(15,23,42,0.24);border:1px solid rgba(15,23,42,0.1);padding:18px 20px;display:none;flex-direction:column;gap:12px;z-index:2000}
+    #about-dialog.active{display:flex}
+    #about-title{font-size:15px;font-weight:600;color:#20304c}
+    #about-command{background:#0f172a;color:#e2e8f0;font-family:Menlo,Consolas,monospace;font-size:12px;padding:12px 14px;border-radius:10px;overflow:auto}
+    #about-close{align-self:flex-end;background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px}
+
+    .file-meta{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px;font-size:12px;color:var(--muted)}
+    .file-meta span{display:flex;align-items:center;gap:4px}
+
+    @media (max-width:640px){
+      #app{margin:24px auto}
+      #search-wrapper{flex-direction:column;align-items:stretch}
+      #search-input{width:100%}
+      #time-range{flex-direction:column;align-items:flex-start}
+      .file-item{padding:12px 18px}
+    }
+  </style>
+</head>
+<body>
+  <main id="app">
+    <section id="header-card">
+      <div id="title">IFP 项目文件索引</div>
+      <div id="subtitle">快速查询当前目录下的所有文件，点击即可打开。</div>
+      <div id="search-wrapper">
+        <input id="search-input" type="search" placeholder="输入文件名进行过滤，例如 diesel 或 report…" aria-label="按文件名搜索">
+        <div id="time-range">
+          <label for="start-date">起始日期</label>
+          <input id="start-date" type="date">
+          <label for="end-date">结束日期</label>
+          <input id="end-date" type="date">
+        </div>
+        <div id="total-count" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section id="list-card">
+      <ul id="file-list"></ul>
+    </section>
+  </main>
+  <script id="file-data" type="application/json">
+[
+  {
+    "name": ".DS_Store",
+    "path": ".DS_Store",
+    "created": "2025-08-09 19:41:13",
+    "createdTimestamp": 1754739673.7940245
+  },
+  {
+    "name": "0712IFP 二期全量指标点位梳理.xlsx",
+    "path": "0712IFP 二期全量指标点位梳理.xlsx",
+    "created": "2025-07-12 16:35:19",
+    "createdTimestamp": 1752309319.7469037
+  },
+  {
+    "name": "10601sticarea0601.xlsx",
+    "path": "10601sticarea0601.xlsx",
+    "created": "2025-06-01 13:19:31",
+    "createdTimestamp": 1748755171.9545755
+  },
+  {
+    "name": "10601sticarea0601_1320.xlsx",
+    "path": "10601sticarea0601_1320.xlsx",
+    "created": "2025-06-01 13:21:06",
+    "createdTimestamp": 1748755266.0893545
+  },
+  {
+    "name": "34IFP问题记录20250224.xlsx",
+    "path": "34IFP问题记录20250224.xlsx",
+    "created": "2025-03-04 20:27:07",
+    "createdTimestamp": 1741091227.3175557
+  },
+  {
+    "name": "34IFP问题记录20250224_with_strings_20250304_203137.xlsx",
+    "path": "34IFP问题记录20250224_with_strings_20250304_203137.xlsx",
+    "created": "2025-03-04 21:00:38",
+    "createdTimestamp": 1741093238.4317884
+  },
+  {
+    "name": "34IFP问题记录20250224_with_strings_20250316_174552.xlsx",
+    "path": "34IFP问题记录20250224_with_strings_20250316_174552.xlsx",
+    "created": "2025-03-16 17:45:52",
+    "createdTimestamp": 1742118352.2812626
+  },
+  {
+    "name": "append_suffix.py",
+    "path": "append_suffix.py",
+    "created": "2025-07-12 14:15:15",
+    "createdTimestamp": 1752300915.4866142
+  },
+  {
+    "name": "CHILLER.jpeg",
+    "path": "CHILLER.jpeg",
+    "created": "2025-07-08 12:52:01",
+    "createdTimestamp": 1751950321.535653
+  },
+  {
+    "name": "claude.js",
+    "path": "claude.js",
+    "created": "2025-06-15 23:53:41",
+    "createdTimestamp": 1750002821.358849
+  },
+  {
+    "name": "cooling_load_analysis.html",
+    "path": "cooling_load_analysis.html",
+    "created": "2025-09-28 09:49:48",
+    "createdTimestamp": 1759024188.6330328
+  },
+  {
+    "name": "cooling_optimization_dashboard.html",
+    "path": "cooling_optimization_dashboard.html",
+    "created": "2025-10-11 14:08:18",
+    "createdTimestamp": 1760162898.4746642
+  },
+  {
+    "name": "cooling_room_dashboard.html",
+    "path": "cooling_room_dashboard.html",
+    "created": "2025-06-15 16:20:52",
+    "createdTimestamp": 1749975652.2961857
+  },
+  {
+    "name": "cooling_room_dashboard.html.bak2",
+    "path": "cooling_room_dashboard.html.bak2",
+    "created": "2025-06-15 16:19:10",
+    "createdTimestamp": 1749975550.7098775
+  },
+  {
+    "name": "cooling_room_energy_statistics.html",
+    "path": "cooling_room_energy_statistics.html",
+    "created": "2025-08-06 12:35:10",
+    "createdTimestamp": 1754454910.81247
+  },
+  {
+    "name": "cooling_room_indicators.html",
+    "path": "cooling_room_indicators.html",
+    "created": "2025-07-06 19:01:10",
+    "createdTimestamp": 1751799670.8790283
+  },
+  {
+    "name": "dashboard.html",
+    "path": "dashboard.html",
+    "created": "2025-04-01 09:29:09",
+    "createdTimestamp": 1743470949.5566168
+  },
+  {
+    "name": "datacenter.png",
+    "path": "datacenter.png",
+    "created": "2025-07-08 12:39:11",
+    "createdTimestamp": 1751949551.0292158
+  },
+  {
+    "name": "datacenter_monitor.html",
+    "path": "datacenter_monitor.html",
+    "created": "2025-07-08 13:21:29",
+    "createdTimestamp": 1751952089.8384662
+  },
+  {
+    "name": "datashow",
+    "path": "datashow",
+    "created": "2025-09-27 18:49:22",
+    "createdTimestamp": 1758970162.4679625
+  },
+  {
+    "name": "datatest",
+    "path": "datatest",
+    "created": "2025-09-27 18:49:22",
+    "createdTimestamp": 1758970162.4677622
+  },
+  {
+    "name": "diclist.xlsx",
+    "path": "diclist.xlsx",
+    "created": "2025-07-12 14:23:08",
+    "createdTimestamp": 1752301388.6137962
+  },
+  {
+    "name": "dictionary_typexjonline.sql",
+    "path": "dictionary_typexjonline.sql",
+    "created": "2025-10-11 11:39:17",
+    "createdTimestamp": 1760153957.5009835
+  },
+  {
+    "name": "equipment_inventory.html",
+    "path": "equipment_inventory.html",
+    "created": "2025-10-11 11:39:06",
+    "createdTimestamp": 1760153946.8231304
+  },
+  {
+    "name": "etl_algorithm_designer.html",
+    "path": "etl_algorithm_designer.html",
+    "created": "2025-03-22 10:34:05",
+    "createdTimestamp": 1742610845.9211826
+  },
+  {
+    "name": "excel_analyzer_gui.py",
+    "path": "excel_analyzer_gui.py",
+    "created": "2025-06-15 23:53:12",
+    "createdTimestamp": 1750002792.8968663
+  },
+  {
+    "name": "excel_converter.py",
+    "path": "excel_converter.py",
+    "created": "2025-03-21 14:19:02",
+    "createdTimestamp": 1742537942.8297956
+  },
+  {
+    "name": "excel_to_json.py",
+    "path": "excel_to_json.py",
+    "created": "2025-03-13 17:22:26",
+    "createdTimestamp": 1741857746.9060333
+  },
+  {
+    "name": "fab7425541758808.png",
+    "path": "fab7425541758808.png",
+    "created": "2025-08-06 12:34:09",
+    "createdTimestamp": 1754454849.2612443
+  },
+  {
+    "name": "FAB_3F_01.png",
+    "path": "FAB_3F_01.png",
+    "created": "2025-06-17 12:06:38",
+    "createdTimestamp": 1750133198.4514053
+  },
+  {
+    "name": "fab_ai_model_evaluation.html",
+    "path": "fab_ai_model_evaluation.html",
+    "created": "2025-10-11 16:57:03",
+    "createdTimestamp": 1760173023.0117178
+  },
+  {
+    "name": "fab_bulletin_management.html",
+    "path": "fab_bulletin_management.html",
+    "created": "2025-10-21 11:44:19",
+    "createdTimestamp": 1761018259.9274573
+  },
+  {
+    "name": "fab_chemical_daily_report.html",
+    "path": "fab_chemical_daily_report.html",
+    "created": "2025-11-01 15:56:46",
+    "createdTimestamp": 1761983806.892609
+  },
+  {
+    "name": "fab_cleanroom_heatmap.html",
+    "path": "fab_cleanroom_heatmap.html",
+    "created": "2025-09-21 11:00:36",
+    "createdTimestamp": 1758423636.7680624
+  },
+  {
+    "name": "fab_cooling_cop_analysis.html",
+    "path": "fab_cooling_cop_analysis.html",
+    "created": "2025-10-11 11:40:07",
+    "createdTimestamp": 1760154007.4316304
+  },
+  {
+    "name": "fab_cooling_cost_analysis.html",
+    "path": "fab_cooling_cost_analysis.html",
+    "created": "2025-10-11 16:57:07",
+    "createdTimestamp": 1760173027.506985
+  },
+  {
+    "name": "fab_cooling_prediction.html",
+    "path": "fab_cooling_prediction.html",
+    "created": "2025-10-11 17:52:22",
+    "createdTimestamp": 1760176342.5637608
+  },
+  {
+    "name": "fab_cooling_system_optimization.html",
+    "path": "fab_cooling_system_optimization.html",
+    "created": "2025-10-11 11:45:03",
+    "createdTimestamp": 1760154303.7439468
+  },
+  {
+    "name": "fab_daily_work_report.html",
+    "path": "fab_daily_work_report.html",
+    "created": "2025-10-21 11:45:08",
+    "createdTimestamp": 1761018308.4340444
+  },
+  {
+    "name": "fab_diesel_daily_report.html",
+    "path": "fab_diesel_daily_report.html",
+    "created": "2025-11-01 16:24:25",
+    "createdTimestamp": 1761985465.546522
+  },
+  {
+    "name": "fab_load_statistics.html",
+    "path": "fab_load_statistics.html",
+    "created": "2025-10-11 14:07:56",
+    "createdTimestamp": 1760162876.2891707
+  },
+  {
+    "name": "fab_load_statistics_副本.html",
+    "path": "fab_load_statistics_副本.html",
+    "created": "2025-11-01 13:39:04",
+    "createdTimestamp": 1761975544.14767
+  },
+  {
+    "name": "fab_me_monitor.html",
+    "path": "fab_me_monitor.html",
+    "created": "2025-10-11 11:45:34",
+    "createdTimestamp": 1760154334.1233437
+  },
+  {
+    "name": "fab_shift_handover.html",
+    "path": "fab_shift_handover.html",
+    "created": "2025-10-21 11:44:33",
+    "createdTimestamp": 1761018273.228524
+  },
+  {
+    "name": "fab_spc_analysis.html",
+    "path": "fab_spc_analysis.html",
+    "created": "2025-10-11 11:45:42",
+    "createdTimestamp": 1760154342.8053875
+  },
+  {
+    "name": "fab_spc_correlation.html",
+    "path": "fab_spc_correlation.html",
+    "created": "2025-10-11 11:45:49",
+    "createdTimestamp": 1760154349.1338007
+  },
+  {
+    "name": "fab_thermal_load_dashboard.html",
+    "path": "fab_thermal_load_dashboard.html",
+    "created": "2025-10-11 11:45:54",
+    "createdTimestamp": 1760154354.4704149
+  },
+  {
+    "name": "fab_water_quality.html",
+    "path": "fab_water_quality.html",
+    "created": "2025-10-11 11:46:01",
+    "createdTimestamp": 1760154361.5398808
+  },
+  {
+    "name": "fab_water_quality_detection.html",
+    "path": "fab_water_quality_detection.html",
+    "created": "2025-10-11 11:45:58",
+    "createdTimestamp": 1760154358.0860062
+  },
+  {
+    "name": "filter_excel_data.py",
+    "path": "filter_excel_data.py",
+    "created": "2025-07-12 14:25:53",
+    "createdTimestamp": 1752301553.2669117
+  },
+  {
+    "name": "filter_lifecycle_analysis.html",
+    "path": "filter_lifecycle_analysis.html",
+    "created": "2025-10-11 11:46:09",
+    "createdTimestamp": 1760154369.4405034
+  },
+  {
+    "name": "filtered_data_20250712_142950.xlsx",
+    "path": "filtered_data_20250712_142950.xlsx",
+    "created": "2025-10-11 11:46:12",
+    "createdTimestamp": 1760154372.4094965
+  },
+  {
+    "name": "gx高效机房10个指标的公式最终版.sql",
+    "path": "gx高效机房10个指标的公式最终版.sql",
+    "created": "2025-10-23 19:32:57",
+    "createdTimestamp": 1761219177.9790711
+  },
+  {
+    "name": "health_monitor.html",
+    "path": "health_monitor.html",
+    "created": "2025-04-14 16:15:47",
+    "createdTimestamp": 1744618547.6562014
+  },
+  {
+    "name": "heat_load_analysis.html",
+    "path": "heat_load_analysis.html",
+    "created": "2025-10-11 14:08:06",
+    "createdTimestamp": 1760162886.1358225
+  },
+  {
+    "name": "imtired_app.html",
+    "path": "imtired_app.html",
+    "created": "2025-10-11 11:46:32",
+    "createdTimestamp": 1760154392.5386178
+  },
+  {
+    "name": "index.html",
+    "path": "index.html",
+    "created": "2025-09-21 11:00:36",
+    "createdTimestamp": 1758423636.7686174
+  },
+  {
+    "name": "index.js",
+    "path": "index.js",
+    "created": "2025-06-15 23:50:03",
+    "createdTimestamp": 1750002603.3742354
+  },
+  {
+    "name": "indexmap.html",
+    "path": "indexmap.html",
+    "created": "2025-11-01 17:13:28",
+    "createdTimestamp": 1761988408.3548665
+  },
+  {
+    "name": "modify_excel.py",
+    "path": "modify_excel.py",
+    "created": "2025-06-02 00:31:15",
+    "createdTimestamp": 1748795475.6843708
+  },
+  {
+    "name": "pcw_filter_correlation.html",
+    "path": "pcw_filter_correlation.html",
+    "created": "2025-10-11 11:46:51",
+    "createdTimestamp": 1760154411.944732
+  },
+  {
+    "name": "point__202506271617.xlsx",
+    "path": "point__202506271617.xlsx",
+    "created": "2025-07-12 14:19:08",
+    "createdTimestamp": 1752301148.1010818
+  },
+  {
+    "name": "read_excel_data.py",
+    "path": "read_excel_data.py",
+    "created": "2025-06-01 12:17:51",
+    "createdTimestamp": 1748751471.9752078
+  },
+  {
+    "name": "README.md",
+    "path": "README.md",
+    "created": "2025-10-24 09:00:35",
+    "createdTimestamp": 1761267635.434056
+  },
+  {
+    "name": "script",
+    "path": "script",
+    "created": "2025-08-02 18:21:23",
+    "createdTimestamp": 1754130083.7836459
+  },
+  {
+    "name": "Sesa627852.pem",
+    "path": "Sesa627852.pem",
+    "created": "2025-08-09 18:00:11",
+    "createdTimestamp": 1754733611.9950218
+  },
+  {
+    "name": "spc_indicatorxjonline.sql",
+    "path": "spc_indicatorxjonline.sql",
+    "created": "2025-03-24 10:21:06",
+    "createdTimestamp": 1742782866.0286992
+  },
+  {
+    "name": "system_deploy.py",
+    "path": "system_deploy.py",
+    "created": "2025-08-09 18:49:26",
+    "createdTimestamp": 1754736566.002661
+  },
+  {
+    "name": "tagmelink.png",
+    "path": "tagmelink.png",
+    "created": "2025-03-22 17:48:12",
+    "createdTimestamp": 1742636892.1294641
+  },
+  {
+    "name": "test.py",
+    "path": "test.py",
+    "created": "2025-05-10 11:46:07",
+    "createdTimestamp": 1746848767.7215347
+  },
+  {
+    "name": "V2.7柴油计算公式.xlsx",
+    "path": "V2.7柴油计算公式.xlsx",
+    "created": "2025-11-01 13:38:09",
+    "createdTimestamp": 1761975489.5419884
+  },
+  {
+    "name": "voc_monitor.html",
+    "path": "voc_monitor.html",
+    "created": "2025-06-03 19:58:45",
+    "createdTimestamp": 1748951925.6779516
+  },
+  {
+    "name": "water_quality_monitor.html",
+    "path": "water_quality_monitor.html",
+    "created": "2025-03-21 17:17:58",
+    "createdTimestamp": 1742548678.3395102
+  },
+  {
+    "name": "weather_forecast.html",
+    "path": "weather_forecast.html",
+    "created": "2025-03-07 18:20:30",
+    "createdTimestamp": 1741342830.3409941
+  },
+  {
+    "name": "设备功率分析增强功能说明.md",
+    "path": "设备功率分析增强功能说明.md",
+    "created": "2025-06-14 16:25:27",
+    "createdTimestamp": 1749889527.5008934
+  }
+]
+</script>
+  <button id="about-btn" type="button" aria-controls="about-dialog" aria-expanded="false">关于我们</button>
+  <div id="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
+    <div id="about-title">部署命令</div>
+    <pre id="about-command">scp -r /Users/beckliu/Documents/IFPALLINONE/* root@112.74.32.33:/usr/share/nginx/html/pxifpstic/</pre>
+    <button id="about-close" type="button">关闭</button>
+  </div>
+
+    <script>
+    (function(){
+      const files = JSON.parse(document.getElementById('file-data').textContent);
+      const listEl = document.getElementById('file-list');
+      const searchInput = document.getElementById('search-input');
+      const totalCount = document.getElementById('total-count');
+      const startDateInput = document.getElementById('start-date');
+      const endDateInput = document.getElementById('end-date');
+
+      function createListItem(file){
+        const li = document.createElement('li');
+        li.className = 'file-item';
+
+        const link = document.createElement('a');
+        link.className = 'file-link';
+        link.textContent = file.name;
+        link.href = encodeURI(file.path);
+        link.target = '_blank';
+        link.rel = 'noopener';
+
+        const meta = document.createElement('div');
+        meta.className = 'file-meta';
+        const metaPath = document.createElement('span');
+        metaPath.textContent = `路径: ${file.path}`;
+        const metaCreated = document.createElement('span');
+        metaCreated.textContent = `创建时间: ${file.created || '未知'}`;
+        meta.appendChild(metaPath);
+        meta.appendChild(metaCreated);
+
+        li.appendChild(link);
+        li.appendChild(meta);
+        return li;
+      }
+
+      function render(){
+        listEl.innerHTML = '';
+        const keyword = searchInput.value.trim().toLowerCase();
+        const startVal = startDateInput.value ? new Date(startDateInput.value + 'T00:00:00').getTime() / 1000 : null;
+        const endVal = endDateInput.value ? new Date(endDateInput.value + 'T23:59:59').getTime() / 1000 : null;
+
+        const filtered = files.filter(file=>{
+          const matchName = keyword ? file.name.toLowerCase().includes(keyword) : true;
+          const matchStart = startVal != null ? file.createdTimestamp >= startVal : true;
+          const matchEnd = endVal != null ? file.createdTimestamp <= endVal : true;
+          return matchName && matchStart && matchEnd;
+        });
+
+        filtered.forEach(file => listEl.appendChild(createListItem(file)));
+        totalCount.textContent = `共 ${filtered.length} / ${files.length} 个文件`;
+      }
+
+      searchInput.addEventListener('input', () => render());
+      startDateInput.addEventListener('change', () => render());
+      endDateInput.addEventListener('change', () => render());
+      render();
+
+      const aboutBtn = document.getElementById('about-btn');
+      const aboutDialog = document.getElementById('about-dialog');
+      const aboutClose = document.getElementById('about-close');
+
+      function toggleAbout(show){
+        if(show){
+          aboutDialog.classList.add('active');
+          aboutBtn.setAttribute('aria-expanded','true');
+        }else{
+          aboutDialog.classList.remove('active');
+          aboutBtn.setAttribute('aria-expanded','false');
+        }
+      }
+
+      aboutBtn.addEventListener('click', ()=>{
+        const isOpen = aboutDialog.classList.contains('active');
+        toggleAbout(!isOpen);
+      });
+      aboutClose.addEventListener('click', ()=>toggleAbout(false));
+      document.addEventListener('click', (evt)=>{
+        if(!aboutDialog.contains(evt.target) && evt.target !== aboutBtn){
+          toggleAbout(false);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

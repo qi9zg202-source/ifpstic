@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IMTIRED - 情绪追踪</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+        
+        .app-container {
+            display: flex;
+            height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+        
+        .left-panel {
+            width: 120px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 20px 0;
+        }
+        
+        .main-chart {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        
+        .app-title {
+            text-align: center;
+            color: #333;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        /* 左侧图标样式 */
+        .icon-item {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 2px solid transparent;
+        }
+        
+        .icon-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        .icon-item.active {
+            transform: translateY(-8px) scale(1.1);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+            border-color: #667eea;
+        }
+        
+        .icon-emoji {
+            font-size: 32px;
+            margin-bottom: 4px;
+        }
+        
+        .icon-label {
+            font-size: 11px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        /* 时间轴容器 */
+        .timeline-container {
+            position: relative;
+            height: 400px;
+            margin-top: 20px;
+        }
+        
+        /* Y轴情绪等级 */
+        .y-axis {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px 0;
+        }
+        
+        .y-level {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            font-size: 12px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .y-level.positive { color: #4caf50; }
+        .y-level.tired { color: #ff9800; }
+        .y-level.sad { color: #f44336; }
+        .y-level.despair { color: #9c27b0; }
+        
+        /* 右侧Y轴血糖显示 */
+        .y-axis-right {
+            position: absolute;
+            right: 0;
+            top: 0;
+            height: 100%;
+            width: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 0 15px 15px 0;
+        }
+        
+        .glucose-level {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding-left: 10px;
+            font-size: 11px;
+            color: #666;
+            font-weight: 500;
+            position: relative;
+        }
+        
+        .glucose-level.high { color: #f44336; background: rgba(244, 67, 54, 0.1); }
+        .glucose-level.normal { color: #4caf50; background: rgba(76, 175, 80, 0.1); }
+        .glucose-level.low { color: #ff9800; background: rgba(255, 152, 0, 0.1); }
+        .glucose-level.danger { color: #9c27b0; background: rgba(156, 39, 176, 0.1); }
+        
+        /* 时间轴主体 */
+        .timeline-main {
+            margin-left: 80px;
+            margin-right: 80px;
+            height: 100%;
+            position: relative;
+            background: #f8f9fa;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        
+        /* 24小时时间刻度 */
+        .time-axis {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: linear-gradient(90deg, #e3f2fd, #f3e5f5);
+            display: flex;
+            align-items: center;
+            border-radius: 0 0 15px 15px;
+        }
+        
+        .time-mark {
+            flex: 1;
+            text-align: center;
+            font-size: 10px;
+            color: #666;
+            border-right: 1px solid rgba(0, 0, 0, 0.1);
+            padding: 5px 0;
+        }
+        
+        .time-mark:last-child {
+            border-right: none;
+        }
+        
+        .time-mark.current {
+            background: rgba(102, 126, 234, 0.2);
+            font-weight: bold;
+            color: #333;
+        }
+        
+        /* 当前时间游标 */
+        .current-time-cursor {
+            position: absolute;
+            top: 0;
+            bottom: 40px;
+            width: 3px;
+            background: linear-gradient(180deg, #667eea, #764ba2);
+            border-radius: 2px;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+            z-index: 10;
+            transition: left 0.5s ease;
+        }
+        
+        .current-time-cursor::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            left: -7px;
+            width: 17px;
+            height: 17px;
+            background: #667eea;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* 情绪记录点 */
+        .mood-timeline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 40px;
+            display: grid;
+            grid-template-rows: repeat(4, 1fr);
+        }
+        
+        .mood-level {
+            border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        
+        .mood-level:last-child {
+            border-bottom: none;
+        }
+        
+        /* 拖拽提示区域 */
+        .drop-zone {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 2px dashed transparent;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .drop-zone.drag-over {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        /* 已放置的情绪点 */
+        .mood-point {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .mood-point:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* 拖拽样式 */
+        .dragging {
+            opacity: 0.8;
+            transform: scale(1.1) rotate(5deg);
+            z-index: 1000;
+            pointer-events: none;
+        }
+        
+        /* 动画效果 */
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-20px);
+            }
+            60% {
+                transform: translateY(-10px);
+            }
+        }
+        
+        .bounce-animation {
+            animation: bounce 0.6s ease;
+        }
+        
+        /* 时间显示 */
+        .current-time-display {
+            position: absolute;
+            top: -30px;
+            right: 90px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        /* 血糖曲线 */
+        .glucose-chart {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 40px;
+            pointer-events: none;
+            z-index: 5;
+        }
+        
+        .glucose-line {
+            stroke: #e91e63;
+            stroke-width: 3;
+            fill: none;
+            filter: drop-shadow(0 2px 4px rgba(233, 30, 99, 0.3));
+        }
+        
+        .glucose-point {
+            fill: #e91e63;
+            stroke: white;
+            stroke-width: 2;
+            cursor: pointer;
+            pointer-events: all;
+        }
+        
+        .glucose-point:hover {
+            fill: #ad1457;
+            r: 6;
+        }
+        
+        /* 血糖警告区间 */
+        .glucose-warning-zone {
+            position: absolute;
+            left: 0;
+            right: 0;
+            background: rgba(244, 67, 54, 0.1);
+            border-top: 1px dashed #f44336;
+            border-bottom: 1px dashed #f44336;
+            pointer-events: none;
+        }
+        
+        .glucose-low-zone {
+            background: rgba(255, 152, 0, 0.1);
+            border-color: #ff9800;
+        }
+        
+        /* 当前血糖显示 */
+        .current-glucose {
+            position: absolute;
+            top: -30px;
+            right: 0;
+            background: #e91e63;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 500;
+            min-width: 80px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 左侧图标面板 -->
+        <div class="left-panel">
+            <div class="icon-item" data-type="eat" data-mood="positive">
+                <div class="icon-emoji">🍽️</div>
+                <div class="icon-label">吃饭</div>
+            </div>
+            
+            <div class="icon-item" data-type="exercise" data-mood="positive">
+                <div class="icon-emoji">🏃‍♂️</div>
+                <div class="icon-label">运动</div>
+            </div>
+            
+            <div class="icon-item" data-type="tired" data-mood="tired">
+                <div class="icon-emoji">😴</div>
+                <div class="icon-label">疲惫</div>
+            </div>
+            
+            <div class="icon-item" data-type="sad" data-mood="sad">
+                <div class="icon-emoji">😢</div>
+                <div class="icon-label">悲伤</div>
+            </div>
+            
+            <div class="icon-item" data-type="despair" data-mood="despair">
+                <div class="icon-emoji">😭</div>
+                <div class="icon-label">绝望</div>
+            </div>
+        </div>
+        
+        <!-- 主要图表区域 -->
+        <div class="main-chart">
+            <div class="app-title">IMTIRED + 血糖监控</div>
+            <div class="current-time-display" id="current-time-display"></div>
+            <div class="current-glucose" id="current-glucose">-- mg/dL</div>
+            
+            <div class="timeline-container">
+                <!-- Y轴情绪等级 -->
+                <div class="y-axis">
+                    <div class="y-level positive">正常 😊</div>
+                    <div class="y-level tired">疲惫 😴</div>
+                    <div class="y-level sad">悲伤 😢</div>
+                    <div class="y-level despair">绝望 😭</div>
+                </div>
+                
+                <!-- 右侧Y轴血糖等级 -->
+                <div class="y-axis-right">
+                    <div class="glucose-level danger">300+ mg/dL</div>
+                    <div class="glucose-level high">200-300</div>
+                    <div class="glucose-level high">180-200</div>
+                    <div class="glucose-level normal">140-180</div>
+                    <div class="glucose-level normal">100-140</div>
+                    <div class="glucose-level normal">80-100</div>
+                    <div class="glucose-level low">70-80</div>
+                    <div class="glucose-level danger">< 70</div>
+                </div>
+                
+                <!-- 时间轴主体 -->
+                <div class="timeline-main" id="timeline-main">
+                    <!-- 血糖警告区间 -->
+                    <div class="glucose-warning-zone" style="top: 0; height: 12.5%;"><!-- 危险高血糖 --></div>
+                    <div class="glucose-warning-zone glucose-low-zone" style="bottom: 12.5%; height: 12.5%;"><!-- 低血糖 --></div>
+                    <div class="glucose-warning-zone" style="bottom: 0; height: 12.5%;"><!-- 危险低血糖 --></div>
+                    
+                    <!-- 血糖曲线图 -->
+                    <svg class="glucose-chart" id="glucose-chart">
+                        <path class="glucose-line" id="glucose-line"></path>
+                    </svg>
+                    
+                    <!-- 当前时间游标 -->
+                    <div class="current-time-cursor" id="current-time-cursor"></div>
+                    
+                    <!-- 情绪记录区域 -->
+                    <div class="mood-timeline" id="mood-timeline">
+                        <div class="mood-level" data-level="positive">
+                            <div class="drop-zone" data-mood="positive"></div>
+                        </div>
+                        <div class="mood-level" data-level="tired">
+                            <div class="drop-zone" data-mood="tired"></div>
+                        </div>
+                        <div class="mood-level" data-level="sad">
+                            <div class="drop-zone" data-mood="sad"></div>
+                        </div>
+                        <div class="mood-level" data-level="despair">
+                            <div class="drop-zone" data-mood="despair"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 24小时时间刻度 -->
+                    <div class="time-axis" id="time-axis"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class ImTiredApp {
+            constructor() {
+                this.moodData = JSON.parse(localStorage.getItem('imtired-data') || '[]');
+                this.glucoseData = JSON.parse(localStorage.getItem('glucose-data') || '[]');
+                this.glucoseSimulator = new GlucoseSimulator();
+                this.init();
+            }
+            
+            init() {
+                this.setupTimeAxis();
+                this.setupCurrentTime();
+                this.setupDragAndDrop();
+                this.loadMoodData();
+                this.setupGlucoseChart();
+                this.startTimeUpdate();
+                this.startGlucoseSimulation();
+            }
+            
+            // 设置24小时时间轴
+            setupTimeAxis() {
+                const timeAxis = document.getElementById('time-axis');
+                timeAxis.innerHTML = '';
+                
+                for (let i = 0; i < 24; i++) {
+                    const mark = document.createElement('div');
+                    mark.className = 'time-mark';
+                    mark.textContent = i.toString().padStart(2, '0') + ':00';
+                    mark.dataset.hour = i;
+                    timeAxis.appendChild(mark);
+                }
+            }
+            
+            // 设置当前时间游标
+            setupCurrentTime() {
+                this.updateCurrentTime();
+            }
+            
+            updateCurrentTime() {
+                const now = new Date();
+                const hours = now.getHours();
+                const minutes = now.getMinutes();
+                const progress = (hours + minutes / 60) / 24;
+                
+                const cursor = document.getElementById('current-time-cursor');
+                cursor.style.left = `${progress * 100}%`;
+                
+                // 更新时间显示
+                const timeDisplay = document.getElementById('current-time-display');
+                timeDisplay.textContent = now.toLocaleTimeString('zh-CN', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                // 高亮当前小时
+                document.querySelectorAll('.time-mark').forEach(mark => {
+                    mark.classList.remove('current');
+                    if (parseInt(mark.dataset.hour) === hours) {
+                        mark.classList.add('current');
+                    }
+                });
+            }
+            
+            startTimeUpdate() {
+                setInterval(() => {
+                    this.updateCurrentTime();
+                }, 1000);
+            }
+            
+            // 设置血糖图表
+            setupGlucoseChart() {
+                this.loadGlucoseData();
+                this.renderGlucoseChart();
+            }
+            
+            // 开始血糖模拟
+            startGlucoseSimulation() {
+                // 每5分钟更新一次血糖数据
+                setInterval(() => {
+                    this.updateGlucoseData();
+                }, 5 * 60 * 1000);
+                
+                // 立即更新一次
+                this.updateGlucoseData();
+            }
+            
+            // 更新血糖数据
+            updateGlucoseData() {
+                const now = new Date();
+                const newReading = this.glucoseSimulator.getReading();
+                
+                const glucosePoint = {
+                    timestamp: now.getTime(),
+                    value: newReading.value,
+                    trend: newReading.trend,
+                    hour: now.getHours(),
+                    minute: now.getMinutes()
+                };
+                
+                // 添加新数据点
+                this.glucoseData.push(glucosePoint);
+                
+                // 只保留24小时的数据
+                const dayAgo = now.getTime() - 24 * 60 * 60 * 1000;
+                this.glucoseData = this.glucoseData.filter(point => point.timestamp > dayAgo);
+                
+                this.saveGlucoseData();
+                this.renderGlucoseChart();
+                this.updateCurrentGlucoseDisplay(newReading);
+            }
+            
+            // 渲染血糖曲线图
+            renderGlucoseChart() {
+                const chart = document.getElementById('glucose-chart');
+                const line = document.getElementById('glucose-line');
+                
+                if (!this.glucoseData.length) return;
+                
+                const chartRect = chart.getBoundingClientRect();
+                const width = chartRect.width;
+                const height = chartRect.height;
+                
+                // 设置SVG尺寸
+                chart.setAttribute('width', width);
+                chart.setAttribute('height', height);
+                chart.setAttribute('viewBox', `0 0 ${width} ${height}`);
+                
+                // 清除现有的点
+                const existingPoints = chart.querySelectorAll('.glucose-point');
+                existingPoints.forEach(point => point.remove());
+                
+                if (this.glucoseData.length < 2) return;
+                
+                // 构建路径
+                let pathData = '';
+                const points = [];
+                
+                this.glucoseData.forEach((point, index) => {
+                    const x = this.timeToX(point.hour, point.minute, width);
+                    const y = this.glucoseToY(point.value, height);
+                    
+                    points.push({ x, y, value: point.value, timestamp: point.timestamp });
+                    
+                    if (index === 0) {
+                        pathData += `M ${x} ${y}`;
+                    } else {
+                        pathData += ` L ${x} ${y}`;
+                    }
+                });
+                
+                line.setAttribute('d', pathData);
+                
+                // 添加数据点
+                points.forEach(point => {
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('class', 'glucose-point');
+                    circle.setAttribute('cx', point.x);
+                    circle.setAttribute('cy', point.y);
+                    circle.setAttribute('r', 4);
+                    circle.setAttribute('title', `${point.value} mg/dL\n${new Date(point.timestamp).toLocaleTimeString()}`);
+                    chart.appendChild(circle);
+                });
+            }
+            
+            // 时间转换为X坐标
+            timeToX(hour, minute, width) {
+                const timeProgress = (hour + minute / 60) / 24;
+                return timeProgress * width;
+            }
+            
+            // 血糖值转换为Y坐标
+            glucoseToY(glucose, height) {
+                // 血糖范围: 50-350 mg/dL
+                const minGlucose = 50;
+                const maxGlucose = 350;
+                const normalizedValue = (glucose - minGlucose) / (maxGlucose - minGlucose);
+                return height - (normalizedValue * height);
+            }
+            
+            // 更新当前血糖显示
+            updateCurrentGlucoseDisplay(reading) {
+                const display = document.getElementById('current-glucose');
+                display.textContent = `${reading.value} mg/dL`;
+                
+                // 根据血糖值改变颜色
+                if (reading.value > 180) {
+                    display.style.background = '#f44336'; // 高血糖
+                } else if (reading.value < 70) {
+                    display.style.background = '#ff9800'; // 低血糖
+                } else {
+                    display.style.background = '#4caf50'; // 正常
+                }
+                
+                // 添加趋势箭头
+                const trend = reading.trend;
+                let arrow = '';
+                if (trend > 0.5) arrow = '↗';
+                else if (trend < -0.5) arrow = '↘';
+                else arrow = '→';
+                
+                display.textContent += ` ${arrow}`;
+            }
+            
+            // 加载血糖数据
+            loadGlucoseData() {
+                // 清除今天之前的数据
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                this.glucoseData = this.glucoseData.filter(point => point.timestamp >= today.getTime());
+                
+                // 如果没有数据，生成一些历史数据
+                if (this.glucoseData.length === 0) {
+                    this.generateHistoricalGlucoseData();
+                }
+            }
+            
+            // 生成历史血糖数据
+            generateHistoricalGlucoseData() {
+                const now = new Date();
+                const startTime = new Date();
+                startTime.setHours(0, 0, 0, 0);
+                
+                // 生成从今天凌晨到现在的数据，每15分钟一个点
+                for (let time = startTime.getTime(); time <= now.getTime(); time += 15 * 60 * 1000) {
+                    const date = new Date(time);
+                    const reading = this.glucoseSimulator.getHistoricalReading(date);
+                    
+                    this.glucoseData.push({
+                        timestamp: time,
+                        value: reading.value,
+                        trend: reading.trend,
+                        hour: date.getHours(),
+                        minute: date.getMinutes()
+                    });
+                }
+                
+                this.saveGlucoseData();
+            }
+            
+            // 保存血糖数据
+            saveGlucoseData() {
+                localStorage.setItem('glucose-data', JSON.stringify(this.glucoseData));
+            }
+            
+            // 设置拖拽功能
+            setupDragAndDrop() {
+                const icons = document.querySelectorAll('.icon-item');
+                const dropZones = document.querySelectorAll('.drop-zone');
+                
+                icons.forEach(icon => {
+                    icon.addEventListener('click', (e) => this.handleIconClick(e));
+                    icon.addEventListener('dragstart', (e) => this.handleDragStart(e));
+                    icon.addEventListener('dragend', (e) => this.handleDragEnd(e));
+                    icon.draggable = true;
+                });
+                
+                dropZones.forEach(zone => {
+                    zone.addEventListener('dragover', (e) => this.handleDragOver(e));
+                    zone.addEventListener('dragleave', (e) => this.handleDragLeave(e));
+                    zone.addEventListener('drop', (e) => this.handleDrop(e));
+                    zone.addEventListener('click', (e) => this.handleTimelineClick(e));
+                });
+            }
+            
+            handleIconClick(e) {
+                const icon = e.currentTarget;
+                
+                // 添加跳跃动画
+                icon.classList.add('bounce-animation');
+                setTimeout(() => {
+                    icon.classList.remove('bounce-animation');
+                }, 600);
+                
+                // 添加激活状态
+                document.querySelectorAll('.icon-item').forEach(i => i.classList.remove('active'));
+                icon.classList.add('active');
+                
+                setTimeout(() => {
+                    icon.classList.remove('active');
+                }, 1000);
+            }
+            
+            handleDragStart(e) {
+                const icon = e.target.closest('.icon-item');
+                e.dataTransfer.setData('text/plain', JSON.stringify({
+                    type: icon.dataset.type,
+                    mood: icon.dataset.mood,
+                    emoji: icon.querySelector('.icon-emoji').textContent
+                }));
+                
+                icon.classList.add('dragging');
+            }
+            
+            handleDragEnd(e) {
+                e.target.closest('.icon-item').classList.remove('dragging');
+            }
+            
+            handleDragOver(e) {
+                e.preventDefault();
+                e.currentTarget.classList.add('drag-over');
+            }
+            
+            handleDragLeave(e) {
+                e.currentTarget.classList.remove('drag-over');
+            }
+            
+            handleDrop(e) {
+                e.preventDefault();
+                const dropZone = e.currentTarget;
+                dropZone.classList.remove('drag-over');
+                
+                const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                const rect = dropZone.getBoundingClientRect();
+                const timelineRect = document.getElementById('timeline-main').getBoundingClientRect();
+                
+                const x = e.clientX - timelineRect.left;
+                const timeProgress = x / timelineRect.width;
+                const hour = Math.floor(timeProgress * 24);
+                const minute = Math.floor((timeProgress * 24 - hour) * 60);
+                
+                this.addMoodPoint(data, dropZone.dataset.mood, hour, minute, x);
+            }
+            
+            handleTimelineClick(e) {
+                // 点击时间轴直接添加当前选中的图标
+                const activeIcon = document.querySelector('.icon-item.active');
+                if (!activeIcon) return;
+                
+                const dropZone = e.currentTarget;
+                const rect = dropZone.getBoundingClientRect();
+                const timelineRect = document.getElementById('timeline-main').getBoundingClientRect();
+                
+                const x = e.clientX - timelineRect.left;
+                const timeProgress = x / timelineRect.width;
+                const hour = Math.floor(timeProgress * 24);
+                const minute = Math.floor((timeProgress * 24 - hour) * 60);
+                
+                const data = {
+                    type: activeIcon.dataset.type,
+                    mood: activeIcon.dataset.mood,
+                    emoji: activeIcon.querySelector('.icon-emoji').textContent
+                };
+                
+                this.addMoodPoint(data, dropZone.dataset.mood, hour, minute, x);
+            }
+            
+            addMoodPoint(data, moodLevel, hour, minute, x) {
+                const timestamp = new Date();
+                timestamp.setHours(hour, minute, 0, 0);
+                
+                const moodPoint = {
+                    id: Date.now(),
+                    type: data.type,
+                    mood: moodLevel,
+                    emoji: data.emoji,
+                    hour: hour,
+                    minute: minute,
+                    timestamp: timestamp.getTime(),
+                    x: x
+                };
+                
+                // 移除同一时间的其他记录
+                this.moodData = this.moodData.filter(point => 
+                    !(point.hour === hour && Math.abs(point.minute - minute) < 30)
+                );
+                
+                this.moodData.push(moodPoint);
+                this.saveMoodData();
+                this.renderMoodPoint(moodPoint);
+            }
+            
+            renderMoodPoint(moodPoint) {
+                // 移除已存在的点
+                const existingPoint = document.querySelector(`[data-id="${moodPoint.id}"]`);
+                if (existingPoint) {
+                    existingPoint.remove();
+                }
+                
+                const point = document.createElement('div');
+                point.className = 'mood-point';
+                point.dataset.id = moodPoint.id;
+                point.innerHTML = moodPoint.emoji;
+                point.style.left = `${(moodPoint.hour + moodPoint.minute / 60) / 24 * 100}%`;
+                
+                // 找到对应的情绪层级
+                const moodLevel = document.querySelector(`[data-level="${moodPoint.mood}"]`);
+                point.style.top = '50%';
+                
+                // 添加删除功能
+                point.addEventListener('dblclick', () => {
+                    this.removeMoodPoint(moodPoint.id);
+                });
+                
+                // 添加提示信息
+                point.title = `${String(moodPoint.hour).padStart(2, '0')}:${String(moodPoint.minute).padStart(2, '0')} - 双击删除`;
+                
+                moodLevel.appendChild(point);
+                
+                // 添加出现动画
+                setTimeout(() => {
+                    point.style.transform = 'translate(-50%, -50%) scale(1.2)';
+                    setTimeout(() => {
+                        point.style.transform = 'translate(-50%, -50%) scale(1)';
+                    }, 200);
+                }, 10);
+            }
+            
+            removeMoodPoint(id) {
+                this.moodData = this.moodData.filter(point => point.id !== id);
+                this.saveMoodData();
+                
+                const pointElement = document.querySelector(`[data-id="${id}"]`);
+                if (pointElement) {
+                    pointElement.style.transform = 'translate(-50%, -50%) scale(0)';
+                    setTimeout(() => {
+                        pointElement.remove();
+                    }, 300);
+                }
+            }
+            
+            loadMoodData() {
+                // 清除今天之前的数据
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                this.moodData = this.moodData.filter(point => point.timestamp >= today.getTime());
+                
+                this.moodData.forEach(point => {
+                    this.renderMoodPoint(point);
+                });
+            }
+            
+            saveMoodData() {
+                localStorage.setItem('imtired-data', JSON.stringify(this.moodData));
+            }
+        }
+        
+        // 血糖模拟器类
+        class GlucoseSimulator {
+            constructor() {
+                this.baseGlucose = 120; // 基础血糖值 mg/dL
+                this.lastValue = this.baseGlucose;
+                this.trend = 0;
+                this.dailyPattern = this.generateDailyPattern();
+            }
+            
+            // 生成日常血糖模式
+            generateDailyPattern() {
+                return {
+                    // 凌晨低血糖
+                    0: { base: 90, variance: 15 },
+                    1: { base: 85, variance: 10 },
+                    2: { base: 80, variance: 10 },
+                    3: { base: 85, variance: 10 },
+                    4: { base: 90, variance: 15 },
+                    5: { base: 95, variance: 15 },
+                    
+                    // 早餐后血糖上升
+                    6: { base: 100, variance: 20 },
+                    7: { base: 110, variance: 25 },
+                    8: { base: 140, variance: 30 }, // 早餐后峰值
+                    9: { base: 130, variance: 25 },
+                    10: { base: 115, variance: 20 },
+                    11: { base: 105, variance: 15 },
+                    
+                    // 午餐时间
+                    12: { base: 110, variance: 20 },
+                    13: { base: 150, variance: 35 }, // 午餐后峰值
+                    14: { base: 140, variance: 30 },
+                    15: { base: 125, variance: 25 },
+                    16: { base: 115, variance: 20 },
+                    17: { base: 110, variance: 15 },
+                    
+                    // 晚餐时间
+                    18: { base: 115, variance: 20 },
+                    19: { base: 145, variance: 35 }, // 晚餐后峰值
+                    20: { base: 135, variance: 30 },
+                    21: { base: 125, variance: 25 },
+                    22: { base: 115, variance: 20 },
+                    23: { base: 105, variance: 15 }
+                };
+            }
+            
+            // 获取当前血糖读数
+            getReading() {
+                const now = new Date();
+                return this.getReadingForTime(now);
+            }
+            
+            // 获取历史血糖读数
+            getHistoricalReading(date) {
+                return this.getReadingForTime(date);
+            }
+            
+            // 根据时间获取血糖读数
+            getReadingForTime(date) {
+                const hour = date.getHours();
+                const minute = date.getMinutes();
+                
+                // 获取当前小时的基础值
+                const pattern = this.dailyPattern[hour];
+                const baseValue = pattern.base;
+                const variance = pattern.variance;
+                
+                // 添加随机波动
+                const randomVariation = (Math.random() - 0.5) * variance * 2;
+                
+                // 添加渐进趋势
+                const timeInHour = minute / 60;
+                const nextHour = (hour + 1) % 24;
+                const nextPattern = this.dailyPattern[nextHour];
+                const gradualChange = (nextPattern.base - baseValue) * timeInHour * 0.3;
+                
+                // 计算最终值
+                let currentValue = baseValue + randomVariation + gradualChange;
+                
+                // 添加连续性（避免数值跳跃太大）
+                const maxChange = 15; // 最大变化值
+                if (this.lastValue) {
+                    const change = currentValue - this.lastValue;
+                    if (Math.abs(change) > maxChange) {
+                        currentValue = this.lastValue + (change > 0 ? maxChange : -maxChange);
+                    }
+                }
+                
+                // 确保在合理范围内
+                currentValue = Math.max(60, Math.min(300, currentValue));
+                currentValue = Math.round(currentValue);
+                
+                // 计算趋势
+                const newTrend = this.lastValue ? (currentValue - this.lastValue) / 10 : 0;
+                this.trend = newTrend;
+                this.lastValue = currentValue;
+                
+                return {
+                    value: currentValue,
+                    trend: this.trend,
+                    timestamp: date.getTime()
+                };
+            }
+            
+            // 模拟特殊事件（运动、进食等）
+            simulateEvent(eventType) {
+                switch(eventType) {
+                    case 'exercise':
+                        this.lastValue = Math.max(70, this.lastValue - 20);
+                        this.trend = -2;
+                        break;
+                    case 'meal':
+                        this.lastValue = Math.min(250, this.lastValue + 40);
+                        this.trend = 2;
+                        break;
+                    case 'stress':
+                        this.lastValue = Math.min(200, this.lastValue + 25);
+                        this.trend = 1.5;
+                        break;
+                }
+            }
+        }
+        
+        // 启动应用
+        document.addEventListener('DOMContentLoaded', () => {
+            new ImTiredApp();
+        });
+    </script>
+</body>
+</html>

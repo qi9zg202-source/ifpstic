@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-cn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SPC详情</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    :root{
+      --bg:#f5f7fb;
+      --card:#fff;
+      --border:#d9e2ef;
+      --primary:#0a66d1;
+      --muted:#6a7590;
+      --danger:#ef476f;
+      --text:#0f1b2d;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;height:100%;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--text)}
+    #page{max-width:1200px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.04);padding:12px}
+    .header{display:flex;justify-content:space-between;align-items:center}
+    .title{margin:0;font-size:18px;font-weight:600}
+    .chip{padding:4px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px;background:#f7f9fc}
+    #spc-chart{width:100%;height:360px}
+    #spc-table{width:100%;border-collapse:collapse;font-size:12px}
+    #spc-table th,#spc-table td{border:1px solid var(--border);padding:8px;text-align:center}
+    #spc-table th{background:#eef3fb;font-weight:600}
+    .bad{color:var(--danger);font-weight:700}
+  </style>
+</head>
+<body>
+  <div id="page">
+    <div class="card header">
+      <h1 class="title">SPC详情</h1>
+      <span class="chip">OOW / OOC / OOS 汇总</span>
+    </div>
+    <div class="card">
+      <div id="spc-chart"></div>
+    </div>
+    <div class="card">
+      <table id="spc-table">
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>submain1</th>
+            <th>submain2</th>
+            <th>submain3</th>
+            <th>OOW</th>
+            <th>OOC</th>
+            <th>OOS</th>
+          </tr>
+        </thead>
+        <tbody id="spc-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <script>
+    const times=['00:00','02:00','04:00','06:00','08:00','10:00','12:00'];
+    const rand=()=>Number((120+Math.random()*40).toFixed(2));
+    const series=[
+      {name:'submain1',data:times.map(rand)},
+      {name:'submain2',data:times.map(rand)},
+      {name:'submain3',data:times.map(rand)}
+    ];
+    Highcharts.chart('spc-chart',{
+      chart:{type:'spline',backgroundColor:'transparent'},
+      title:{text:''},
+      xAxis:{categories:times},
+      yAxis:{title:{text:'压力'}},
+      legend:{enabled:true},
+      credits:{enabled:false},
+      series
+    });
+    const tbody=document.getElementById('spc-body');
+    times.forEach((t,i)=>{
+      const v1=series[0].data[i];
+      const v2=series[1].data[i];
+      const v3=series[2].data[i];
+      const oow=(v1>150||v2>150||v3>150)?'1':'0';
+      const ooc=(v1>160||v2>160||v3>160)?'1':'0';
+      const oos=(v1>170||v2>170||v3>170)?'1':'0';
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${t}</td><td>${v1.toFixed(2)}</td><td>${v2.toFixed(2)}</td><td>${v3.toFixed(2)}</td><td class="${oow==='1'?'bad':''}">${oow}</td><td class="${ooc==='1'?'bad':''}">${ooc}</td><td class="${oos==='1'?'bad':''}">${oos}</td>`;
+      tbody.appendChild(tr);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAB 管理系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        
+        .system-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        
+        .system-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card-img-top {
+            height: 200px;
+            object-fit: cover;
+            background-color: #e9ecef;
+        }
+        
+        .card-body {
+            padding: 20px;
+        }
+        
+        .card-title {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .card-text {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .btn-primary {
+            padding: 10px 25px;
+            font-size: 16px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav-container">
+        <div class="header">
+            <h1>FAB 管理系统</h1>
+            <p>集成化管理平台</p>
+        </div>
+        
+        <div class="row">
+            <!-- 水质监控系统卡片 -->
+            <div class="col-md-6">
+                <div class="system-card">
+                    <div class="card-img-top d-flex align-items-center justify-content-center">
+                        <svg class="bi" width="100" height="100" fill="currentColor">
+                            <path d="M8 16a6 6 0 0 0 6-6c0-1.655-1.122-2.904-2.432-4.362C10.254 4.176 8.75 2.503 8 0c0 0-6 5.686-6 10a6 6 0 0 0 6 6ZM6.646 4.646l.708.708c-.29.29-.797.297-1.097.297C4.627 5.65 4 5.023 4 4.393c0-.63.627-1.257 1.257-1.257.63 0 1.257.627 1.257 1.257 0 .3-.007.807-.297 1.097l-.708-.708c.238-.238.244-.62.244-.89 0-.27-.006-.652-.244-.89-.238-.238-.62-.244-.89-.244-.27 0-.652.006-.89.244-.238.238-.244.62-.244.89 0 .27.006.652.244.89.238.238.62.244.89.244.27 0 .652-.006.89-.244Z"/>
+                        </svg>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">水质监控系统</h5>
+                        <p class="card-text">实时监控和分析水质指标，包括温度、pH值、电导率等参数，提供智能预警和处理建议。</p>
+                        <a href="water_quality_monitor.html" class="btn btn-primary">进入系统</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 无尘室热力图系统卡片 -->
+            <div class="col-md-6">
+                <div class="system-card">
+                    <div class="card-img-top d-flex align-items-center justify-content-center">
+                        <svg class="bi" width="100" height="100" fill="currentColor">
+                            <path d="M8 16a.5.5 0 0 1-.5-.5V9.975L5.068 8.158a.5.5 0 0 1-.068-.736l3-3.5a.5.5 0 0 1 .768.064l3 3.5a.5.5 0 0 1-.068.736L9.5 9.975V15.5a.5.5 0 0 1-.5.5h-1Z"/>
+                        </svg>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">无尘室热力溯源</h5>
+                        <p class="card-text">可视化展示无尘室温度和湿度分布，实时监控环境参数，支持历史数据查询和分析。</p>
+                        <a href="fab_cleanroom_heatmap.html" class="btn btn-primary">进入系统</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

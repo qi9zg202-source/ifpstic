@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAB晶圆厂热负荷统计分析</title>
+    
+    <!-- 引入 Bootstrap 样式 -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- 引入 D3.js -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    
+    <!-- 引入 Highcharts -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/highcharts/10.3.3/highcharts.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/highcharts/10.3.3/modules/series-label.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/highcharts/10.3.3/modules/exporting.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/highcharts/10.3.3/modules/accessibility.min.js"></script>
+
+    <style>
+        body {
+            background: #f4f6f8;
+        }
+        .dashboard-panel {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            padding: 32px 24px 24px 24px;
+            margin: 40px auto 0 auto;
+            max-width: 1200px;
+        }
+        .mode-btn-row {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            margin-bottom: 24px;
+        }
+        .mode-btn-group .btn {
+            min-width: 180px;
+            font-size: 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            box-shadow: none;
+        }
+        .mode-btn-group .btn-check:checked + .btn {
+            background-color: #0072B2 !important;
+            color: #fff !important;
+            border-color: #0072B2 !important;
+        }
+        .mode-btn-group .btn-check:not(:checked) + .btn {
+            background-color: #fff !important;
+            color: #0072B2 !important;
+            border-color: #0072B2 !important;
+        }
+        .mode-btn-group .btn-check:not(:checked) + .btn:hover {
+            background-color: #B3D7F4 !important;
+            color: #0072B2 !important;
+            border-color: #0072B2 !important;
+            transition: background 0.2s;
+        }
+        .system-btn-row {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 18px 24px;
+            margin-bottom: 32px;
+        }
+        .system-btn-group .btn {
+            min-width: 160px;
+            font-size: 15px;
+            border-radius: 8px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            box-shadow: none;
+        }
+        .system-btn-group .btn-check:checked + .btn,
+        .system-btn-group .btn.active {
+            background-color: #0072B2 !important;
+            color: #fff !important;
+            border-color: #0072B2 !important;
+        }
+        .system-btn-group .btn-check:not(:checked) + .btn {
+            background-color: #fff !important;
+            color: #0072B2 !important;
+            border-color: #0072B2 !important;
+        }
+        .system-btn-group .btn-check:not(:checked) + .btn:hover {
+            background-color: #B3D7F4 !important;
+            color: #0072B2 !important;
+            border-color: #0072B2 !important;
+            transition: background 0.2s;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-panel">
+        <!-- 标题 -->
+        <h2 class="mb-4" style="font-weight:600; color:#346187; letter-spacing:2px; text-align:left;">
+            热负荷综合分析预测
+        </h2>
+        <!-- 第一行：预测模式按钮 + 时间范围查询 + 查询/重置按钮 -->
+        <div class="mode-btn-row" style="justify-content: flex-start; align-items: center;">
+            <div class="mode-btn-group btn-group me-3" role="group" aria-label="模式切换">
+                <input type="radio" class="btn-check" name="modeRadio" id="longTermMode" autocomplete="off" checked>
+                <label class="btn btn-outline-primary" for="longTermMode">长周期预测模式</label>
+                <input type="radio" class="btn-check" name="modeRadio" id="shortTermMode" autocomplete="off">
+                <label class="btn btn-outline-primary" for="shortTermMode">短周期预测模式</label>
+            </div>
+            <!-- 时间范围选择 -->
+            <div class="d-flex align-items-center me-3">
+                <label for="startTime" class="form-label mb-0 me-1" style="font-weight:500;">起始时间</label>
+                <input type="datetime-local" id="startTime" class="form-control form-control-sm me-2" style="width:180px;">
+                <label for="endTime" class="form-label mb-0 me-1" style="font-weight:500;">结束时间</label>
+                <input type="datetime-local" id="endTime" class="form-control form-control-sm me-2" style="width:180px;">
+            </div>
+            <!-- 查询/重置按钮 -->
+            <button id="queryBtn" class="btn btn-success btn-sm me-2">查询</button>
+            <button id="resetBtn" class="btn btn-secondary btn-sm">重置</button>
+        </div>
+        <!-- 第二行：六个系统多选按钮 -->
+        <div class="system-btn-row">
+            <div class="system-btn-group btn-group" role="group" aria-label="系统选择" id="systemBtnGroup">
+                <input type="checkbox" class="btn-check" id="sbpRegen" autocomplete="off" checked>
+                <label class="btn btn-outline-primary active" for="sbpRegen">SBP再生</label>
+                <input type="checkbox" class="btn-check" id="cublsr2bRegen" autocomplete="off" checked>
+                <label class="btn btn-outline-primary active" for="cublsr2bRegen">CUBLSR2B再生</label>
+                <input type="checkbox" class="btn-check" id="ammoniaSystem" autocomplete="off" checked>
+                <label class="btn btn-outline-primary active" for="ammoniaSystem">氨氮系统</label>
+                <input type="checkbox" class="btn-check" id="generalAC" autocomplete="off" checked>
+                <label class="btn btn-outline-primary active" for="generalAC">一般空调供热</label>
+                <input type="checkbox" class="btn-check" id="mauPreheat" autocomplete="off" checked>
+                <label class="btn btn-outline-primary active" for="mauPreheat">MAU预热盘(5台)</label>
+                <input type="checkbox" class="btn-check" id="mauReheat" autocomplete="off">
+                <label class="btn btn-outline-primary" for="mauReheat">MAU再热盘(5台)</label>
+            </div>
+        </div>
+        <!-- 图表 -->
+        <div id="heatLoadChart" style="height: 480px; margin-bottom: 2rem;"></div>
+    </div>
+
+    <script>
+        // 专业配色方案
+        const seriesColors = [
+            ['#0072B2', '#A6CEE3'], // SBP再生
+            ['#D55E00', '#FDBF6F'], // CUBLSR2B再生
+            ['#009E73', '#B2DF8A'], // 氨氮系统
+            ['#CC79A7', '#CAB2D6'], // 一般空调供热
+            ['#E69F00', '#FFE082'], // MAU预热盘
+            ['#56B4E9', '#B3E2CD']  // MAU再热盘
+        ];
+        // 初始化图表
+        const chart = Highcharts.chart('heatLoadChart', {
+            chart: { type: 'spline' },
+            title: { text: 'FAB晶圆厂热负荷分析' },
+            xAxis: { type: 'datetime', title: { text: '时间' } },
+            yAxis: { title: { text: '热负荷 (kW)' } },
+            tooltip: {
+                shared: true,
+                crosshairs: true,
+                formatter: function() {
+                    let tooltip = '<b>' + Highcharts.dateFormat('%Y-%m-%d %H:%M', this.x) + '</b><br/>';
+                    this.points.forEach(point => {
+                        tooltip += `<span style="color:${point.color}">\u25CF</span> ${point.series.name}: <b>${point.y.toFixed(2)} kW</b><br/>`;
+                    });
+                    return tooltip;
+                }
+            },
+            plotOptions: {
+                spline: { marker: { enabled: false } },
+                series: { animation: false }
+            },
+            series: [
+                { name: 'SBP再生-实际值', data: [], color: seriesColors[0][0], dashStyle: 'Solid' },
+                { name: 'SBP再生-预测值', data: [], color: seriesColors[0][1], dashStyle: 'Dash' },
+                { name: 'CUBLSR2B再生-实际值', data: [], color: seriesColors[1][0], dashStyle: 'Solid' },
+                { name: 'CUBLSR2B再生-预测值', data: [], color: seriesColors[1][1], dashStyle: 'Dash' },
+                { name: '氨氮系统-实际值', data: [], color: seriesColors[2][0], dashStyle: 'Solid' },
+                { name: '氨氮系统-预测值', data: [], color: seriesColors[2][1], dashStyle: 'Dash' },
+                { name: '一般空调供热-实际值', data: [], color: seriesColors[3][0], dashStyle: 'Solid' },
+                { name: '一般空调供热-预测值', data: [], color: seriesColors[3][1], dashStyle: 'Dash' },
+                { name: 'MAU预热盘-实际值', data: [], color: seriesColors[4][0], dashStyle: 'Solid' },
+                { name: 'MAU预热盘-预测值', data: [], color: seriesColors[4][1], dashStyle: 'Dash' },
+                { name: 'MAU再热盘-实际值', data: [], color: seriesColors[5][0], dashStyle: 'Solid' },
+                { name: 'MAU再热盘-预测值', data: [], color: seriesColors[5][1], dashStyle: 'Dash' }
+            ]
+        });
+
+        // 预测模式互斥切换
+        let currentMode = 'long';
+        document.getElementById('longTermMode').addEventListener('change', function() {
+            if (this.checked) {
+                currentMode = 'long';
+                updateData();
+            }
+        });
+        document.getElementById('shortTermMode').addEventListener('change', function() {
+            if (this.checked) {
+                currentMode = 'short';
+                updateData();
+            }
+        });
+
+        // 系统多选按钮交互
+        const systemIds = [
+            'sbpRegen', 'cublsr2bRegen', 'ammoniaSystem',
+            'generalAC', 'mauPreheat', 'mauReheat'
+        ];
+        systemIds.forEach((id, idx) => {
+            const input = document.getElementById(id);
+            const label = document.querySelector('label[for="' + id + '"]');
+            input.addEventListener('change', function() {
+                chart.series[idx * 2].setVisible(this.checked, false);
+                chart.series[idx * 2 + 1].setVisible(this.checked, false);
+                chart.redraw();
+                if (this.checked) {
+                    label.classList.add('active');
+                } else {
+                    label.classList.remove('active');
+                }
+            });
+            // 初始化高亮
+            if (input.checked) {
+                label.classList.add('active');
+            } else {
+                label.classList.remove('active');
+            }
+        });
+
+        // 更新模拟数据
+        function updateData() {
+            const mode = currentMode;
+            const now = Date.now();
+            const points = mode === 'long' ? 144 : 48; // 长周期24小时，短周期8小时
+            const interval = mode === 'long' ? 600000 : 300000; // 长周期10分钟，短周期5分钟
+            for (let sysIdx = 0; sysIdx < 6; sysIdx++) {
+                // 生成实际值
+                const realData = [];
+                for (let i = 0; i < points; i++) {
+                    const time = now - (points - i) * interval;
+                    realData.push([time, Math.random() * 1000 + 500 + sysIdx * 100]);
+                }
+                // 生成预测值（基于实际值微调）
+                const predictData = realData.map(([t, v]) => [t, v * (1 + (Math.random() - 0.5) * 0.1)]);
+                chart.series[sysIdx * 2].setData(realData, false);
+                chart.series[sysIdx * 2 + 1].setData(predictData, false);
+            }
+            chart.redraw();
+        }
+        updateData();
+        setInterval(updateData, 60000); // 每分钟自动刷新
+
+        // 时间控件初始化为默认4小时前到现在
+        function pad(n) { return n < 10 ? '0' + n : n; }
+        function toDatetimeLocalString(date) {
+            return date.getFullYear() + '-' +
+                pad(date.getMonth() + 1) + '-' +
+                pad(date.getDate()) + 'T' +
+                pad(date.getHours()) + ':' +
+                pad(date.getMinutes());
+        }
+        function setDefaultTimeRange() {
+            const now = new Date();
+            const start = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+            document.getElementById('startTime').value = toDatetimeLocalString(start);
+            document.getElementById('endTime').value = toDatetimeLocalString(now);
+        }
+        setDefaultTimeRange();
+
+        // 查询按钮事件
+        document.getElementById('queryBtn').onclick = function() {
+            // 这里可根据实际业务进行数据请求或过滤
+            // 示例：仅更新图表
+            updateData();
+        };
+        // 重置按钮事件
+        document.getElementById('resetBtn').onclick = function() {
+            setDefaultTimeRange();
+            updateData();
+        };
+    </script>
+</body>
+</html> 

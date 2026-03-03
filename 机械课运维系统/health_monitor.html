@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时健康监控系统</title>
+    
+    <!-- 使用更可靠的 Bootstrap CDN -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- 使用更可靠的 D3.js CDN -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    
+    <!-- 使用更可靠的 Highcharts CDN -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/highcharts/10.3.3/highcharts.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/highcharts/10.3.3/modules/series-label.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/highcharts/10.3.3/modules/exporting.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/highcharts/10.3.3/modules/accessibility.min.js"></script>
+
+    <!-- 添加资源加载错误处理 -->
+    <script>
+        window.addEventListener('error', function(e) {
+            if (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK') {
+                console.error('资源加载失败:', e.target.src || e.target.href);
+                // 可以在这里添加备用CDN的加载逻辑
+            }
+        }, true);
+    </script>
+
+    <!-- 添加备用 CDN -->
+    <script>
+        function loadFallbackScript(url) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = url;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        // 如果主要CDN加载失败，尝试备用CDN
+        async function loadScripts() {
+            try {
+                if (typeof Highcharts === 'undefined') {
+                    await loadFallbackScript('https://code.highcharts.com/highcharts.js');
+                    await loadFallbackScript('https://code.highcharts.com/modules/series-label.js');
+                    await loadFallbackScript('https://code.highcharts.com/modules/exporting.js');
+                }
+                if (typeof d3 === 'undefined') {
+                    await loadFallbackScript('https://d3js.org/d3.v7.min.js');
+                }
+            } catch (error) {
+                console.error('备用CDN加载失败:', error);
+            }
+        }
+
+        loadScripts();
+    </script>
+
+    <style>
+        .dashboard-container {
+            padding: 10px 0;  /* 移除左右内边距 */
+        }
+        
+        .info-card {
+            padding: 10px;  /* 减小内边距 */
+            margin-bottom: 10px;  /* 减小底部间距 */
+        }
+        
+        .video-container {
+            aspect-ratio: 16/9;
+            background: #000;
+            margin: 10px 0;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 30vh;
+            width: 100vw;  /* 设置为视窗宽度 */
+            position: relative;
+            left: 50%;
+            transform: translateX(-50%);  /* 使用transform居中 */
+            margin-left: 0;
+            margin-right: 0;
+        }
+        
+        .chart-container {
+            height: 150px;  /* 减小图表高度 */
+            margin-bottom: 0;
+        }
+        
+        /* 修改个人信息样式 */
+        .profile-section {
+            height: auto;  /* 移除固定高度 */
+            padding: 0.5rem;  /* 减小内边距 */
+        }
+        
+        .profile-photo {
+            width: 60px;  /* 减小头像尺寸 */
+            height: 60px;
+            margin-right: 15px;
+        }
+        
+        .profile-name {
+            font-size: 20px;  /* 减小字体大小 */
+        }
+        
+        /* 减小间距 */
+        .mt-4 {
+            margin-top: 0.8rem !important;
+        }
+
+        /* 确保视频内容也是全宽的 */
+        .video-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid dashboard-container">
+        <div class="row">
+            <!-- 个人信息和血糖趋势在同一行 -->
+            <div class="col-md-4">
+                <div class="profile-section">
+                    <div class="profile-photo">
+                        <img src="https://via.placeholder.com/100" alt="个人照片">
+                    </div>
+                    <div class="profile-info">
+                        <h2 class="profile-name">张三</h2>
+                        <p class="profile-details">35岁 · 男</p>
+                        <p class="current-time" id="currentTime"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 血糖趋势图表 -->
+            <div class="col-md-8">
+                <div class="info-card">
+                    <h3>血糖趋势</h3>
+                    <div id="glucoseChart" class="chart-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <!-- 删除生命体征指标板，只保留视频区域 -->
+            <div class="col-12">
+                <div class="video-container">
+                    <video id="liveVideo" autoplay playsinline>
+                        您的浏览器不支持视频播放
+                    </video>
+                </div>
+            </div>
+        </div>
+
+        <!-- 修改后的图表区域，只保留心率趋势 -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="info-card">
+                    <h3>心率趋势</h3>
+                    <div id="heartRateChart" class="chart-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 更新时间
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = 
+                now.toLocaleString('zh-CN', { hour12: false });
+        }
+        setInterval(updateTime, 1000);
+
+        // 初始化心率图表
+        const heartRateChart = Highcharts.chart('heartRateChart', {
+            chart: { type: 'spline', animation: false },
+            title: { text: '' },
+            xAxis: {
+                type: 'datetime',
+                labels: { format: '{value:%H:%M}' }
+            },
+            yAxis: {
+                title: { text: '心率 (BPM)' },
+                min: 40,
+                max: 140
+            },
+            series: [{
+                name: '心率',
+                data: [],
+                color: '#FF7675'
+            }]
+        });
+
+        // 初始化血糖图表
+        const glucoseChart = Highcharts.chart('glucoseChart', {
+            chart: { type: 'spline', animation: false },
+            title: { text: '' },
+            xAxis: {
+                type: 'datetime',
+                labels: { format: '{value:%H:%M}' }
+            },
+            yAxis: {
+                title: { text: '血糖 (mmol/L)' },
+                min: 3,
+                max: 10
+            },
+            series: [{
+                name: '血糖',
+                data: [],
+                color: '#74B9FF'
+            }]
+        });
+
+        // 修改模拟数据更新函数，删除指标相关的更新
+        function updateData() {
+            const time = (new Date()).getTime();
+            
+            // 只保留心率图表更新
+            const newHeartRate = Math.round(70 + Math.random() * 20);
+            const heartRateSeries = heartRateChart.series[0];
+            heartRateSeries.addPoint([time, newHeartRate], true, heartRateSeries.data.length > 20);
+
+            // 只保留血糖图表更新
+            const newGlucose = (5 + Math.random()).toFixed(1);
+            const glucoseSeries = glucoseChart.series[0];
+            glucoseSeries.addPoint([time, parseFloat(newGlucose)], true, glucoseSeries.data.length > 20);
+        }
+
+        // 初始化视频流
+        async function initializeVideo() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('liveVideo').srcObject = stream;
+            } catch (err) {
+                console.error('无法访问摄像头:', err);
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            updateTime();
+            initializeVideo();
+            // 每秒更新一次数据
+            setInterval(updateData, 1000);
+        });
+
+        // 全局配置 Highcharts 可访问性
+        Highcharts.setOptions({
+            accessibility: {
+                enabled: true,
+                description: '健康数据实时监控图表',
+                announceNewData: {
+                    enabled: true,
+                    announcementFormatter: function (allSeries, newSeries, newPoint) {
+                        if (newPoint) {
+                            return '新数据点: ' + newPoint.y;
+                        }
+                        return false;
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
