@@ -1,0 +1,533 @@
+{
+  "source_file": "二期电科拓扑图2.0（2025_4_29-有I-LINE盘）.xlsx",
+  "generated_at": "2025-12-15T02:02:43",
+  "note": "从Excel图形(Shapes)中提取文本并基于空间距离+层级规则推断上下游关系；若图中存在非标准连线/跨区连接，可能需要人工校验。",
+  "roots": [
+    {
+      "code": "MV10A",
+      "text": "中压馈线柜MV10A",
+      "children": [
+        {
+          "code": "TR10A",
+          "text": "变压器TR10A",
+          "children": [
+            {
+              "code": "LV10AM",
+              "text": "低压进线柜LV10AM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV10B",
+      "text": "中压馈线柜MV10B",
+      "children": [
+        {
+          "code": "TR10B",
+          "text": "变压器TR10B",
+          "children": [
+            {
+              "code": "LV10BM",
+              "text": "低压进线柜LV10BM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV10C",
+      "text": "中压馈线柜MV10C",
+      "children": [
+        {
+          "code": "TR10C",
+          "text": "变压器TR10C",
+          "children": [
+            {
+              "code": "LV10CM",
+              "text": "低压进线柜LV10CM",
+              "children": [
+                {
+                  "code": "LV10CSC",
+                  "text": "补偿柜 LV10CSC"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV10D",
+      "text": "中压馈线柜MV10D",
+      "children": [
+        {
+          "code": "TR10D",
+          "text": "变压器TR10D",
+          "children": [
+            {
+              "code": "LV10DM",
+              "text": "低压进线柜LV10DM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV10E",
+      "text": "中压馈线柜MV10E",
+      "children": [
+        {
+          "code": "TR10E",
+          "text": "变压器TR10E",
+          "children": [
+            {
+              "code": "LV10EM",
+              "text": "低压进线柜LV10EM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV10F",
+      "text": "中压馈线柜MV10F",
+      "children": [
+        {
+          "code": "TR10F",
+          "text": "变压器TR10F",
+          "children": [
+            {
+              "code": "LV10FM",
+              "text": "低压进线柜LV10FM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV20A",
+      "text": "中压馈线柜MV20A",
+      "children": [
+        {
+          "code": "TR20A",
+          "text": "变压器TR20A",
+          "children": [
+            {
+              "code": "LV20AM",
+              "text": "低压进线柜LV20AM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV20B",
+      "text": "中压馈线柜MV20B",
+      "children": [
+        {
+          "code": "TR20B",
+          "text": "变压器TR20B",
+          "children": [
+            {
+              "code": "LV20BM",
+              "text": "低压进线柜LV20BM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV20C",
+      "text": "中压馈线柜MV20C",
+      "children": [
+        {
+          "code": "TR20C",
+          "text": "变压器TR20C",
+          "children": [
+            {
+              "code": "LV20CM",
+              "text": "低压进线柜LV20CM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV20D",
+      "text": "中压馈线柜MV20D",
+      "children": [
+        {
+          "code": "TR20D",
+          "text": "变压器TR20D",
+          "children": [
+            {
+              "code": "LV20DM",
+              "text": "低压进线柜LV20DM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV20E",
+      "text": "中压馈线柜MV20E",
+      "children": [
+        {
+          "code": "TR20E",
+          "text": "变压器TR20E",
+          "children": [
+            {
+              "code": "LV20EM",
+              "text": "低压进线柜LV20EM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV20F",
+      "text": "中压馈线柜MV20F",
+      "children": [
+        {
+          "code": "TR20F",
+          "text": "变压器TR20F",
+          "children": [
+            {
+              "code": "LV20FM",
+              "text": "低压进线柜LV20FM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV30A",
+      "text": "中压馈线柜MV30A",
+      "children": [
+        {
+          "code": "TR30A",
+          "text": "变压器TR30A",
+          "children": [
+            {
+              "code": "LV30AM",
+              "text": "低压进线柜LV30AM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV30B",
+      "text": "中压馈线柜MV30B",
+      "children": [
+        {
+          "code": "TR30B",
+          "text": "变压器TR30B",
+          "children": [
+            {
+              "code": "LV30BM",
+              "text": "低压进线柜LV30BM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV30C",
+      "text": "中压馈线柜MV30C",
+      "children": [
+        {
+          "code": "TR30C",
+          "text": "变压器TR30C"
+        }
+      ]
+    },
+    {
+      "code": "MV30D",
+      "text": "中压馈线柜MV30D",
+      "children": [
+        {
+          "code": "TR30D",
+          "text": "变压器TR30D",
+          "children": [
+            {
+              "code": "LV30DM",
+              "text": "低压进线柜LV30DM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV30E",
+      "text": "中压馈线柜MV30E",
+      "children": [
+        {
+          "code": "TR30E",
+          "text": "变压器TR30E",
+          "children": [
+            {
+              "code": "LV30EM",
+              "text": "低压进线柜LV30EM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV30F",
+      "text": "中压馈线柜MV30F",
+      "children": [
+        {
+          "code": "TR30F",
+          "text": "变压器TR30F"
+        }
+      ]
+    },
+    {
+      "code": "MV40A",
+      "text": "中压馈线柜MV40A",
+      "children": [
+        {
+          "code": "TR40A",
+          "text": "变压器TR40A",
+          "children": [
+            {
+              "code": "LV40AM",
+              "text": "低压进线柜LV40AM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV40B",
+      "text": "中压馈线柜MV40 B",
+      "children": [
+        {
+          "code": "TR40B",
+          "text": "变压器TR40B",
+          "children": [
+            {
+              "code": "LV40BM",
+              "text": "低压进线柜LV40BM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV40C",
+      "text": "中压馈线柜MV40 C",
+      "children": [
+        {
+          "code": "TR40C",
+          "text": "变压器TR40C",
+          "children": [
+            {
+              "code": "LV40CM",
+              "text": "低压进线柜LV40CM",
+              "children": [
+                {
+                  "code": "LV40C1",
+                  "text": "低压馈线柜 LV40C1"
+                },
+                {
+                  "code": "LV40C2",
+                  "text": "低压馈线柜 LV40C2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV40D",
+      "text": "中压馈线柜MV40D",
+      "children": [
+        {
+          "code": "TR40D",
+          "text": "变压器TR40D",
+          "children": [
+            {
+              "code": "LV40DM",
+              "text": "低压进线柜LV40DM",
+              "children": [
+                {
+                  "code": "LV40DSC2",
+                  "text": "补偿柜 LV40DSC2"
+                },
+                {
+                  "code": "LV40D1",
+                  "text": "低压馈线柜 LV40D1",
+                  "children": [
+                    {
+                      "code": "LV40D1B--",
+                      "text": "低压开关LV40D1B--备用"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV40E",
+      "text": "中压馈线柜MV40E",
+      "children": [
+        {
+          "code": "TR40E",
+          "text": "变压器TR40E",
+          "children": [
+            {
+              "code": "LV40EM",
+              "text": "低压进线柜LV40EM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV40F",
+      "text": "中压馈线柜MV40F",
+      "children": [
+        {
+          "code": "TR40F",
+          "text": "变压器TR40F",
+          "children": [
+            {
+              "code": "LV40FM",
+              "text": "低压进线柜LV40FM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV50A",
+      "text": "中压馈线柜MV50A",
+      "children": [
+        {
+          "code": "TR50A",
+          "text": "变压器TR50A",
+          "children": [
+            {
+              "code": "LV50AM",
+              "text": "低压进线柜LV50AM",
+              "children": [
+                {
+                  "code": "LV50A2",
+                  "text": "低压馈线柜 LV50A2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV50B",
+      "text": "中压馈线柜MV50B",
+      "children": [
+        {
+          "code": "TR50B",
+          "text": "变压器TR50B",
+          "children": [
+            {
+              "code": "LV50BM",
+              "text": "低压进线柜LV50BM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV50C",
+      "text": "中压馈线柜MV50C",
+      "children": [
+        {
+          "code": "TR50C",
+          "text": "变压器TR50C",
+          "children": [
+            {
+              "code": "LV50CM",
+              "text": "低压进线柜LV50CM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV50DM",
+      "text": "中压进线柜MV50DM",
+      "children": [
+        {
+          "code": "TR50D",
+          "text": "变压器TR50D(10/6.6KV)"
+        }
+      ]
+    },
+    {
+      "code": "MV60A",
+      "text": "中压馈线柜MV60A",
+      "children": [
+        {
+          "code": "TR60A",
+          "text": "变压器TR60A",
+          "children": [
+            {
+              "code": "LV60AM",
+              "text": "低压进线柜LV60AM",
+              "children": [
+                {
+                  "code": "LV60ASC2",
+                  "text": "补偿柜 LV60ASC2"
+                },
+                {
+                  "code": "LV60A1",
+                  "text": "低压馈线柜 LV60A1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV60B",
+      "text": "中压馈线柜MV60B",
+      "children": [
+        {
+          "code": "TR60B",
+          "text": "变压器TR60B",
+          "children": [
+            {
+              "code": "LV60BM",
+              "text": "低压进线柜LV60BM"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MV60C",
+      "text": "中压馈线柜MV60C",
+      "children": [
+        {
+          "code": "TR60C",
+          "text": "变压器TR60C",
+          "children": [
+            {
+              "code": "LV60CM",
+              "text": "低压进线柜LV60CM"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>水质检测管理系统</title>
+    <!-- 按顺序引入所需的库 -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <style>
+        .system-btn {
+            margin: 5px;
+            min-width: 100px;
+        }
+        .indicator-btn {
+            margin: 5px;
+            min-width: 120px;
+        }
+        .btn-selected {
+            background-color: #0d6efd !important;
+            color: white !important;
+        }
+        .chart-container {
+            min-height: 500px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <h1 class="text-center my-4">水质检测管理系统</h1>
+
+        <!-- 时间选择行 -->
+        <div class="row mb-4">
+            <div class="col-md-10 mx-auto">
+                <div class="d-flex align-items-center" style="margin-left: 100px;">
+                    <div class="me-4">
+                        <h5 class="mb-0">时间:</h5>
+                    </div>
+                    <div class="me-3">
+                        <label for="startDate" class="form-label">开始时间</label>
+                        <input type="date" class="form-control" id="startDate">
+                    </div>
+                    <div class="me-3">
+                        <label for="endDate" class="form-label">结束时间</label>
+                        <input type="date" class="form-control" id="endDate">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 水系统选择行 -->
+        <div class="row mb-4">
+            <div class="col-md-10 mx-auto">
+                <div class="d-flex align-items-center" style="margin-left: 100px;">
+                    <div class="me-4">
+                        <h5 class="mb-0">系统:</h5>
+                    </div>
+                    <div class="d-flex flex-wrap" id="systemButtons">
+                        <button class="btn btn-outline-primary system-btn" data-system="MCHW">MCHW</button>
+                        <button class="btn btn-outline-primary system-btn" data-system="LCHW">LCHW</button>
+                        <button class="btn btn-outline-primary system-btn" data-system="HW">HW</button>
+                        <button class="btn btn-outline-primary system-btn" data-system="HHW">HHW</button>
+                        <button class="btn btn-outline-primary system-btn" data-system="CW">CW</button>
+                        <button class="btn btn-outline-primary system-btn" data-system="PCW">PCW</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 检测指标选择行 -->
+        <div class="row mb-4">
+            <div class="col-md-10 mx-auto">
+                <div class="d-flex align-items-center" style="margin-left: 100px;">
+                    <div class="me-4">
+                        <h5 class="mb-0">指标:</h5>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center">
+                        <div class="me-3">
+                            <button class="btn btn-outline-secondary indicator-btn" data-indicator="Conductivity">Conductivity</button>
+                            <button class="btn btn-outline-secondary indicator-btn" data-indicator="TPC">TPC</button>
+                            <button class="btn btn-outline-secondary indicator-btn" data-indicator="Turbidity">Turbidity</button>
+                            <button class="btn btn-outline-secondary indicator-btn" data-indicator="Iron">Iron</button>
+                            <button class="btn btn-outline-secondary indicator-btn" data-indicator="ZN">ZN</button>
+                            <button class="btn btn-outline-secondary indicator-btn" data-indicator="PH">PH</button>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary me-2" onclick="queryData()">查询</button>
+                            <button class="btn btn-secondary" onclick="resetForm()">重置</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 图表显示区域 -->
+        <div class="row">
+            <div class="col-md-10 mx-auto">
+                <div id="chartContainer" class="chart-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 首先定义ranges为全局变量
+        const ranges = {
+            'Conductivity': { 
+                unit: 'μS/cm',
+                specUpper: 180,
+                specLower: 120,
+                variance: 20,
+                yAxisMin: 100,  // Y轴最小值
+                yAxisMax: 200   // Y轴最大值
+            },
+            'TPC': { 
+                unit: 'CFU/ml',
+                specUpper: 800,
+                specLower: 200,
+                variance: 150,
+                yAxisMin: 0,
+                yAxisMax: 1000
+            },
+            'Turbidity': { 
+                unit: 'NTU',
+                specUpper: 4.0,
+                specLower: 0.5,
+                variance: 0.5,
+                yAxisMin: 0,
+                yAxisMax: 5.0
+            },
+            'Iron': { 
+                unit: 'mg/L',
+                specUpper: 1.5,
+                specLower: 0.3,
+                variance: 0.2,
+                yAxisMin: 0,
+                yAxisMax: 2.0
+            },
+            'ZN': { 
+                unit: 'mg/L',
+                specUpper: 0.8,
+                specLower: 0.2,
+                variance: 0.1,
+                yAxisMin: 0,
+                yAxisMax: 1.0
+            },
+            'PH': { 
+                unit: 'pH',
+                specUpper: 8.0,
+                specLower: 7.0,
+                variance: 0.3,
+                yAxisMin: 6.0,
+                yAxisMax: 9.0
+            }
+        };
+
+        // 等待页面完全加载后执行
+        $(document).ready(function() {
+            initializePage();
+        });
+
+        function initializePage() {
+            // 设置默认日期范围
+            const startDate = document.getElementById('startDate');
+            const endDate = document.getElementById('endDate');
+            startDate.value = '2025-03-01';
+            endDate.value = '2025-03-31';
+
+            // 添加按钮点击事件
+            setupButtonEvents();
+
+            // 设置默认选中的系统和指标
+            const defaultSystem = document.querySelector('[data-system="MCHW"]');
+            const defaultIndicator = document.querySelector('[data-indicator="Conductivity"]');
+            
+            if (defaultSystem && defaultIndicator) {
+                defaultSystem.classList.add('btn-selected');
+                defaultIndicator.classList.add('btn-selected');
+
+                // 执行默认查询
+                queryData();
+            }
+        }
+
+        function setupButtonEvents() {
+            // 系统按钮
+            $('.system-btn').click(function() {
+                $('.system-btn').removeClass('btn-selected');
+                $(this).addClass('btn-selected');
+                queryData();
+            });
+
+            // 指标按钮
+            $('.indicator-btn').click(function() {
+                $('.indicator-btn').removeClass('btn-selected');
+                $(this).addClass('btn-selected');
+                queryData();
+            });
+
+            // 日期选择变化时自动查询
+            $('#startDate, #endDate').change(queryData);
+        }
+
+        function generateMockData(startDate, endDate, system, indicator) {
+            const data = {
+                actual: [],    
+                predicted: [], 
+                nextPrediction: null 
+            };
+            
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const numPoints = 6;
+            const dayInterval = Math.floor((end - start) / (numPoints - 1));
+            
+            const range = ranges[indicator];
+
+            // 生成一些可能超出规格的数据
+            for (let i = 0; i < numPoints; i++) {
+                const currentDate = new Date(start.getTime() + i * dayInterval);
+                
+                // 生成实际值，允许超出规格范围
+                const actualValue = range.specLower + (Math.random() * (range.specUpper - range.specLower));
+                // 有20%的概率生成超出规格的值
+                const isOutOfSpec = Math.random() < 0.2;
+                const finalActualValue = isOutOfSpec ? 
+                    (Math.random() < 0.5 ? 
+                        range.specLower - Math.random() * range.variance : // 低于下限
+                        range.specUpper + Math.random() * range.variance   // 高于上限
+                    ) : actualValue;
+
+                // 生成预测值，基于实际值
+                const predictedValue = finalActualValue + (Math.random() - 0.5) * range.variance * 0.5;
+                
+                data.actual.push({
+                    date: new Date(currentDate),
+                    value: finalActualValue,
+                    unit: range.unit,
+                    isRecent: i >= numPoints - 3,
+                    isOutOfSpec: finalActualValue < range.specLower || finalActualValue > range.specUpper
+                });
+                
+                data.predicted.push({
+                    date: new Date(currentDate),
+                    value: predictedValue,
+                    unit: range.unit,
+                    isRecent: i >= numPoints - 3,
+                    isOutOfSpec: predictedValue < range.specLower || predictedValue > range.specUpper
+                });
+            }
+
+            // 生成下一次预测数据
+            let nextPredictedValue;
+            do {
+                const lastValue = data.actual[data.actual.length - 1].value;
+                nextPredictedValue = lastValue + (Math.random() - 0.5) * range.variance;
+            } while (nextPredictedValue < range.yAxisMin || nextPredictedValue > range.yAxisMax);
+
+            data.nextPrediction = {
+                date: new Date(data.actual[data.actual.length - 1].date.getTime() + dayInterval),
+                value: nextPredictedValue,
+                unit: range.unit
+            };
+
+            return data;
+        }
+
+        function queryData() {
+            const startDate = $('#startDate').val();
+            const endDate = $('#endDate').val();
+            const selectedSystem = $('.system-btn.btn-selected').data('system');
+            const selectedIndicator = $('.indicator-btn.btn-selected').data('indicator');
+
+            if (!selectedSystem || !selectedIndicator) {
+                alert('请选择水系统和检测指标');
+                return;
+            }
+
+            const data = generateMockData(startDate, endDate, selectedSystem, selectedIndicator);
+            updateChart(data, selectedSystem, selectedIndicator);
+        }
+
+        function updateChart(data, system, indicator) {
+            const range = ranges[indicator];
+            const unit = range.unit;
+
+            // 获取加药建议
+            function getDosageAdvice(value, indicator) {
+                if (value < range.specLower) {
+                    switch(indicator) {
+                        case 'PH':
+                            return '加碱';
+                        case 'Conductivity':
+                            return '加盐';
+                        case 'Iron':
+                            return '加铁剂';
+                        case 'ZN':
+                            return '加锌剂';
+                        default:
+                            return '加药';
+                    }
+                } else if (value > range.specUpper) {
+                    switch(indicator) {
+                        case 'PH':
+                            return '加酸';
+                        case 'Conductivity':
+                            return '排污';
+                        case 'TPC':
+                            return '加杀菌剂';
+                        case 'Turbidity':
+                            return '加絮凝剂';
+                        default:
+                            return '排污';
+                    }
+                }
+                return '';
+            }
+
+            // 生成气泡数据
+            const bubbleData = [];
+            [...data.actual, ...data.predicted, data.nextPrediction].forEach(point => {
+                if (point.value > range.specUpper) {
+                    bubbleData.push({
+                        x: point.date.getTime(),
+                        y: range.specUpper,
+                        advice: getDosageAdvice(point.value, indicator)
+                    });
+                } else if (point.value < range.specLower) {
+                    bubbleData.push({
+                        x: point.date.getTime(),
+                        y: range.specLower,
+                        advice: getDosageAdvice(point.value, indicator)
+                    });
+                }
+            });
+
+            const chartOptions = {
+                chart: {
+                    type: 'column',
+                    zoomType: 'xy'
+                },
+                title: {
+                    text: `${system} 系统 ${indicator} 指标检测数据及AI预测`
+                },
+                xAxis: {
+                    type: 'datetime',
+                    labels: {
+                        format: '{value:%Y-%m-%d}'
+                    }
+                },
+                yAxis: {
+                    title: {
+                        text: `${indicator} (${unit})`
+                    },
+                    plotLines: [
+                        {
+                            color: '#ff0000',
+                            dashStyle: 'shortdash',
+                            value: range.specUpper,
+                            width: 2,
+                            label: {
+                                text: `规格上限: ${range.specUpper} ${unit}`,
+                                align: 'right',
+                                style: { color: '#ff0000' }
+                            }
+                        },
+                        {
+                            color: '#ff0000',
+                            dashStyle: 'shortdash',
+                            value: range.specLower,
+                            width: 2,
+                            label: {
+                                text: `规格下限: ${range.specLower} ${unit}`,
+                                align: 'right',
+                                style: { color: '#ff0000' }
+                            }
+                        }
+                    ]
+                },
+
+                series: [
+                    {
+                        name: '实际值',
+                        type: 'column',
+                        data: data.actual.map(point => ({
+                            x: point.date.getTime(),
+                            y: point.value,
+                            color: point.isOutOfSpec ? '#ff4444' : '#0d6efd',
+                            dataLabels: {
+                                enabled: true,
+                                rotation: -90,
+                                format: `实际值<br>{y:.2f} ${unit}`,
+                                y: -5
+                            }
+                        }))
+                    },
+                    {
+                        name: 'AI预测',
+                        type: 'column',
+                        data: data.predicted.map(point => ({
+                            x: point.date.getTime(),
+                            y: point.value,
+                            color: point.isOutOfSpec ? '#ff9933' : '#90EE90',
+                            dataLabels: {
+                                enabled: true,
+                                rotation: -90,
+                                format: `AI预测<br>{y:.2f} ${unit}`,
+                                y: -5
+                            }
+                        }))
+                    },
+                    {
+                        name: '下次AI预测',
+                        type: 'column',
+                        data: [{
+                            x: data.nextPrediction.date.getTime(),
+                            y: data.nextPrediction.value,
+                            color: '#FFA500',
+                            dataLabels: {
+                                enabled: true,
+                                rotation: -90,
+                                format: `下次AI预测值<br>{y:.2f} ${unit}`,
+                                y: -5
+                            }
+                        }]
+                    },
+                    {
+                        name: '加药提示',
+                        type: 'scatter',
+                        data: bubbleData,
+                        marker: {
+                            symbol: 'circle',
+                            radius: 12,
+                            fillColor: 'rgba(255, 0, 0, 0.2)',
+                            lineWidth: 2,
+                            lineColor: '#ff0000'
+                        },
+                        dataLabels: {
+                            enabled: true,
+                            format: '{point.advice}',
+                            style: {
+                                fontSize: '10px',
+                                fontWeight: 'bold',
+                                color: '#ff0000'
+                            },
+                            y: -20
+                        },
+                        tooltip: {
+                            pointFormat: '{point.advice}'
+                        }
+                    }
+                ]
+            };
+
+            // 创建图表
+            const container = document.getElementById('chartContainer');
+            if (container) {
+                container.innerHTML = '';
+                Highcharts.chart('chartContainer', chartOptions);
+            }
+        }
+
+        function resetForm() {
+            $('#startDate').val('2025-03-01');
+            $('#endDate').val('2025-03-31');
+            $('.btn-selected').removeClass('btn-selected');
+            
+            // 重置为默认选择
+            $('[data-system="MCHW"]').addClass('btn-selected');
+            $('[data-indicator="Conductivity"]').addClass('btn-selected');
+            
+            // 执行查询
+            queryData();
+        }
+    </script>
+</body>
+</html> 

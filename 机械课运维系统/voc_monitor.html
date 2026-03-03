@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAB NMHC 实时监控</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .chart-container {
+            margin-bottom: 30px;
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .status-item {
+            text-align: center;
+        }
+        .status-label {
+            font-size: 14px;
+            color: #666;
+        }
+        .status-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>FAB NMHC 实时监控</h1>
+            <p>最近4小时数据趋势</p>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-label">NMHC当前值</div>
+                <div class="status-value" id="nmhcCurrentValue">-- ppm</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">最后更新时间</div>
+                <div class="status-value" id="lastUpdateTime">--:--:--</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div id="monitorChart" style="height: 400px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 生成模拟数据
+        function generateData(hours) {
+            const data = [];
+            const now = new Date();
+            for (let i = hours * 60; i >= 0; i--) {
+                const time = new Date(now - i * 60000);
+                data.push({
+                    time: time.getTime(),
+                    nmhc: Math.random() * 3 + 8   // NMHC值在8-11之间波动
+                });
+            }
+            return data;
+        }
+
+        // 初始化图表
+        function initChart() {
+            const data = generateData(4);
+            
+            Highcharts.chart('monitorChart', {
+                chart: {
+                    type: 'spline',
+                    animation: false,
+                    marginRight: 10,
+                    style: {
+                        fontFamily: 'Arial, sans-serif'
+                    }
+                },
+                title: {
+                    text: 'NMHC 浓度趋势图',
+                    style: {
+                        fontSize: '18px'
+                    }
+                },
+                xAxis: {
+                    type: 'datetime',
+                    tickPixelInterval: 150
+                },
+                yAxis: [{
+                    title: {
+                        text: '浓度 (ppm)',
+                        style: {
+                            color: Highcharts.getOptions().colors[0]
+                        }
+                    },
+                    labels: {
+                        format: '{value} ppm'
+                    },
+                    plotLines: [{
+                        value: 10,  // 卡控线的值
+                        color: '#FF4136', // 红色
+                        dashStyle: 'shortdash', // 虚线样式
+                        width: 2,
+                        label: {
+                            text: '卡控线: 10 ppm',
+                            align: 'right',
+                            style: {
+                                color: '#FF4136'
+                            }
+                        },
+                        zIndex: 5
+                    }]
+                }],
+                tooltip: {
+                    crosshairs: true,
+                    formatter: function() {
+                        const value = this.y;
+                        const isOverLimit = value > 10;
+                        return '<b>' + Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', this.x) + '</b><br/>' +
+                            'NMHC: <span style="color:' + (isOverLimit ? '#FF4136' : '#4ECDC4') + '">' + 
+                            Highcharts.numberFormat(value, 2) + ' ppm</span>' +
+                            (isOverLimit ? '<br/><span style="color: #FF4136">⚠️ 超出卡控值</span>' : '');
+                    }
+                },
+                legend: {
+                    enabled: false
+                },
+                series: [{
+                    name: 'NMHC',
+                    data: data.map(point => [point.time, point.nmhc]),
+                    color: '#4ECDC4',
+                    zones: [{
+                        value: 10,
+                        color: '#4ECDC4'
+                    }, {
+                        color: '#FF4136'
+                    }]
+                }]
+            });
+
+            // 更新当前值显示
+            const lastData = data[data.length - 1];
+            const nmhcValue = lastData.nmhc;
+            const nmhcElement = document.getElementById('nmhcCurrentValue');
+            nmhcElement.textContent = nmhcValue.toFixed(2) + ' ppm';
+            nmhcElement.style.color = nmhcValue > 10 ? '#FF4136' : '#333';
+            document.getElementById('lastUpdateTime').textContent = 
+                new Date().toLocaleTimeString();
+        }
+
+        // 页面加载完成后初始化图表
+        document.addEventListener('DOMContentLoaded', initChart);
+
+        // 模拟实时数据更新
+        setInterval(function() {
+            const chart = Highcharts.charts[0];
+            if (chart) {
+                const x = (new Date()).getTime();
+                const nmhc = Math.random() * 3 + 8;
+
+                chart.series[0].addPoint([x, nmhc], true, true);
+
+                const nmhcElement = document.getElementById('nmhcCurrentValue');
+                nmhcElement.textContent = nmhc.toFixed(2) + ' ppm';
+                nmhcElement.style.color = nmhc > 10 ? '#FF4136' : '#333';
+                
+                document.getElementById('lastUpdateTime').textContent = 
+                    new Date().toLocaleTimeString();
+            }
+        }, 1000);
+    </script>
+</body>
+</html> 
