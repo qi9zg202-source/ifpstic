@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>环境变量纳管首页</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --surface: #ffffff;
+      --border: #d9dde3;
+      --text: #1f2937;
+      --sub: #5b6878;
+      --primary: #0a6ed1;
+      --danger: #bb0000;
+      --success: #107e3e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(180deg, #f8fafc, var(--bg));
+      color: var(--text);
+    }
+
+    #layout {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    #header-card,
+    #control-card,
+    #iframe-card,
+    #command-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+
+    #header-title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    #header-sub {
+      margin: 6px 0 0;
+      font-size: 12px;
+      color: var(--sub);
+    }
+
+    #status-line {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    .pill.running {
+      color: var(--success);
+      background: #edf9f1;
+      border-color: #b6e1c2;
+    }
+
+    .pill.stopped {
+      color: var(--danger);
+      background: #fdecec;
+      border-color: #f2b7b7;
+    }
+
+    #control-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      height: 36px;
+      padding: 0 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    #btn-start { background: var(--success); color: #fff; border-color: var(--success); }
+    #btn-stop { background: var(--danger); color: #fff; border-color: var(--danger); }
+    #btn-customize { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    #control-hint {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--sub);
+      min-height: 18px;
+    }
+
+    #dep-panel {
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fafbfd;
+      padding: 10px;
+    }
+
+    #dep-title {
+      margin: 0 0 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #334155;
+    }
+
+    #dep-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 6px;
+      max-height: 180px;
+      overflow: auto;
+    }
+
+    .dep-item {
+      font-size: 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 8px;
+      background: #fff;
+      line-height: 1.4;
+    }
+
+    .dep-ok { color: #166534; border-color: #b7e3c0; background: #f0faf3; }
+    .dep-fail { color: #991b1b; border-color: #f0b8b8; background: #fef2f2; }
+    .dep-optional { color: #7c2d12; border-color: #f8d4ad; background: #fff7ed; }
+
+    #cmd-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .cmd-box {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fafbfd;
+      padding: 10px;
+    }
+
+    .cmd-title {
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .cmd-code {
+      margin: 0;
+      font-family: Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    #managed-frame {
+      width: 100%;
+      height: 720px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    @media (max-width: 960px) {
+      #cmd-grid { grid-template-columns: 1fr; }
+      #managed-frame { height: 520px; }
+    }
+  </style>
+</head>
+<body>
+  <main id="layout">
+    <section id="header-card">
+      <h1 id="header-title">环境变量纳管首页</h1>
+      <p id="header-sub">统一管理服务启动、停止、定制入口，并纳管 env_manager 页面。</p>
+      <div id="status-line">
+        <span id="service-pill" class="pill stopped">状态读取中</span>
+        <span id="service-meta">-</span>
+      </div>
+    </section>
+
+    <section id="control-card">
+      <div id="control-row">
+        <button id="btn-start" class="btn" type="button">启动</button>
+        <button id="btn-stop" class="btn" type="button">停止</button>
+        <button id="btn-customize" class="btn" type="button">定制</button>
+        <button id="btn-refresh" class="btn" type="button">刷新状态</button>
+      </div>
+      <div id="control-hint"></div>
+      <div id="dep-panel">
+        <h3 id="dep-title">依赖启动结果</h3>
+        <ul id="dep-list"></ul>
+      </div>
+    </section>
+
+    <section id="command-card">
+      <div id="cmd-grid">
+        <article id="cmd-start-box" class="cmd-box">
+          <div id="cmd-start-title" class="cmd-title">启动命令</div>
+          <pre id="cmd-start" class="cmd-code">cd /Users/beckliu/Documents/IPF20260131
+node env_manager_server.js</pre>
+        </article>
+        <article id="cmd-stop-box" class="cmd-box">
+          <div id="cmd-stop-title" class="cmd-title">停止命令</div>
+          <pre id="cmd-stop" class="cmd-code">pkill -f "node /Users/beckliu/Documents/IPF20260131/env_manager_server.js"</pre>
+        </article>
+      </div>
+    </section>
+
+    <section id="iframe-card">
+      <iframe id="managed-frame" title="env_manager" src="/env_manager.html"></iframe>
+    </section>
+  </main>
+
+  <script>
+    const servicePill = document.getElementById('service-pill');
+    const serviceMeta = document.getElementById('service-meta');
+    const controlHint = document.getElementById('control-hint');
+    const frame = document.getElementById('managed-frame');
+    const cmdStart = document.getElementById('cmd-start');
+    const cmdStop = document.getElementById('cmd-stop');
+    const depList = document.getElementById('dep-list');
+
+    const btnStart = document.getElementById('btn-start');
+    const btnStop = document.getElementById('btn-stop');
+    const btnCustomize = document.getElementById('btn-customize');
+    const btnRefresh = document.getElementById('btn-refresh');
+
+    function setHint(text, isError = false) {
+      controlHint.textContent = text;
+      controlHint.style.color = isError ? '#bb0000' : '#5b6878';
+    }
+
+    function setRunning(running, meta) {
+      servicePill.textContent = running ? '服务运行中' : '服务已停止';
+      servicePill.className = `pill ${running ? 'running' : 'stopped'}`;
+      serviceMeta.textContent = meta || '-';
+    }
+
+    function renderDependencies(items) {
+      depList.innerHTML = '';
+      if (!Array.isArray(items) || items.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'dep-item';
+        li.textContent = '尚未执行依赖启动流程。';
+        depList.appendChild(li);
+        return;
+      }
+
+      for (const item of items) {
+        const li = document.createElement('li');
+        li.className = 'dep-item';
+        if (item.ok) li.classList.add('dep-ok');
+        if (!item.ok) li.classList.add(item.required ? 'dep-fail' : 'dep-optional');
+
+        const requiredText = item.required ? '必需' : '可选';
+        const statusText = item.ok ? 'OK' : 'FAIL';
+        li.textContent = `[${statusText}] [${requiredText}] ${item.name} | ${item.details || ''}`;
+        depList.appendChild(li);
+      }
+    }
+
+    async function fetchInfo() {
+      const res = await fetch('/api/service/info');
+      if (!res.ok) throw new Error(`status=${res.status}`);
+      return res.json();
+    }
+
+    async function postAction(pathname) {
+      const res = await fetch(pathname, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || `status=${res.status}`);
+      }
+      return data;
+    }
+
+    async function refreshStatus() {
+      try {
+        const info = await fetchInfo();
+        const service = info.service || {};
+        const startCmd = (info.commands || {}).start;
+        const stopCmd = (info.commands || {}).stop;
+
+        setRunning(true, `PID ${service.pid} | ${service.host}:${service.port}`);
+        if (startCmd) cmdStart.textContent = startCmd;
+        if (stopCmd) cmdStop.textContent = stopCmd;
+        setHint('状态已刷新。');
+      } catch (error) {
+        setRunning(false, '未连接到服务');
+        setHint(`读取状态失败: ${error.message}`, true);
+      }
+    }
+
+    btnStart.addEventListener('click', async () => {
+      try {
+        const data = await postAction('/api/service/start');
+        renderDependencies(data.dependencies || []);
+        const summary = data.summary || {};
+        setHint(`${data.message || '启动流程完成。'} 必需失败: ${summary.requiredFailed ?? 0}, 可选失败: ${summary.optionalFailed ?? 0}`);
+        await refreshStatus();
+      } catch (error) {
+        setHint(`启动失败: ${error.message}`, true);
+      }
+    });
+
+    btnStop.addEventListener('click', async () => {
+      try {
+        const data = await postAction('/api/service/stop');
+        setHint(`${data.message || '停止指令已下发。'} 如服务已退出，可用启动命令重新启动。`);
+        setTimeout(() => refreshStatus(), 900);
+      } catch (error) {
+        setHint(`停止失败: ${error.message}`, true);
+      }
+    });
+
+    btnCustomize.addEventListener('click', () => {
+      frame.src = '/env_manager.html?view=customize&ts=' + Date.now();
+      setHint('已进入定制页面。');
+    });
+
+    btnRefresh.addEventListener('click', refreshStatus);
+
+    renderDependencies([]);
+    refreshStatus();
+  </script>
+</body>
+</html>

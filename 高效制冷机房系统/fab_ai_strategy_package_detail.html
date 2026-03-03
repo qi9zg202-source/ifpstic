@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>高效制冷机房 - AI策略包详情页</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script defer src="https://d3js.org/d3.v7.min.js"></script>
+    <script defer src="https://code.highcharts.com/highcharts.js"></script>
+    <style>
+        :root {
+            --ibm-blue: #0f62fe;
+            --ibm-blue-60: #0043ce;
+            --ibm-blue-10: #edf5ff;
+            --ibm-blue-20: #d0e2ff;
+            --ibm-blue-30: #a6c8ff;
+            --ibm-gray-10: #f4f4f4;
+            --ibm-gray-20: #e0e0e0;
+            --ibm-gray-30: #c6c6c6;
+            --ibm-gray-70: #525252;
+            --ibm-gray-90: #262626;
+            --ibm-green: #24a148;
+            --ibm-red: #da1e28;
+            --ibm-yellow: #f1c21b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            font-family: "IBM Plex Sans", sans-serif;
+            background: var(--ibm-blue-10);
+            color: var(--ibm-gray-90);
+        }
+
+        .page {
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            padding: 18px 20px 16px;
+            gap: 14px;
+        }
+
+        .toolbar {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 12px;
+            background: #ffffff;
+            border: 1px solid var(--ibm-blue-20);
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+
+        .title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+
+        .back-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: 1px solid var(--ibm-blue-30);
+            background: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--ibm-gray-70);
+            transition: all 0.2s ease;
+        }
+
+        .back-btn:hover {
+            border-color: var(--ibm-blue);
+            color: var(--ibm-blue);
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: nowrap;
+        }
+
+        .control-label {
+            font-size: 12px;
+            color: var(--ibm-gray-70);
+            font-weight: 600;
+            margin-right: 2px;
+        }
+
+        .control {
+            background: #ffffff;
+            border: 1px solid var(--ibm-blue-30);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 12px;
+            color: var(--ibm-gray-90);
+            height: 32px;
+        }
+
+        .control.inline {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 200px;
+        }
+
+        .time-input {
+            border: none;
+            background: transparent;
+            font-size: 12px;
+            color: var(--ibm-gray-90);
+            min-width: 150px;
+        }
+
+        .time-input:focus {
+            outline: none;
+        }
+
+        .btn {
+            height: 32px;
+            padding: 0 14px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn.primary {
+            background: var(--ibm-blue);
+            color: #ffffff;
+            border-color: var(--ibm-blue);
+        }
+
+        .btn.primary:hover {
+            background: var(--ibm-blue-60);
+        }
+
+        .btn.ghost {
+            background: #ffffff;
+            color: var(--ibm-gray-70);
+            border-color: var(--ibm-blue-30);
+        }
+
+        .btn.ghost:hover {
+            color: var(--ibm-blue-60);
+            border-color: var(--ibm-blue-60);
+        }
+
+        .table-card {
+            flex: 1;
+            background: #ffffff;
+            border: 1px solid var(--ibm-blue-20);
+            border-radius: 8px;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .table-header {
+            display: grid;
+            grid-template-columns: 1.2fr 1.6fr 0.7fr 1fr 1.1fr 1fr 0.9fr;
+            gap: 0;
+            background: var(--ibm-blue-10);
+            border-bottom: 0;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--ibm-gray-70);
+            padding: 0 12px;
+        }
+
+        .table-header > div {
+            padding: 8px 10px;
+            border: 1px solid var(--ibm-blue-20);
+            border-left-width: 0;
+            border-top-width: 1px;
+        }
+
+        .table-header > div:first-child {
+            border-left-width: 1px;
+        }
+
+        .table-header > div:last-child {
+            border-right-width: 1px;
+        }
+
+        .table-body {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1.2fr 1.6fr 0.7fr 1fr 1.1fr 1fr 0.9fr;
+            padding: 0 12px;
+            font-size: 13px;
+            border-bottom: 0;
+            align-items: center;
+        }
+
+        .row > div {
+            padding: 12px 10px;
+            border: 1px solid var(--ibm-blue-20);
+            border-left-width: 0;
+            border-top-width: 0;
+        }
+
+        .row > div:first-child {
+            border-left-width: 1px;
+        }
+
+        .row > div:last-child {
+            border-right-width: 1px;
+        }
+
+        .row:nth-child(even) {
+            background: var(--ibm-blue-10);
+        }
+
+        .status-positive {
+            color: var(--ibm-blue);
+            font-weight: 600;
+        }
+
+        .status-neutral {
+            color: var(--ibm-blue-60);
+            font-weight: 600;
+        }
+
+        .efficiency {
+            color: var(--ibm-blue);
+            font-weight: 600;
+        }
+
+        .action {
+            display: flex;
+            gap: 12px;
+            color: var(--ibm-blue);
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .action .disabled {
+            color: var(--ibm-blue-30);
+            cursor: not-allowed;
+        }
+
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: #ffffff;
+        }
+
+        .pager-left,
+        .pager-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--ibm-gray-70);
+        }
+
+        .pager-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: 1px solid var(--ibm-blue-30);
+            background: #ffffff;
+            color: var(--ibm-gray-70);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .pager-btn.active {
+            background: var(--ibm-blue);
+            color: #ffffff;
+            border-color: var(--ibm-blue);
+        }
+
+        .select {
+            height: 28px;
+            border: 1px solid var(--ibm-blue-30);
+            border-radius: 6px;
+            padding: 0 6px;
+            font-size: 12px;
+        }
+
+        .badge {
+            background: var(--ibm-blue-10);
+            border: 1px solid var(--ibm-blue-20);
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--ibm-gray-70);
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="toolbar">
+            <div class="title">
+                <a class="back-btn" href="fab_cooling_cost_analysis.html" title="返回上一页" aria-label="返回上一页">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M10.5 3.5L6 8l4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </a>
+                AI策略包
+            </div>
+            <div class="controls">
+                <span class="control-label">时间</span>
+                <div class="control inline">
+                    <input class="time-input" id="timeStartInput" type="datetime-local" />
+                    <span>—</span>
+                    <input class="time-input" id="timeEndInput" type="datetime-local" />
+                </div>
+                <span class="control-label">正负</span>
+                <select class="control">
+                    <option>ALL</option>
+                    <option>正</option>
+                    <option>负</option>
+                </select>
+                <span class="control-label">下发状态</span>
+                <select class="control">
+                    <option selected>已下发</option>
+                    <option>未下发</option>
+                    <option>全部</option>
+                </select>
+                <button class="btn primary">查询</button>
+                <button class="btn ghost">重置</button>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <div class="table-header">
+                <div>时间</div>
+                <div>策略包ID</div>
+                <div>正负</div>
+                <div>下发状态</div>
+                <div>优化参数个数</div>
+                <div>效率提升</div>
+                <div>操作</div>
+            </div>
+            <div class="table-body">
+                <div class="row">
+                    <div>02-06 15:00</div>
+                    <div class="efficiency">POL_26020615</div>
+                    <div class="status-positive">正</div>
+                    <div class="status-neutral">已下发</div>
+                    <div>10</div>
+                    <div class="efficiency">+0.75%</div>
+                    <div class="action"><span>判正负</span><span class="disabled">下发</span></div>
+                </div>
+                <div class="row">
+                    <div>02-06 14:00</div>
+                    <div class="efficiency">POL_26020614</div>
+                    <div class="status-positive">正</div>
+                    <div class="status-neutral">已下发</div>
+                    <div>10</div>
+                    <div class="efficiency">+0.75%</div>
+                    <div class="action"><span>判正负</span><span class="disabled">下发</span></div>
+                </div>
+                <div class="row">
+                    <div>02-06 13:00</div>
+                    <div class="efficiency">POL_26020613</div>
+                    <div class="status-positive">正</div>
+                    <div class="status-neutral">已下发</div>
+                    <div>10</div>
+                    <div class="efficiency">+0.75%</div>
+                    <div class="action"><span>判正负</span><span class="disabled">下发</span></div>
+                </div>
+                <div class="row">
+                    <div>02-06 12:00</div>
+                    <div class="efficiency">POL_26020612</div>
+                    <div class="status-positive">正</div>
+                    <div class="status-neutral">已下发</div>
+                    <div>10</div>
+                    <div class="efficiency">+0.78%</div>
+                    <div class="action"><span>判正负</span><span class="disabled">下发</span></div>
+                </div>
+                <div class="row">
+                    <div>02-06 11:00</div>
+                    <div class="efficiency">POL_26020611</div>
+                    <div class="status-positive">正</div>
+                    <div class="status-neutral">已下发</div>
+                    <div>10</div>
+                    <div class="efficiency">+0.72%</div>
+                    <div class="action"><span>判正负</span><span class="disabled">下发</span></div>
+                </div>
+                <div class="row">
+                    <div>02-06 10:00</div>
+                    <div class="efficiency">POL_26020610</div>
+                    <div class="status-positive">正</div>
+                    <div class="status-neutral">已下发</div>
+                    <div>10</div>
+                    <div class="efficiency">+0.68%</div>
+                    <div class="action"><span>判正负</span><span class="disabled">下发</span></div>
+                </div>
+            </div>
+            <div class="pagination">
+                <div class="pager-left">
+                    <span>共 32 条</span>
+                    <select class="select">
+                        <option>20条/页</option>
+                        <option>10条/页</option>
+                        <option>50条/页</option>
+                    </select>
+                </div>
+                <div class="pager-right">
+                    <button class="pager-btn">&lt;</button>
+                    <button class="pager-btn active">1</button>
+                    <button class="pager-btn">2</button>
+                    <button class="pager-btn">&gt;</button>
+                    <span>跳至</span>
+                    <select class="select">
+                        <option>1</option>
+                        <option>2</option>
+                    </select>
+                    <span>页</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function formatTimeByUnit(unit, value, isEnd) {
+            if (!value) return '';
+            if (unit === 'year') {
+                return isEnd ? `${value}-12-31T23:59` : `${value}-01-01T00:00`;
+            }
+            if (unit === 'day') {
+                return isEnd ? `${value}T23:59` : `${value}T00:00`;
+            }
+            if (unit === 'month') {
+                const [y, m] = value.split('-').map(Number);
+                if (!y || !m) return '';
+                if (isEnd) {
+                    const lastDay = new Date(y, m, 0).getDate();
+                    return `${value}-${String(lastDay).padStart(2, '0')}T23:59`;
+                }
+                return `${value}-01T00:00`;
+            }
+            return '';
+        }
+
+        function initTimeFromQuery() {
+            const params = new URLSearchParams(window.location.search);
+            const unit = params.get('unit') || 'month';
+            const start = params.get('start') || '';
+            const end = params.get('end') || '';
+            const startEl = document.getElementById('timeStartInput');
+            const endEl = document.getElementById('timeEndInput');
+            if (!startEl || !endEl) return;
+
+            const startValue = formatTimeByUnit(unit, start, false);
+            const endValue = formatTimeByUnit(unit, end, true);
+            if (startValue) startEl.value = startValue;
+            if (endValue) endEl.value = endValue;
+        }
+
+        document.addEventListener('DOMContentLoaded', initTimeFromQuery);
+    </script>
+</body>
+</html>

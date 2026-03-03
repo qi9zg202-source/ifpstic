@@ -1,0 +1,2555 @@
+<!DOCTYPE html>
+<html id="html-root" lang="zh-CN">
+<head id="head-root">
+    <meta id="meta-charset" charset="UTF-8" />
+    <meta id="meta-viewport" name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title id="title-main">高效制冷机房-A运行优化策略功能</title>
+    <link id="font-preconnect-1" rel="preconnect" href="https://fonts.googleapis.com" />
+    <link id="font-preconnect-2" rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link id="font-family-main" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script id="script-d3-cdn" defer src="https://d3js.org/d3.v7.min.js"></script>
+    <script id="script-highcharts-cdn" defer src="https://code.highcharts.com/highcharts.js"></script>
+    <style id="style-main">
+        :root {
+            --sap-blue-1: #0a6ed1;
+            --sap-blue-2: #0854a0;
+            --sap-blue-3: #eaf3fc;
+            --sap-bg: #f5f7fa;
+            --sap-surface: #ffffff;
+            --sap-border: #d9e2ec;
+            --sap-text-1: #1b2a41;
+            --sap-text-2: #475569;
+            --sap-ok: #188918;
+            --sap-warn: #c47a00;
+            --sap-cold-mid: #39a1ff;
+            --sap-cold-low: #1864ab;
+            --sap-heat: #ff7a45;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            width: 100%;
+            max-width: 100%;
+            min-height: 100%;
+            overflow-x: hidden;
+            font-family: "Noto Sans SC", "IBM Plex Sans", sans-serif;
+            color: var(--sap-text-1);
+            background:
+                radial-gradient(circle at 88% 0%, rgba(10, 110, 209, 0.12) 0%, rgba(10, 110, 209, 0) 40%),
+                linear-gradient(180deg, #eef4fa 0%, #f8fafd 100%);
+        }
+
+        #page-root {
+            width: min(1560px, 100%);
+            margin: 0 auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            animation: fadeInPage 0.55s ease;
+        }
+
+        #header-panel {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 16px;
+            align-items: center;
+            background: var(--sap-surface);
+            border: 1px solid var(--sap-border);
+            border-left: 5px solid var(--sap-blue-1);
+            border-radius: 10px;
+            padding: 14px 16px;
+            box-shadow: 0 4px 10px rgba(8, 84, 160, 0.08);
+        }
+
+        #header-identity {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        #header-tag {
+            width: fit-content;
+            font-size: 11px;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            color: var(--sap-blue-2);
+            background: var(--sap-blue-3);
+            border: 1px solid #c2d8ef;
+            border-radius: 999px;
+            padding: 2px 8px;
+            font-weight: 700;
+        }
+
+        #header-title {
+            font-size: clamp(20px, 2vw, 28px);
+            font-weight: 700;
+            line-height: 1.3;
+            color: var(--sap-text-1);
+        }
+
+        #header-subtitle {
+            font-size: 13px;
+            color: var(--sap-text-2);
+            line-height: 1.5;
+        }
+
+        #header-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(150px, 1fr));
+            gap: 8px;
+        }
+
+        .pill-item {
+            border: 1px solid var(--sap-border);
+            background: #fbfdff;
+            border-radius: 8px;
+            padding: 8px 10px;
+            display: grid;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .pill-label {
+            color: var(--sap-text-2);
+            font-size: 11px;
+        }
+
+        .pill-value {
+            color: var(--sap-blue-2);
+            font-size: 14px;
+            font-weight: 700;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+
+        .panel-card {
+            background: var(--sap-surface);
+            border: 1px solid var(--sap-border);
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(8, 84, 160, 0.05);
+        }
+
+        #kpi-panel {
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #kpi-title {
+            font-size: 15px;
+            color: var(--sap-blue-2);
+            font-weight: 700;
+        }
+
+        #kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .kpi-item {
+            border: 1px solid var(--sap-border);
+            border-radius: 8px;
+            padding: 10px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fcff 100%);
+            display: grid;
+            gap: 4px;
+            min-width: 0;
+            animation: riseUp 0.45s ease;
+        }
+
+        .kpi-label {
+            font-size: 12px;
+            color: var(--sap-text-2);
+        }
+
+        .kpi-value {
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+
+        .kpi-desc {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        #kpi-value-power {
+            color: var(--sap-ok);
+        }
+
+        #kpi-value-eer {
+            color: var(--sap-blue-1);
+        }
+
+        #kpi-value-recovery {
+            color: var(--sap-heat);
+        }
+
+        #kpi-value-stability {
+            color: var(--sap-warn);
+        }
+
+        #content-grid {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        #left-column {
+            display: grid;
+            grid-template-rows: auto auto;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        #right-column {
+            display: grid;
+            grid-template-rows: auto auto;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .panel-head {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--sap-border);
+            background: linear-gradient(90deg, #f4f9ff 0%, #ffffff 100%);
+            border-radius: 10px 10px 0 0;
+        }
+
+        .panel-title {
+            font-size: 14px;
+            color: var(--sap-blue-2);
+            font-weight: 700;
+        }
+
+        .panel-note {
+            font-size: 11px;
+            color: var(--sap-text-2);
+            margin-top: 2px;
+        }
+
+        #d3-panel {
+            min-width: 0;
+        }
+
+        #d3-header {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: start;
+            gap: 10px;
+        }
+
+        #d3-header-text {
+            min-width: 0;
+        }
+
+        #d3-body {
+            padding: 10px 12px 12px;
+            display: grid;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        #d3-time-controls {
+            display: inline-flex;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+
+        .d3-time-btn {
+            height: 28px;
+            padding: 0 10px;
+            border: 1px solid #b7cadf;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #1f3b57;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .d3-time-btn:hover {
+            border-color: #0a6ed1;
+            color: #0a6ed1;
+        }
+
+        .d3-time-btn.is-active {
+            background: #0a6ed1;
+            border-color: #0a6ed1;
+            color: #ffffff;
+        }
+
+        #d3-time-picker {
+            height: 28px;
+            border: 1px solid #b7cadf;
+            border-radius: 6px;
+            padding: 0 8px;
+            background: #ffffff;
+            color: #1f3b57;
+            font-size: 12px;
+            min-width: 176px;
+        }
+
+        #d3-time-apply {
+            height: 28px;
+            padding: 0 10px;
+            border: 1px solid #0a6ed1;
+            border-radius: 6px;
+            background: #0a6ed1;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        #d3-time-apply:hover {
+            background: #0854a0;
+            border-color: #0854a0;
+        }
+
+        #d3-time-selected {
+            font-size: 11px;
+            color: #3b536d;
+            text-align: right;
+            width: 100%;
+        }
+
+        #d3-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .legend-unit {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--sap-text-2);
+            border: 1px solid var(--sap-border);
+            border-radius: 999px;
+            padding: 3px 9px;
+            background: #ffffff;
+        }
+
+        .legend-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+        }
+
+        #d3-canvas-wrap {
+            width: 100%;
+            border: 1px solid var(--sap-border);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fbfdff;
+        }
+
+        #d3-canvas {
+            width: 100%;
+            height: 320px;
+            display: block;
+        }
+
+        #d3-demand-strip {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .demand-chip {
+            border: 1px solid var(--sap-border);
+            border-radius: 8px;
+            background: #ffffff;
+            padding: 6px 8px;
+            display: grid;
+            gap: 2px;
+        }
+
+        .demand-label {
+            font-size: 11px;
+            color: var(--sap-text-2);
+        }
+
+        .demand-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--sap-blue-2);
+        }
+
+        #d3-interaction-tip {
+            font-size: 11px;
+            color: var(--sap-text-2);
+            background: #f7fbff;
+            border: 1px dashed #bcd6ee;
+            border-radius: 8px;
+            padding: 6px 8px;
+        }
+
+        #d3-drilldown-panel {
+            border: 1px solid var(--sap-border);
+            border-radius: 8px;
+            background: #ffffff;
+            padding: 8px 10px;
+            display: grid;
+            gap: 7px;
+        }
+
+        #d3-drill-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        #d3-drill-title {
+            font-size: 13px;
+            color: var(--sap-blue-2);
+            font-weight: 700;
+        }
+
+        #d3-drill-badge {
+            font-size: 11px;
+            color: #0c4a6e;
+            background: #e6f4ff;
+            border: 1px solid #b8ddff;
+            border-radius: 999px;
+            padding: 2px 8px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        #d3-drill-subtitle {
+            font-size: 12px;
+            color: var(--sap-text-2);
+            line-height: 1.45;
+        }
+
+        #d3-drill-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+        }
+
+        .drill-metric-item {
+            border: 1px solid var(--sap-border);
+            border-radius: 6px;
+            background: #fbfdff;
+            padding: 5px 7px;
+            display: grid;
+            gap: 1px;
+        }
+
+        .drill-metric-label {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .drill-metric-value {
+            font-size: 12px;
+            color: #1e293b;
+            font-weight: 600;
+        }
+
+        #d3-drill-advice {
+            font-size: 11px;
+            color: #334155;
+            background: #f8fbff;
+            border-left: 3px solid #0a6ed1;
+            border-radius: 4px;
+            padding: 5px 7px;
+            line-height: 1.45;
+        }
+
+        .topo-node {
+            cursor: move;
+        }
+
+        .topo-link {
+            cursor: pointer;
+        }
+
+        .topo-link.is-active {
+            stroke-opacity: 1;
+            stroke-width: 7;
+        }
+
+        .topo-node .node-shape {
+            transition: stroke-width 0.15s ease, filter 0.15s ease;
+        }
+
+        .topo-node.is-active .node-shape {
+            stroke-width: 3.4;
+            filter: drop-shadow(0px 3px 4px rgba(8, 84, 160, 0.16));
+        }
+
+        #table-panel {
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        #table-body-wrap {
+            padding: 10px 12px 12px;
+            overflow-x: hidden;
+        }
+
+        #strategy-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            min-width: 0;
+        }
+
+        #thead-row-main {
+            background: #f4f9ff;
+        }
+
+        .table-header-cell {
+            font-size: 12px;
+            color: var(--sap-text-2);
+            padding: 9px 8px;
+            border: 1px solid var(--sap-border);
+            text-align: left;
+        }
+
+        .table-body-row {
+            background: #ffffff;
+        }
+
+        .table-body-row:nth-child(even) {
+            background: #fafcff;
+        }
+
+        .table-body-cell {
+            font-size: 12px;
+            color: var(--sap-text-1);
+            padding: 9px 8px;
+            border: 1px solid var(--sap-border);
+            vertical-align: top;
+            line-height: 1.45;
+            word-break: break-word;
+        }
+
+        .table-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            border-radius: 999px;
+            padding: 2px 7px;
+            border: 1px solid transparent;
+        }
+
+        #badge-winter {
+            background: #ebf5ff;
+            color: #00599c;
+            border-color: #b8dbff;
+        }
+
+        #badge-trans {
+            background: #eefcf2;
+            color: #106b32;
+            border-color: #b8e7c4;
+        }
+
+        #badge-summer {
+            background: #fff3eb;
+            color: #9b4500;
+            border-color: #ffd4b7;
+        }
+
+        #trend-panel,
+        #roi-panel {
+            min-width: 0;
+        }
+
+        .chart-body {
+            padding: 6px 8px 8px;
+        }
+
+        .chart-box {
+            width: 100%;
+            height: 270px;
+        }
+
+        #strategy-advisor-panel {
+            min-width: 0;
+        }
+
+        #advisor-body {
+            padding: 12px 14px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .advisor-section {
+            border: 1px solid var(--sap-border);
+            border-radius: 8px;
+            background: #ffffff;
+            padding: 10px 12px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .advisor-section-title {
+            font-size: 13px;
+            color: var(--sap-blue-2);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .advisor-icon {
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .icon-recommend {
+            background: #e6f4ff;
+            color: #0c4a6e;
+        }
+
+        .icon-warning {
+            background: #fff3eb;
+            color: #9b4500;
+        }
+
+        .icon-risk {
+            background: #fee;
+            color: #b91c1c;
+        }
+
+        .recommendation-item {
+            background: #f8fbff;
+            border-left: 3px solid #0a6ed1;
+            border-radius: 4px;
+            padding: 8px 10px;
+            display: grid;
+            gap: 4px;
+        }
+
+        .recommendation-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .recommendation-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .recommendation-priority {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 999px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .priority-high {
+            background: #fee;
+            color: #b91c1c;
+            border: 1px solid #fca5a5;
+        }
+
+        .priority-medium {
+            background: #fff3eb;
+            color: #9b4500;
+            border: 1px solid #ffd4b7;
+        }
+
+        .priority-low {
+            background: #eefcf2;
+            color: #106b32;
+            border: 1px solid #b8e7c4;
+        }
+
+        .recommendation-desc {
+            font-size: 11px;
+            color: #475569;
+            line-height: 1.5;
+        }
+
+        .recommendation-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 6px;
+            margin-top: 4px;
+        }
+
+        .metric-chip {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 4px 6px;
+            display: grid;
+            gap: 1px;
+        }
+
+        .metric-chip-label {
+            font-size: 10px;
+            color: #64748b;
+        }
+
+        .metric-chip-value {
+            font-size: 11px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .metric-positive {
+            color: #188918;
+        }
+
+        .metric-negative {
+            color: #b91c1c;
+        }
+
+        .constraint-alert {
+            background: #fef3c7;
+            border: 1px solid #fbbf24;
+            border-radius: 6px;
+            padding: 8px 10px;
+            display: flex;
+            align-items: start;
+            gap: 8px;
+        }
+
+        .constraint-alert-icon {
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .constraint-alert-content {
+            flex: 1;
+            display: grid;
+            gap: 3px;
+        }
+
+        .constraint-alert-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #92400e;
+        }
+
+        .constraint-alert-desc {
+            font-size: 11px;
+            color: #78350f;
+            line-height: 1.4;
+        }
+
+        #optimization-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .optimization-btn {
+            height: 32px;
+            padding: 0 14px;
+            border: 1px solid #0a6ed1;
+            border-radius: 6px;
+            background: #0a6ed1;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .optimization-btn:hover {
+            background: #0854a0;
+            border-color: #0854a0;
+        }
+
+        .optimization-btn-secondary {
+            background: #ffffff;
+            color: #0a6ed1;
+        }
+
+        .optimization-btn-secondary:hover {
+            background: #eaf3fc;
+        }
+
+        #footer-bar {
+            background: #ffffff;
+            border: 1px solid var(--sap-border);
+            border-radius: 10px;
+            padding: 8px 12px;
+        }
+
+        #footer-text {
+            font-size: 12px;
+            color: var(--sap-text-2);
+            line-height: 1.5;
+        }
+
+        /* 策略优化建议面板样式 */
+        #optimization-panel {
+            min-width: 0;
+        }
+
+        #opt-body {
+            padding: 12px 14px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .opt-section {
+            border: 1px solid var(--sap-border);
+            border-radius: 8px;
+            background: #ffffff;
+            padding: 10px 12px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .opt-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .opt-section-title {
+            font-size: 13px;
+            color: var(--sap-blue-2);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .opt-priority-badge {
+            font-size: 10px;
+            font-weight: 700;
+            border-radius: 999px;
+            padding: 2px 7px;
+            border: 1px solid transparent;
+        }
+
+        .priority-critical {
+            background: #fee;
+            color: #b91c1c;
+            border-color: #fca5a5;
+        }
+
+        .priority-high {
+            background: #fff7ed;
+            color: #c2410c;
+            border-color: #fed7aa;
+        }
+
+        .priority-medium {
+            background: #eff6ff;
+            color: #1e40af;
+            border-color: #bfdbfe;
+        }
+
+        .priority-low {
+            background: #f0fdf4;
+            color: #15803d;
+            border-color: #bbf7d0;
+        }
+
+        .opt-recommendation {
+            font-size: 12px;
+            color: var(--sap-text-1);
+            line-height: 1.6;
+            padding: 8px 10px;
+            background: #f8fbff;
+            border-left: 3px solid var(--sap-blue-1);
+            border-radius: 4px;
+        }
+
+        .opt-metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 6px;
+        }
+
+        .opt-metric-item {
+            border: 1px solid var(--sap-border);
+            border-radius: 6px;
+            background: #fbfdff;
+            padding: 6px 8px;
+            display: grid;
+            gap: 2px;
+        }
+
+        .opt-metric-label {
+            font-size: 10px;
+            color: #64748b;
+        }
+
+        .opt-metric-value {
+            font-size: 13px;
+            color: #1e293b;
+            font-weight: 600;
+        }
+
+        .opt-metric-value.positive {
+            color: var(--sap-ok);
+        }
+
+        .opt-metric-value.negative {
+            color: #dc2626;
+        }
+
+        .opt-metric-value.warning {
+            color: var(--sap-warn);
+        }
+
+        .opt-action-buttons {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .opt-action-btn {
+            height: 32px;
+            padding: 0 12px;
+            border: 1px solid var(--sap-blue-1);
+            border-radius: 6px;
+            background: var(--sap-blue-1);
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .opt-action-btn:hover {
+            background: var(--sap-blue-2);
+            border-color: var(--sap-blue-2);
+        }
+
+        .opt-action-btn.secondary {
+            background: #ffffff;
+            color: var(--sap-blue-1);
+        }
+
+        .opt-action-btn.secondary:hover {
+            background: var(--sap-blue-3);
+        }
+
+        .opt-constraint-list {
+            display: grid;
+            gap: 4px;
+        }
+
+        .opt-constraint-item {
+            font-size: 11px;
+            color: var(--sap-text-2);
+            padding: 4px 8px;
+            background: #fafcff;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .opt-constraint-icon {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .constraint-ok {
+            background: #bbf7d0;
+        }
+
+        .constraint-warning {
+            background: #fde68a;
+        }
+
+        .constraint-error {
+            background: #fca5a5;
+        }
+
+        .opt-timeline {
+            display: grid;
+            gap: 6px;
+        }
+
+        .opt-timeline-item {
+            display: grid;
+            grid-template-columns: 60px 1fr;
+            gap: 8px;
+            font-size: 11px;
+            padding: 6px 8px;
+            background: #fafcff;
+            border-radius: 4px;
+            border-left: 2px solid var(--sap-blue-1);
+        }
+
+        .opt-timeline-time {
+            color: var(--sap-blue-2);
+            font-weight: 600;
+        }
+
+        .opt-timeline-action {
+            color: var(--sap-text-1);
+        }
+
+        #opt-pareto-chart {
+            width: 100%;
+            height: 200px;
+            border: 1px solid var(--sap-border);
+            border-radius: 8px;
+            background: #fbfdff;
+        }
+
+        @keyframes fadeInPage {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes riseUp {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 1200px) {
+            #content-grid {
+                grid-template-columns: 1fr;
+            }
+
+            #kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            #header-panel {
+                grid-template-columns: 1fr;
+            }
+
+            #header-summary {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 760px) {
+            #page-root {
+                padding: 10px;
+            }
+
+            #header-summary {
+                grid-template-columns: 1fr;
+            }
+
+            #kpi-grid {
+                grid-template-columns: 1fr;
+            }
+
+            #d3-canvas {
+                height: 260px;
+            }
+
+            #d3-drill-metrics {
+                grid-template-columns: 1fr;
+            }
+
+            #d3-header {
+                grid-template-columns: 1fr;
+            }
+
+            #d3-time-controls {
+                justify-content: flex-start;
+            }
+
+            #d3-time-selected {
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body id="body-root">
+    <main id="page-root">
+        <header id="header-panel">
+            <div id="header-identity">
+                <div id="header-tag">FAB CUS SYSTEM</div>
+                <h1 id="header-title">高效制冷机房-A运行优化策略功能</h1>
+                <p id="header-subtitle">厂务部门 / 机械课 | 业务范围：CUS中温系统 + CUS低温系统 + 中温附带热回收系统</p>
+            </div>
+            <section id="header-summary">
+                <div id="summary-item-1" class="pill-item">
+                    <span id="summary-label-1" class="pill-label">控制对象</span>
+                    <span id="summary-value-1" class="pill-value">中温主机群 + 低温主机群</span>
+                </div>
+                <div id="summary-item-2" class="pill-item">
+                    <span id="summary-label-2" class="pill-label">策略执行窗口</span>
+                    <span id="summary-value-2" class="pill-value">5 min 滚动优化</span>
+                </div>
+                <div id="summary-item-3" class="pill-item">
+                    <span id="summary-label-3" class="pill-label">优化目标</span>
+                    <span id="summary-value-3" class="pill-value">总功率最低 + 稳定供冷</span>
+                </div>
+            </section>
+        </header>
+
+        <section id="kpi-panel" class="panel-card">
+            <h2 id="kpi-title">关键运行指标（仿真）</h2>
+            <div id="kpi-grid">
+                <article id="kpi-item-1" class="kpi-item">
+                    <span id="kpi-label-1" class="kpi-label">小时节电量</span>
+                    <strong id="kpi-value-power" class="kpi-value">312 kWh</strong>
+                    <span id="kpi-desc-1" class="kpi-desc">较基准工况下降 28.6%</span>
+                </article>
+                <article id="kpi-item-2" class="kpi-item">
+                    <span id="kpi-label-2" class="kpi-label">综合EER提升</span>
+                    <strong id="kpi-value-eer" class="kpi-value">+0.74</strong>
+                    <span id="kpi-desc-2" class="kpi-desc">中低温协同负载分配优化</span>
+                </article>
+                <article id="kpi-item-3" class="kpi-item">
+                    <span id="kpi-label-3" class="kpi-label">热回收即时价值</span>
+                    <strong id="kpi-value-recovery" class="kpi-value">¥1,860/h</strong>
+                    <span id="kpi-desc-3" class="kpi-desc">中温系统余热回收供工艺热水</span>
+                </article>
+                <article id="kpi-item-4" class="kpi-item">
+                    <span id="kpi-label-4" class="kpi-label">温控稳定率</span>
+                    <strong id="kpi-value-stability" class="kpi-value">99.2%</strong>
+                    <span id="kpi-desc-4" class="kpi-desc">满足关键机台供冷波动阈值</span>
+                </article>
+            </div>
+        </section>
+
+        <section id="content-grid">
+            <section id="left-column">
+                <article id="d3-panel" class="panel-card">
+                    <header id="d3-header" class="panel-head">
+                        <div id="d3-header-text">
+                            <h3 id="d3-title" class="panel-title">CUS系统能量路径拓扑（D3）</h3>
+                        </div>
+                        <div id="d3-time-controls">
+                            <button id="d3-time-today" class="d3-time-btn" type="button">今日</button>
+                            <button id="d3-time-24h" class="d3-time-btn is-active" type="button">近24小时</button>
+                            <input id="d3-time-picker" type="datetime-local" />
+                            <button id="d3-time-apply" type="button">确认</button>
+                            <span id="d3-time-selected">已选时间：近24小时</span>
+                        </div>
+                    </header>
+                    <div id="d3-body">
+                        <div id="d3-legend">
+                            <span id="legend-item-1" class="legend-unit"><i id="legend-dot-1" class="legend-dot" style="background:#39a1ff;"></i>中温系统</span>
+                            <span id="legend-item-2" class="legend-unit"><i id="legend-dot-2" class="legend-dot" style="background:#1864ab;"></i>低温系统</span>
+                            <span id="legend-item-3" class="legend-unit"><i id="legend-dot-3" class="legend-dot" style="background:#ff7a45;"></i>热回收系统</span>
+                            <span id="legend-item-4" class="legend-unit"><i id="legend-dot-4" class="legend-dot" style="background:#115eab;"></i>工艺支路（PCW）</span>
+                            <span id="legend-item-5" class="legend-unit"><i id="legend-dot-5" class="legend-dot" style="background:#1d4ed8;"></i>空调支路（MAU/一般空调）</span>
+                        </div>
+                        <div id="d3-demand-strip">
+                            <div id="demand-chip-pcw" class="demand-chip">
+                                <span id="demand-label-pcw" class="demand-label">工艺支路 PCW 需冷量</span>
+                                <span id="demand-value-pcw" class="demand-value">980 kW</span>
+                            </div>
+                            <div id="demand-chip-mau" class="demand-chip">
+                                <span id="demand-label-mau" class="demand-label">空调支路 MAU 需冷量</span>
+                                <span id="demand-value-mau" class="demand-value">620 kW</span>
+                            </div>
+                            <div id="demand-chip-ac" class="demand-chip">
+                                <span id="demand-label-ac" class="demand-label">空调支路一般空调需冷量</span>
+                                <span id="demand-value-ac" class="demand-value">320 kW</span>
+                            </div>
+                        </div>
+                        <div id="d3-canvas-wrap">
+                            <svg id="d3-canvas" viewBox="0 0 960 320" preserveAspectRatio="xMidYMid meet"></svg>
+                        </div>
+                        <div id="d3-interaction-tip">操作说明：拖拽节点可调整布局；点击节点或连线可下钻查看当前对象运行信息与策略建议。</div>
+                        <section id="d3-drilldown-panel">
+                            <div id="d3-drill-head">
+                                <h4 id="d3-drill-title">下钻对象：CUS一次冷冻水总管</h4>
+                                <span id="d3-drill-badge">节点</span>
+                            </div>
+                            <p id="d3-drill-subtitle">总管负责承接中温与低温冷量并分发至工艺/空调两条二级支路，是策略执行的核心控制点。</p>
+                            <div id="d3-drill-metrics">
+                                <div id="d3-drill-metric-1" class="drill-metric-item">
+                                    <span id="d3-drill-metric-label-1" class="drill-metric-label">当前量测</span>
+                                    <span id="d3-drill-metric-value-1" class="drill-metric-value">1,920 kW</span>
+                                </div>
+                                <div id="d3-drill-metric-2" class="drill-metric-item">
+                                    <span id="d3-drill-metric-label-2" class="drill-metric-label">供回水温度</span>
+                                    <span id="d3-drill-metric-value-2" class="drill-metric-value">7.2°C / 12.8°C</span>
+                                </div>
+                                <div id="d3-drill-metric-3" class="drill-metric-item">
+                                    <span id="d3-drill-metric-label-3" class="drill-metric-label">分配结构</span>
+                                    <span id="d3-drill-metric-value-3" class="drill-metric-value">工艺 51% / 空调 49%</span>
+                                </div>
+                                <div id="d3-drill-metric-4" class="drill-metric-item">
+                                    <span id="d3-drill-metric-label-4" class="drill-metric-label">控制状态</span>
+                                    <span id="d3-drill-metric-value-4" class="drill-metric-value">5 min 滚动优化</span>
+                                </div>
+                            </div>
+                            <p id="d3-drill-advice">建议：优先维持总管压差与供水温度稳定，避免末端流量波动导致机台侧瞬时偏差。</p>
+                        </section>
+                    </div>
+                </article>
+
+                <article id="table-panel" class="panel-card">
+                    <header id="table-header" class="panel-head">
+                        <h3 id="table-title" class="panel-title">运行优化策略包</h3>
+                        <p id="table-note" class="panel-note">按季节负荷与湿球条件切换，保障供冷稳定与节电收益</p>
+                    </header>
+                    <div id="table-body-wrap">
+                        <table id="strategy-table">
+                            <thead id="table-head-main">
+                                <tr id="thead-row-main">
+                                    <th id="th-code" class="table-header-cell">策略包代号</th>
+                                    <th id="th-desc" class="table-header-cell">策略描述</th>
+                                    <th id="th-time" class="table-header-cell">适用时段</th>
+                                    <th id="th-roi" class="table-header-cell">模拟节电率</th>
+                                    <th id="th-saving" class="table-header-cell">模拟每小时节电量</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body-main">
+                                <tr id="row-winter" class="table-body-row">
+                                    <td id="row-winter-code" class="table-body-cell"><span id="badge-winter" class="table-badge">PKG-WINTER</span></td>
+                                    <td id="row-winter-desc" class="table-body-cell">全自然冷却策略：关闭冷机，利用板式换热器引入室外冷风，仅运行冷却塔与水泵。</td>
+                                    <td id="row-winter-time" class="table-body-cell">12月 - 2月</td>
+                                    <td id="row-winter-roi" class="table-body-cell">70% - 85%</td>
+                                    <td id="row-winter-saving" class="table-body-cell">280 - 340 kWh</td>
+                                </tr>
+                                <tr id="row-trans" class="table-body-row">
+                                    <td id="row-trans-code" class="table-body-cell"><span id="badge-trans" class="table-badge">PKG-TRANS</span></td>
+                                    <td id="row-trans-desc" class="table-body-cell">部分自然冷却策略：室外湿球温度 &lt; 15°C，冷机变频低负载运行，配合湿帘或预冷。</td>
+                                    <td id="row-trans-time" class="table-body-cell">3-5月, 10-11月</td>
+                                    <td id="row-trans-roi" class="table-body-cell">30% - 50%</td>
+                                    <td id="row-trans-saving" class="table-body-cell">120 - 200 kWh</td>
+                                </tr>
+                                <tr id="row-summer" class="table-body-row">
+                                    <td id="row-summer-code" class="table-body-cell"><span id="badge-summer" class="table-badge">PKG-SUMMER</span></td>
+                                    <td id="row-summer-desc" class="table-body-cell">动态负载优化策略：高温季优化冷凝水温（降低1-2°C）与冷机轮巡控制，压缩峰值功率。</td>
+                                    <td id="row-summer-time" class="table-body-cell">6月 - 9月</td>
+                                    <td id="row-summer-roi" class="table-body-cell">5% - 12%</td>
+                                    <td id="row-summer-saving" class="table-body-cell">20 - 48 kWh</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </article>
+            </section>
+
+            <section id="right-column">
+                <article id="trend-panel" class="panel-card">
+                    <header id="trend-header" class="panel-head">
+                        <h3 id="trend-title" class="panel-title">日内负荷与节电趋势（Highcharts）</h3>
+                        <p id="trend-note" class="panel-note">中低温负荷随时段变化，策略切换后总功率呈连续下降趋势</p>
+                    </header>
+                    <div id="trend-body" class="chart-body">
+                        <div id="trend-chart" class="chart-box"></div>
+                    </div>
+                </article>
+
+                <article id="roi-panel" class="panel-card">
+                    <header id="roi-header" class="panel-head">
+                        <h3 id="roi-title" class="panel-title">策略包ROI对比（Highcharts）</h3>
+                        <p id="roi-note" class="panel-note">根据季节策略包切换，展示模拟节电率与小时节电量区间</p>
+                    </header>
+                    <div id="roi-body" class="chart-body">
+                        <div id="roi-chart" class="chart-box"></div>
+                    </div>
+                </article>
+            </section>
+        </section>
+
+        <footer id="footer-bar">
+            <p id="footer-text">说明：该页面用于CUS系统运行优化策略评估，不直接替代DCS联锁控制；实施前需完成工况仿真、机台供冷风险评审与厂务变更签核。</p>
+        </footer>
+    </main>
+
+    <script id="script-main">
+        window.addEventListener("DOMContentLoaded", function initDashboard() {
+            initD3TimeControls();
+            renderAllByFilter();
+        });
+
+        function renderAllByFilter() {
+            const scenario = resolveTopologyScenario(window.cusTopologyFilter || { mode: "24h", anchor: null });
+            renderKpiCards(scenario);
+            renderD3Topology(scenario);
+            renderTrendChart(scenario);
+            renderRoiChart(scenario);
+        }
+
+        function renderKpiCards(scenario) {
+            const kpiPower = document.getElementById("kpi-value-power");
+            const kpiEer = document.getElementById("kpi-value-eer");
+            const kpiRecovery = document.getElementById("kpi-value-recovery");
+            const kpiStability = document.getElementById("kpi-value-stability");
+            const kpiDesc1 = document.getElementById("kpi-desc-1");
+            const kpiDesc2 = document.getElementById("kpi-desc-2");
+            const kpiDesc3 = document.getElementById("kpi-desc-3");
+            const kpiDesc4 = document.getElementById("kpi-desc-4");
+            const hourlySaving = Math.round(scenario.totalLoad * 0.162);
+            const savingRate = (hourlySaving / Math.max(scenario.totalLoad + hourlySaving, 1)) * 100;
+            const eerDelta = (
+                0.5 +
+                scenario.processRatio * 0.42 +
+                (scenario.mode === "24h" ? 0.08 : scenario.mode === "today" ? 0.12 : 0.05)
+            );
+            const stability = clampNumber(
+                98.7 + scenario.processRatio * 0.6 + (scenario.mode === "24h" ? 0.1 : 0),
+                98.7,
+                99.6
+            );
+
+            if (kpiPower) {
+                kpiPower.textContent = hourlySaving.toLocaleString() + " kWh";
+            }
+            if (kpiEer) {
+                kpiEer.textContent = "+" + eerDelta.toFixed(2);
+            }
+            if (kpiRecovery) {
+                kpiRecovery.textContent = "¥" + scenario.heatCostPerHour.toLocaleString() + "/h";
+            }
+            if (kpiStability) {
+                kpiStability.textContent = stability.toFixed(1) + "%";
+            }
+            if (kpiDesc1) {
+                kpiDesc1.textContent = "较基准工况下降 " + savingRate.toFixed(1) + "%";
+            }
+            if (kpiDesc2) {
+                kpiDesc2.textContent = "中低温协同负载分配优化";
+            }
+            if (kpiDesc3) {
+                kpiDesc3.textContent = "中温系统余热回收供工艺热水";
+            }
+            if (kpiDesc4) {
+                kpiDesc4.textContent = "按所选时段滚动仿真计算";
+            }
+        }
+
+        function initD3TimeControls() {
+            const btnToday = document.getElementById("d3-time-today");
+            const btn24h = document.getElementById("d3-time-24h");
+            const timePicker = document.getElementById("d3-time-picker");
+            const applyBtn = document.getElementById("d3-time-apply");
+            const selectedText = document.getElementById("d3-time-selected");
+            const state = { mode: "24h", anchor: null };
+            window.cusTopologyFilter = { mode: "24h", anchor: null };
+
+            setPickerToNow();
+            syncButtonState();
+            updateSelectedText();
+
+            btnToday.addEventListener("click", function onClickToday() {
+                state.mode = "today";
+                state.anchor = null;
+                setPickerToNow();
+                syncButtonState();
+                updateSelectedText();
+            });
+
+            btn24h.addEventListener("click", function onClick24h() {
+                state.mode = "24h";
+                state.anchor = null;
+                setPickerToNow();
+                syncButtonState();
+                updateSelectedText();
+            });
+
+            timePicker.addEventListener("change", function onTimePickerChange() {
+                state.mode = "custom";
+                state.anchor = timePicker.value || null;
+                syncButtonState();
+                updateSelectedText();
+            });
+
+            applyBtn.addEventListener("click", function onClickApply() {
+                if (state.mode === "custom") {
+                    state.anchor = timePicker.value || toLocalDateTimeValue(new Date());
+                    if (!timePicker.value) {
+                        timePicker.value = state.anchor;
+                    }
+                } else {
+                    state.anchor = null;
+                }
+
+                if (state.mode === "custom" && !state.anchor) {
+                    state.mode = "today";
+                    state.anchor = null;
+                    setPickerToNow();
+                }
+
+                window.cusTopologyFilter = {
+                    mode: state.mode,
+                    anchor: state.anchor
+                };
+                syncButtonState();
+                updateSelectedText();
+                renderAllByFilter();
+            });
+
+            function syncButtonState() {
+                btnToday.classList.toggle("is-active", state.mode === "today");
+                btn24h.classList.toggle("is-active", state.mode === "24h");
+            }
+
+            function updateSelectedText() {
+                const now = new Date();
+                if (state.mode === "today") {
+                    selectedText.textContent = "已选时间：今日 00:00 - 当前";
+                    return;
+                }
+                if (state.mode === "24h") {
+                    selectedText.textContent = "已选时间：近24小时（" + formatDateTime(new Date(now.getTime() - 24 * 60 * 60 * 1000)) + " - " + formatDateTime(now) + "）";
+                    return;
+                }
+                const customDate = state.anchor ? new Date(state.anchor) : new Date(timePicker.value || now);
+                selectedText.textContent = "已选时间：自定义（" + formatDateTime(customDate) + " - " + formatDateTime(now) + "）";
+            }
+
+            function setPickerToNow() {
+                timePicker.value = toLocalDateTimeValue(new Date());
+            }
+
+            function toLocalDateTimeValue(dateObject) {
+                const year = dateObject.getFullYear();
+                const month = String(dateObject.getMonth() + 1).padStart(2, "0");
+                const day = String(dateObject.getDate()).padStart(2, "0");
+                const hour = String(dateObject.getHours()).padStart(2, "0");
+                const minute = String(dateObject.getMinutes()).padStart(2, "0");
+                return year + "-" + month + "-" + day + "T" + hour + ":" + minute;
+            }
+
+            function formatDateTime(dateObject) {
+                const month = String(dateObject.getMonth() + 1).padStart(2, "0");
+                const day = String(dateObject.getDate()).padStart(2, "0");
+                const hour = String(dateObject.getHours()).padStart(2, "0");
+                const minute = String(dateObject.getMinutes()).padStart(2, "0");
+                return month + "-" + day + " " + hour + ":" + minute;
+            }
+        }
+
+        function renderD3Topology(scenarioInput) {
+            const svg = d3.select("#d3-canvas");
+            svg.selectAll("*").remove();
+            const scenario = scenarioInput || resolveTopologyScenario(window.cusTopologyFilter || { mode: "24h", anchor: null });
+
+            const nodes = [
+                {
+                    id: "node-0",
+                    name: "中温冷站",
+                    x: 110,
+                    y: 84,
+                    color: "#39a1ff",
+                    value: "1,120 kW",
+                    w: 148,
+                    detail: {
+                        subtitle: "中温机组承担基础冷量并支撑热回收的上游热源。",
+                        metrics: [
+                            ["当前负荷", "1,120 kW"],
+                            ["供回水温度", "8.0°C / 13.4°C"],
+                            ["主机台数", "3 台在线"],
+                            ["运行策略", "变频+负荷跟踪"]
+                        ],
+                        advice: "建议：中温机组优先保持在高效区（65%~85%负荷），为热回收留出稳定温差。"
+                    }
+                },
+                {
+                    id: "node-1",
+                    name: "低温冷站",
+                    x: 110,
+                    y: 246,
+                    color: "#1864ab",
+                    value: "800 kW",
+                    w: 148,
+                    detail: {
+                        subtitle: "低温机组补偿深冷需求，保障工艺敏感机台温控。",
+                        metrics: [
+                            ["当前负荷", "800 kW"],
+                            ["供回水温度", "5.5°C / 10.9°C"],
+                            ["主机台数", "2 台在线"],
+                            ["运行策略", "低温优先级补偿"]
+                        ],
+                        advice: "建议：避免低温系统长时间高负荷运行，可通过夜间预冷削峰。"
+                    }
+                },
+                {
+                    id: "node-2",
+                    name: "CUS一次冷冻水总管",
+                    x: 318,
+                    y: 166,
+                    color: "#0a6ed1",
+                    value: "1,920 kW",
+                    w: 166,
+                    detail: {
+                        subtitle: "总管负责承接中温与低温冷量，并按工艺/空调支路动态分配。",
+                        metrics: [
+                            ["当前量测", "1,920 kW"],
+                            ["供回水温度", "7.2°C / 12.8°C"],
+                            ["分配结构", "工艺 51% / 空调 49%"],
+                            ["控制状态", "5 min 滚动优化"]
+                        ],
+                        advice: "建议：维持总管压差稳定，优先保证末端流量与温度波动在阈值内。"
+                    }
+                },
+                {
+                    id: "node-3",
+                    name: "工艺冷却支路",
+                    x: 540,
+                    y: 118,
+                    color: "#115eab",
+                    value: "980 kW",
+                    w: 158,
+                    detail: {
+                        subtitle: "工艺支路专供机台侧工艺冷却，优先级高于舒适性空调。",
+                        metrics: [
+                            ["支路冷量", "980 kW"],
+                            ["下游对象", "PCW 末端"],
+                            ["目标温度", "22°C ± 0.5°C（机台）"],
+                            ["阀位状态", "分段阀 63% 开度"]
+                        ],
+                        advice: "建议：工艺支路应优先锁定供冷，禁止被空调波动反向挤占。"
+                    }
+                },
+                {
+                    id: "node-4",
+                    name: "空调冷却支路",
+                    x: 540,
+                    y: 220,
+                    color: "#1d4ed8",
+                    value: "940 kW",
+                    w: 158,
+                    detail: {
+                        subtitle: "空调支路为 MAU 与一般空调并联供冷，执行环境负荷调节。",
+                        metrics: [
+                            ["支路冷量", "940 kW"],
+                            ["MAU分配", "620 kW"],
+                            ["一般空调分配", "320 kW"],
+                            ["控制模式", "静压+露点双约束"]
+                        ],
+                        advice: "建议：空调支路可作为削峰缓冲侧，配合送风温度重置控制节电。"
+                    }
+                },
+                {
+                    id: "node-5",
+                    name: "PCW末端需冷量",
+                    x: 828,
+                    y: 118,
+                    color: "#115eab",
+                    value: "980 kW (100%)",
+                    w: 170,
+                    detail: {
+                        subtitle: "PCW 为机台工艺冷却末端，冷量来自工艺支路。",
+                        metrics: [
+                            ["末端需冷量", "980 kW"],
+                            ["冷量来源", "工艺支路 100%"],
+                            ["关键约束", "机台进水温稳定"],
+                            ["风险等级", "高（工艺敏感）"]
+                        ],
+                        advice: "建议：对 PCW 末端实施优先保障策略，必要时触发空调侧降载。"
+                    }
+                },
+                {
+                    id: "node-6",
+                    name: "MAU末端需冷量",
+                    x: 828,
+                    y: 194,
+                    color: "#1d4ed8",
+                    value: "620 kW (66.0%)",
+                    w: 170,
+                    detail: {
+                        subtitle: "MAU 是洁净环境主要冷负荷对象，受外气与湿度影响显著。",
+                        metrics: [
+                            ["末端需冷量", "620 kW"],
+                            ["空调支路占比", "66.0%"],
+                            ["露点目标", "11.5°C"],
+                            ["控制模式", "送风温湿联控"]
+                        ],
+                        advice: "建议：湿球温度偏高时优先稳露点，再做送风温度优化。"
+                    }
+                },
+                {
+                    id: "node-7",
+                    name: "一般空调末端需冷量",
+                    x: 828,
+                    y: 272,
+                    color: "#2563eb",
+                    value: "320 kW (34.0%)",
+                    w: 178,
+                    detail: {
+                        subtitle: "一般空调用于非工艺关键区域舒适性与辅助环境控制。",
+                        metrics: [
+                            ["末端需冷量", "320 kW"],
+                            ["空调支路占比", "34.0%"],
+                            ["温控目标", "24°C ± 1°C"],
+                            ["策略优先级", "低于 MAU/PCW"]
+                        ],
+                        advice: "建议：一般空调作为可调负荷，优先承担削峰与需求响应动作。"
+                    }
+                },
+                {
+                    id: "node-8",
+                    name: "中温热回收系统",
+                    x: 540,
+                    y: 42,
+                    color: "#ff7a45",
+                    value: "580 kWth",
+                    w: 158,
+                    detail: {
+                        subtitle: "中温侧回收冷凝热并转换为可利用热水，提升系统综合能效。",
+                        metrics: [
+                            ["回收热量", "580 kWth"],
+                            ["热源侧", "中温冷站冷凝段"],
+                            ["换热效率", "89%"],
+                            ["经济价值", "¥1,860/h"]
+                        ],
+                        advice: "建议：维持换热器压差与污垢系数健康，保障回收效率持续稳定。"
+                    }
+                },
+                {
+                    id: "node-9",
+                    name: "热水利用侧",
+                    x: 828,
+                    y: 42,
+                    color: "#ea580c",
+                    value: "520 kWth",
+                    w: 160,
+                    detail: {
+                        subtitle: "利用侧承接热回收热量，供工艺热水或生活热水系统。",
+                        metrics: [
+                            ["利用热量", "520 kWth"],
+                            ["热水供温", "52°C"],
+                            ["替代蒸汽", "约 74 kg/h"],
+                            ["当班节费", "¥1,420/h"]
+                        ],
+                        advice: "建议：在负荷低谷保留最小循环流量，避免回收侧启停震荡。"
+                    }
+                }
+            ];
+
+            const links = [
+                {
+                    id: "link-0",
+                    source: "node-0",
+                    target: "node-2",
+                    color: "#39a1ff",
+                    width: 5,
+                    label: "中温供冷 1,120 kW",
+                    detail: {
+                        subtitle: "中温冷站向 CUS 总管输送基础冷量。",
+                        metrics: [
+                            ["流向", "中温冷站 -> CUS总管"],
+                            ["当前冷量", "1,120 kW"],
+                            ["估算流量", "173 m3/h"],
+                            ["温差", "5.4°C"]
+                        ],
+                        advice: "建议：关注中温回水温升，避免热回收侧过度抽热。"
+                    }
+                },
+                {
+                    id: "link-1",
+                    source: "node-1",
+                    target: "node-2",
+                    color: "#1864ab",
+                    width: 5,
+                    label: "低温供冷 800 kW",
+                    detail: {
+                        subtitle: "低温冷站向总管补偿深冷需求。",
+                        metrics: [
+                            ["流向", "低温冷站 -> CUS总管"],
+                            ["当前冷量", "800 kW"],
+                            ["估算流量", "127 m3/h"],
+                            ["温差", "5.4°C"]
+                        ],
+                        advice: "建议：低温段优先处理关键机台波动，避免不必要的全局抬负荷。"
+                    }
+                },
+                {
+                    id: "link-2",
+                    source: "node-2",
+                    target: "node-3",
+                    color: "#115eab",
+                    width: 6,
+                    label: "工艺支路 980 kW",
+                    detail: {
+                        subtitle: "CUS 总管分配至工艺支路的冷量。",
+                        metrics: [
+                            ["流向", "CUS总管 -> 工艺支路"],
+                            ["分配冷量", "980 kW"],
+                            ["分配占比", "51.0%"],
+                            ["优先级", "最高"]
+                        ],
+                        advice: "建议：工艺支路阀门应限幅控制，避免快速调节冲击机台。"
+                    }
+                },
+                {
+                    id: "link-3",
+                    source: "node-2",
+                    target: "node-4",
+                    color: "#1d4ed8",
+                    width: 6,
+                    label: "空调支路 940 kW",
+                    detail: {
+                        subtitle: "CUS 总管分配至空调支路的冷量。",
+                        metrics: [
+                            ["流向", "CUS总管 -> 空调支路"],
+                            ["分配冷量", "940 kW"],
+                            ["分配占比", "49.0%"],
+                            ["优先级", "次于工艺"]
+                        ],
+                        advice: "建议：可在不影响洁净区指标前提下执行空调侧柔性削峰。"
+                    }
+                },
+                {
+                    id: "link-4",
+                    source: "node-3",
+                    target: "node-5",
+                    color: "#115eab",
+                    width: 5,
+                    label: "PCW 980 kW",
+                    detail: {
+                        subtitle: "工艺支路全部冷量供给 PCW 末端。",
+                        metrics: [
+                            ["流向", "工艺支路 -> PCW末端"],
+                            ["末端冷量", "980 kW"],
+                            ["占支路比例", "100%"],
+                            ["工艺风险", "高"]
+                        ],
+                        advice: "建议：PCW 侧建议配置温度速率告警，防止瞬态偏移。"
+                    }
+                },
+                {
+                    id: "link-5",
+                    source: "node-4",
+                    target: "node-6",
+                    color: "#1d4ed8",
+                    width: 5,
+                    label: "MAU 620 kW",
+                    detail: {
+                        subtitle: "空调支路向 MAU 末端分配冷量。",
+                        metrics: [
+                            ["流向", "空调支路 -> MAU"],
+                            ["末端冷量", "620 kW"],
+                            ["占支路比例", "66.0%"],
+                            ["主要约束", "露点/湿度"]
+                        ],
+                        advice: "建议：优先锁定露点控制，再优化风量和送风温度。"
+                    }
+                },
+                {
+                    id: "link-6",
+                    source: "node-4",
+                    target: "node-7",
+                    color: "#2563eb",
+                    width: 4,
+                    label: "一般空调 320 kW",
+                    detail: {
+                        subtitle: "空调支路向一般空调区域分配冷量。",
+                        metrics: [
+                            ["流向", "空调支路 -> 一般空调"],
+                            ["末端冷量", "320 kW"],
+                            ["占支路比例", "34.0%"],
+                            ["调节属性", "柔性可调负荷"]
+                        ],
+                        advice: "建议：该段优先用于需求响应和电价高峰期的削峰控制。"
+                    }
+                },
+                {
+                    id: "link-7",
+                    source: "node-0",
+                    target: "node-8",
+                    color: "#ff7a45",
+                    width: 4,
+                    label: "中温侧冷凝热回收 580 kWth",
+                    detail: {
+                        subtitle: "热回收链路由中温侧冷凝热引出。",
+                        metrics: [
+                            ["流向", "中温冷站 -> 热回收系统"],
+                            ["热量", "580 kWth"],
+                            ["换热效率", "89%"],
+                            ["状态", "连续运行"]
+                        ],
+                        advice: "建议：换热器压差偏高时需安排在线清洗，防止效率下滑。"
+                    }
+                },
+                {
+                    id: "link-8",
+                    source: "node-8",
+                    target: "node-9",
+                    color: "#ea580c",
+                    width: 4,
+                    label: "热水供给 520 kWth",
+                    detail: {
+                        subtitle: "热回收系统向热水利用侧供热。",
+                        metrics: [
+                            ["流向", "热回收 -> 热水利用侧"],
+                            ["供热量", "520 kWth"],
+                            ["供水温度", "52°C"],
+                            ["替代效果", "减少锅炉/蒸汽负荷"]
+                        ],
+                        advice: "建议：优先保持热利用侧连续流量，避免回收系统频繁启停。"
+                    }
+                }
+            ];
+
+            applyScenarioToTopology(nodes, links, scenario);
+            updateDemandChips(scenario);
+
+            const defs = svg.append("defs").attr("id", "svg-defs-main");
+            defs
+                .append("marker")
+                .attr("id", "svg-arrow-marker")
+                .attr("viewBox", "0 0 12 12")
+                .attr("refX", 11)
+                .attr("refY", 6)
+                .attr("markerWidth", 9)
+                .attr("markerHeight", 9)
+                .attr("orient", "auto-start-reverse")
+                .append("path")
+                .attr("id", "svg-arrow-path")
+                .attr("d", "M 0 0 L 12 6 L 0 12 L 3.5 6 z")
+                .attr("fill", "context-stroke");
+
+            const nodeById = new Map(nodes.map(function mapNode(node) {
+                return [node.id, node];
+            }));
+
+            const linkGroup = svg.append("g").attr("id", "svg-link-group");
+            const nodeGroup = svg.append("g").attr("id", "svg-node-group");
+            const textGroup = svg.append("g").attr("id", "svg-text-group");
+
+            const linkLines = linkGroup
+                .selectAll("line")
+                .data(links)
+                .enter()
+                .append("line")
+                .attr("id", function setLinkId(link) { return link.id; })
+                .attr("class", "topo-link")
+                .attr("stroke", function setLinkColor(link) { return link.color; })
+                .attr("stroke-width", function setLinkWidth(link) { return link.width; })
+                .attr("stroke-linecap", "round")
+                .attr("marker-end", "url(#svg-arrow-marker)")
+                .attr("opacity", 0.82)
+                .on("click", function onLinkClick(event, link) {
+                    event.stopPropagation();
+                    setActiveState(null, link.id);
+                    updateDrilldown("link", link);
+                });
+
+            const linkLabels = textGroup
+                .selectAll("text.link-label")
+                .data(links)
+                .enter()
+                .append("text")
+                .attr("id", function setLabelId(link, index) { return "link-label-" + index; })
+                .attr("class", "link-label")
+                .attr("fill", "#475569")
+                .attr("font-size", 11)
+                .attr("text-anchor", "middle")
+                .text(function setLabelText(link) { return link.label; });
+
+            const nodeContainer = nodeGroup
+                .selectAll("g.topo-node")
+                .data(nodes)
+                .enter()
+                .append("g")
+                .attr("id", function setGroupId(node) { return node.id + "-group"; })
+                .attr("class", "topo-node")
+                .on("click", function onNodeClick(event, node) {
+                    event.stopPropagation();
+                    setActiveState(node.id, null);
+                    updateDrilldown("node", node);
+                });
+
+            nodeContainer
+                .append("rect")
+                .attr("id", function setNodeId(node) { return node.id; })
+                .attr("class", "node-shape")
+                .attr("rx", 10)
+                .attr("fill", "#ffffff")
+                .attr("stroke", function setNodeColor(node) { return node.color; })
+                .attr("stroke-width", 2.3)
+                .attr("filter", "drop-shadow(0px 2px 2px rgba(8,84,160,0.08))");
+
+            nodeContainer
+                .append("text")
+                .attr("id", function setNodeNameId(node, index) { return "node-name-" + index; })
+                .attr("class", "node-title")
+                .attr("fill", "#1b2a41")
+                .attr("font-size", 13)
+                .attr("font-weight", 700)
+                .attr("text-anchor", "middle")
+                .text(function setNodeName(node) { return node.name; });
+
+            nodeContainer
+                .append("text")
+                .attr("id", function setNodeValueId(node, index) { return "node-value-" + index; })
+                .attr("class", "node-value")
+                .attr("font-size", 12)
+                .attr("font-weight", 600)
+                .attr("text-anchor", "middle")
+                .attr("fill", function setNodeValueColor(node) { return node.color; })
+                .text(function setNodeValue(node) { return node.value; });
+
+            const dragBehavior = d3.drag()
+                .on("start", function onDragStart(event) {
+                    event.sourceEvent.stopPropagation();
+                })
+                .on("drag", function onDrag(event, node) {
+                    node.x = clamp(event.x, 90, 870);
+                    node.y = clamp(event.y, 34, 286);
+                    setActiveState(node.id, null);
+                    updatePositions();
+                })
+                .on("end", function onDragEnd(event, node) {
+                    updateDrilldown("node", node);
+                });
+
+            nodeContainer.call(dragBehavior);
+            svg.on("click", function onCanvasClick() {
+                setActiveState(null, null);
+                const mainNode = nodeById.get("node-2");
+                if (mainNode) {
+                    updateDrilldown("node", mainNode);
+                }
+            });
+
+            updatePositions();
+            setActiveState("node-2", null);
+            updateDrilldown("node", nodeById.get("node-2"));
+
+            function updatePositions() {
+                linkLines
+                    .attr("x1", function setX1(link) {
+                        const sourceNode = nodeById.get(link.source);
+                        const targetNode = nodeById.get(link.target);
+                        return getRectEdgePoint(sourceNode, targetNode, 2).x;
+                    })
+                    .attr("y1", function setY1(link) {
+                        const sourceNode = nodeById.get(link.source);
+                        const targetNode = nodeById.get(link.target);
+                        return getRectEdgePoint(sourceNode, targetNode, 2).y;
+                    })
+                    .attr("x2", function setX2(link) {
+                        const sourceNode = nodeById.get(link.source);
+                        const targetNode = nodeById.get(link.target);
+                        return getRectEdgePoint(targetNode, sourceNode, 9).x;
+                    })
+                    .attr("y2", function setY2(link) {
+                        const sourceNode = nodeById.get(link.source);
+                        const targetNode = nodeById.get(link.target);
+                        return getRectEdgePoint(targetNode, sourceNode, 9).y;
+                    });
+
+                linkLabels
+                    .attr("x", function setLabelX(link) {
+                        const sourceNode = nodeById.get(link.source);
+                        const targetNode = nodeById.get(link.target);
+                        const start = getRectEdgePoint(sourceNode, targetNode, 2);
+                        const end = getRectEdgePoint(targetNode, sourceNode, 9);
+                        return ((start.x + end.x) / 2) + (link.labelDx || 0);
+                    })
+                    .attr("y", function setLabelY(link) {
+                        const sourceNode = nodeById.get(link.source);
+                        const targetNode = nodeById.get(link.target);
+                        const start = getRectEdgePoint(sourceNode, targetNode, 2);
+                        const end = getRectEdgePoint(targetNode, sourceNode, 9);
+                        return ((start.y + end.y) / 2) + (link.labelDy || -8);
+                    });
+
+                nodeContainer.attr("transform", function moveGroup(node) {
+                    return "translate(" + node.x + "," + node.y + ")";
+                });
+
+                nodeContainer
+                    .selectAll("rect.node-shape")
+                    .attr("x", function rectX(node) { return -((node.w || 148) / 2); })
+                    .attr("y", -31)
+                    .attr("width", function rectW(node) { return node.w || 148; })
+                    .attr("height", 62);
+
+                nodeContainer
+                    .selectAll("text.node-title")
+                    .attr("x", 0)
+                    .attr("y", -6);
+
+                nodeContainer
+                    .selectAll("text.node-value")
+                    .attr("x", 0)
+                    .attr("y", 14);
+            }
+
+            function setActiveState(activeNodeId, activeLinkId) {
+                nodeContainer.classed("is-active", function isNodeActive(node) {
+                    return node.id === activeNodeId;
+                });
+                linkLines.classed("is-active", function isLinkActive(link) {
+                    return link.id === activeLinkId;
+                });
+            }
+
+            function updateDrilldown(kind, payload) {
+                const drillTitle = document.getElementById("d3-drill-title");
+                const drillBadge = document.getElementById("d3-drill-badge");
+                const drillSubtitle = document.getElementById("d3-drill-subtitle");
+                const drillAdvice = document.getElementById("d3-drill-advice");
+                const labelIds = [
+                    "d3-drill-metric-label-1",
+                    "d3-drill-metric-label-2",
+                    "d3-drill-metric-label-3",
+                    "d3-drill-metric-label-4"
+                ];
+                const valueIds = [
+                    "d3-drill-metric-value-1",
+                    "d3-drill-metric-value-2",
+                    "d3-drill-metric-value-3",
+                    "d3-drill-metric-value-4"
+                ];
+                const detail = payload && payload.detail ? payload.detail : null;
+                if (!detail) {
+                    return;
+                }
+
+                drillTitle.textContent = "下钻对象：" + (payload.name || payload.label || payload.id);
+                drillBadge.textContent = kind === "node" ? "节点" : "管路";
+                drillSubtitle.textContent = detail.subtitle;
+                drillAdvice.textContent = detail.advice;
+
+                detail.metrics.forEach(function setMetric(metric, index) {
+                    const labelElement = document.getElementById(labelIds[index]);
+                    const valueElement = document.getElementById(valueIds[index]);
+                    if (labelElement && valueElement) {
+                        labelElement.textContent = metric[0];
+                        valueElement.textContent = metric[1];
+                    }
+                });
+            }
+
+            function clamp(value, min, max) {
+                return Math.min(Math.max(value, min), max);
+            }
+
+            function getRectEdgePoint(fromNode, toNode, padding) {
+                const dx = toNode.x - fromNode.x;
+                const dy = toNode.y - fromNode.y;
+                if (dx === 0 && dy === 0) {
+                    return { x: fromNode.x, y: fromNode.y };
+                }
+
+                const halfWidth = ((fromNode.w || 148) / 2) + padding;
+                const halfHeight = 31 + padding;
+                const scale = 1 / Math.max(Math.abs(dx) / halfWidth, Math.abs(dy) / halfHeight);
+
+                return {
+                    x: fromNode.x + dx * scale,
+                    y: fromNode.y + dy * scale
+                };
+            }
+        }
+
+        function resolveTopologyScenario(filter) {
+            const rawMode = filter && filter.mode ? filter.mode : "today";
+            const mode = rawMode === "today" || rawMode === "24h" || rawMode === "custom" ? rawMode : "today";
+            const referenceTime = filter && filter.anchor ? new Date(filter.anchor) : new Date();
+            const effectiveTime = Number.isNaN(referenceTime.getTime()) ? new Date() : referenceTime;
+            const hour = effectiveTime.getHours() + (effectiveTime.getMinutes() / 60);
+            const wave = Math.sin((hour - 8) / 24 * Math.PI * 2);
+
+            let demandFactor = 1;
+            if (mode === "today") {
+                demandFactor = 1 + 0.08 * wave;
+            } else if (mode === "24h") {
+                demandFactor = 0.96 + 0.07 * wave;
+            } else {
+                demandFactor = 0.9 + 0.2 * Math.max(0, Math.sin((hour - 6) / 24 * Math.PI * 2));
+            }
+            demandFactor = clampNumber(demandFactor, 0.82, 1.18);
+
+            const totalLoad = Math.round(1920 * demandFactor);
+            const processRatio = clampNumber(0.5 + 0.04 * Math.cos((hour - 10) / 24 * Math.PI * 2), 0.45, 0.58);
+            const processLoad = Math.round(totalLoad * processRatio);
+            const hvacLoad = totalLoad - processLoad;
+
+            const mauRatio = clampNumber(0.62 + 0.05 * Math.sin((hour - 5) / 24 * Math.PI * 2), 0.55, 0.72);
+            const mauLoad = Math.round(hvacLoad * mauRatio);
+            const acLoad = hvacLoad - mauLoad;
+
+            const midRatio = clampNumber(0.58 + 0.05 * Math.sin((hour - 4) / 24 * Math.PI * 2), 0.5, 0.68);
+            const midLoad = Math.round(totalLoad * midRatio);
+            const lowLoad = totalLoad - midLoad;
+
+            const heatRecovery = Math.round(midLoad * 0.52);
+            const heatUse = Math.round(heatRecovery * 0.9);
+            const heatEfficiency = Math.round(clampNumber(0.86 + 0.05 * Math.cos((hour - 3) / 24 * Math.PI * 2), 0.8, 0.95) * 100);
+
+            const midSupplyTemp = Number((7.8 + 0.5 * Math.sin((hour - 8) / 24 * Math.PI * 2)).toFixed(1));
+            const midReturnTemp = Number((13.2 + 0.6 * Math.sin((hour - 7) / 24 * Math.PI * 2)).toFixed(1));
+            const lowSupplyTemp = Number((5.3 + 0.4 * Math.sin((hour - 9) / 24 * Math.PI * 2)).toFixed(1));
+            const lowReturnTemp = Number((10.7 + 0.5 * Math.sin((hour - 8) / 24 * Math.PI * 2)).toFixed(1));
+            const mainSupplyTemp = Number((((midSupplyTemp * midLoad) + (lowSupplyTemp * lowLoad)) / Math.max(totalLoad, 1)).toFixed(1));
+            const mainReturnTemp = Number((((midReturnTemp * midLoad) + (lowReturnTemp * lowLoad)) / Math.max(totalLoad, 1)).toFixed(1));
+            const heatCostPerHour = Math.round(heatUse * 2.7);
+
+            return {
+                mode: mode,
+                referenceTime: effectiveTime,
+                totalLoad: totalLoad,
+                processLoad: processLoad,
+                hvacLoad: hvacLoad,
+                pcwLoad: processLoad,
+                mauLoad: mauLoad,
+                acLoad: acLoad,
+                midLoad: midLoad,
+                lowLoad: lowLoad,
+                heatRecovery: heatRecovery,
+                heatUse: heatUse,
+                heatEfficiency: heatEfficiency,
+                heatCostPerHour: heatCostPerHour,
+                processRatio: processLoad / Math.max(totalLoad, 1),
+                hvacRatio: hvacLoad / Math.max(totalLoad, 1),
+                mauRatio: mauLoad / Math.max(hvacLoad, 1),
+                acRatio: acLoad / Math.max(hvacLoad, 1),
+                midSupplyTemp: midSupplyTemp,
+                midReturnTemp: midReturnTemp,
+                lowSupplyTemp: lowSupplyTemp,
+                lowReturnTemp: lowReturnTemp,
+                mainSupplyTemp: mainSupplyTemp,
+                mainReturnTemp: mainReturnTemp
+            };
+        }
+
+        function applyScenarioToTopology(nodes, links, scenario) {
+            const nodeById = new Map(nodes.map(function mapNode(node) {
+                return [node.id, node];
+            }));
+            const linkById = new Map(links.map(function mapLink(link) {
+                return [link.id, link];
+            }));
+
+            const midFlow = estimateFlowByLoad(scenario.midLoad, Math.max(scenario.midReturnTemp - scenario.midSupplyTemp, 3));
+            const lowFlow = estimateFlowByLoad(scenario.lowLoad, Math.max(scenario.lowReturnTemp - scenario.lowSupplyTemp, 3));
+            const processFlow = estimateFlowByLoad(scenario.processLoad, 5);
+            const hvacFlow = estimateFlowByLoad(scenario.hvacLoad, 5);
+
+            setNodeValues(nodeById.get("node-0"), {
+                value: formatKw(scenario.midLoad),
+                metrics: [
+                    ["当前负荷", formatKw(scenario.midLoad)],
+                    ["供回水温度", scenario.midSupplyTemp + "°C / " + scenario.midReturnTemp + "°C"],
+                    ["主机台数", (scenario.midLoad > 1180 ? "4" : "3") + " 台在线"],
+                    ["运行策略", "变频+负荷跟踪"]
+                ]
+            });
+
+            setNodeValues(nodeById.get("node-1"), {
+                value: formatKw(scenario.lowLoad),
+                metrics: [
+                    ["当前负荷", formatKw(scenario.lowLoad)],
+                    ["供回水温度", scenario.lowSupplyTemp + "°C / " + scenario.lowReturnTemp + "°C"],
+                    ["主机台数", (scenario.lowLoad > 900 ? "3" : "2") + " 台在线"],
+                    ["运行策略", "低温优先级补偿"]
+                ]
+            });
+
+            setNodeValues(nodeById.get("node-2"), {
+                value: formatKw(scenario.totalLoad),
+                metrics: [
+                    ["当前量测", formatKw(scenario.totalLoad)],
+                    ["供回水温度", scenario.mainSupplyTemp + "°C / " + scenario.mainReturnTemp + "°C"],
+                    ["分配结构", "工艺 " + formatPct(scenario.processRatio, 1) + " / 空调 " + formatPct(scenario.hvacRatio, 1)],
+                    ["控制状态", "5 min 滚动优化"]
+                ]
+            });
+
+            setNodeValues(nodeById.get("node-3"), {
+                value: formatKw(scenario.processLoad),
+                metrics: [
+                    ["支路冷量", formatKw(scenario.processLoad)],
+                    ["下游对象", "PCW 末端"],
+                    ["目标温度", "22°C ± 0.5°C（机台）"],
+                    ["阀位状态", (56 + Math.round(scenario.processRatio * 10)) + "% 开度"]
+                ]
+            });
+
+            setNodeValues(nodeById.get("node-4"), {
+                value: formatKw(scenario.hvacLoad),
+                metrics: [
+                    ["支路冷量", formatKw(scenario.hvacLoad)],
+                    ["MAU分配", formatKw(scenario.mauLoad)],
+                    ["一般空调分配", formatKw(scenario.acLoad)],
+                    ["控制模式", "静压+露点双约束"]
+                ]
+            });
+
+            setNodeValues(nodeById.get("node-5"), {
+                value: formatKw(scenario.pcwLoad) + " (100%)",
+                metrics: [
+                    ["末端需冷量", formatKw(scenario.pcwLoad)],
+                    ["冷量来源", "工艺支路 100%"],
+                    ["关键约束", "机台进水温稳定"],
+                    ["风险等级", "高（工艺敏感）"]
+                ]
+            });
+
+            setNodeValues(nodeById.get("node-6"), {
+                value: formatKw(scenario.mauLoad) + " (" + formatPct(scenario.mauRatio, 1) + ")",
+                metrics: [
+                    ["末端需冷量", formatKw(scenario.mauLoad)],
+                    ["空调支路占比", formatPct(scenario.mauRatio, 1)],
+                    ["露点目标", "11.5°C"],
+                    ["控制模式", "送风温湿联控"]
+                ]
+            });
+
+            setNodeValues(nodeById.get("node-7"), {
+                value: formatKw(scenario.acLoad) + " (" + formatPct(scenario.acRatio, 1) + ")",
+                metrics: [
+                    ["末端需冷量", formatKw(scenario.acLoad)],
+                    ["空调支路占比", formatPct(scenario.acRatio, 1)],
+                    ["温控目标", "24°C ± 1°C"],
+                    ["策略优先级", "低于 MAU/PCW"]
+                ]
+            });
+
+            setNodeValues(nodeById.get("node-8"), {
+                value: scenario.heatRecovery + " kWth",
+                metrics: [
+                    ["回收热量", scenario.heatRecovery + " kWth"],
+                    ["热源侧", "中温冷站冷凝段"],
+                    ["换热效率", scenario.heatEfficiency + "%"],
+                    ["经济价值", "¥" + Math.round(scenario.heatCostPerHour * 1.3).toLocaleString() + "/h"]
+                ]
+            });
+
+            setNodeValues(nodeById.get("node-9"), {
+                value: scenario.heatUse + " kWth",
+                metrics: [
+                    ["利用热量", scenario.heatUse + " kWth"],
+                    ["热水供温", (50 + Math.round(scenario.heatUse / 100)).toFixed(0) + "°C"],
+                    ["替代蒸汽", "约 " + Math.round(scenario.heatUse / 7) + " kg/h"],
+                    ["当班节费", "¥" + scenario.heatCostPerHour.toLocaleString() + "/h"]
+                ]
+            });
+
+            setLinkValues(linkById.get("link-0"), "中温供冷 " + formatKw(scenario.midLoad), [
+                ["流向", "中温冷站 -> CUS总管"],
+                ["当前冷量", formatKw(scenario.midLoad)],
+                ["估算流量", midFlow + " m3/h"],
+                ["温差", (scenario.midReturnTemp - scenario.midSupplyTemp).toFixed(1) + "°C"]
+            ]);
+
+            setLinkValues(linkById.get("link-1"), "低温供冷 " + formatKw(scenario.lowLoad), [
+                ["流向", "低温冷站 -> CUS总管"],
+                ["当前冷量", formatKw(scenario.lowLoad)],
+                ["估算流量", lowFlow + " m3/h"],
+                ["温差", (scenario.lowReturnTemp - scenario.lowSupplyTemp).toFixed(1) + "°C"]
+            ]);
+
+            setLinkValues(linkById.get("link-2"), "工艺支路 " + formatKw(scenario.processLoad), [
+                ["流向", "CUS总管 -> 工艺支路"],
+                ["分配冷量", formatKw(scenario.processLoad)],
+                ["分配占比", formatPct(scenario.processRatio, 1)],
+                ["优先级", "最高"]
+            ]);
+
+            setLinkValues(linkById.get("link-3"), "空调支路 " + formatKw(scenario.hvacLoad), [
+                ["流向", "CUS总管 -> 空调支路"],
+                ["分配冷量", formatKw(scenario.hvacLoad)],
+                ["分配占比", formatPct(scenario.hvacRatio, 1)],
+                ["优先级", "次于工艺"]
+            ]);
+
+            setLinkValues(linkById.get("link-4"), "PCW " + formatKw(scenario.pcwLoad), [
+                ["流向", "工艺支路 -> PCW末端"],
+                ["末端冷量", formatKw(scenario.pcwLoad)],
+                ["占支路比例", "100%"],
+                ["工艺风险", "高"]
+            ]);
+
+            setLinkValues(linkById.get("link-5"), "MAU " + formatKw(scenario.mauLoad), [
+                ["流向", "空调支路 -> MAU"],
+                ["末端冷量", formatKw(scenario.mauLoad)],
+                ["占支路比例", formatPct(scenario.mauRatio, 1)],
+                ["主要约束", "露点/湿度"]
+            ]);
+
+            setLinkValues(linkById.get("link-6"), "一般空调 " + formatKw(scenario.acLoad), [
+                ["流向", "空调支路 -> 一般空调"],
+                ["末端冷量", formatKw(scenario.acLoad)],
+                ["占支路比例", formatPct(scenario.acRatio, 1)],
+                ["调节属性", "柔性可调负荷"]
+            ]);
+
+            setLinkValues(linkById.get("link-7"), "中温侧冷凝热回收 " + scenario.heatRecovery + " kWth", [
+                ["流向", "中温冷站 -> 热回收系统"],
+                ["热量", scenario.heatRecovery + " kWth"],
+                ["换热效率", scenario.heatEfficiency + "%"],
+                ["状态", "连续运行"]
+            ]);
+
+            setLinkValues(linkById.get("link-8"), "热水供给 " + scenario.heatUse + " kWth", [
+                ["流向", "热回收 -> 热水利用侧"],
+                ["供热量", scenario.heatUse + " kWth"],
+                ["供水温度", (50 + Math.round(scenario.heatUse / 100)).toFixed(0) + "°C"],
+                ["替代效果", "减少锅炉/蒸汽负荷"]
+            ]);
+
+            function setNodeValues(node, valuePackage) {
+                if (!node) {
+                    return;
+                }
+                node.value = valuePackage.value;
+                if (node.detail && Array.isArray(node.detail.metrics)) {
+                    node.detail.metrics = valuePackage.metrics;
+                }
+            }
+
+            function setLinkValues(link, label, metrics) {
+                if (!link) {
+                    return;
+                }
+                link.label = label;
+                if (link.detail && Array.isArray(link.detail.metrics)) {
+                    link.detail.metrics = metrics;
+                }
+            }
+        }
+
+        function updateDemandChips(scenario) {
+            const pcwElement = document.getElementById("demand-value-pcw");
+            const mauElement = document.getElementById("demand-value-mau");
+            const acElement = document.getElementById("demand-value-ac");
+            if (pcwElement) {
+                pcwElement.textContent = formatKw(scenario.pcwLoad);
+            }
+            if (mauElement) {
+                mauElement.textContent = formatKw(scenario.mauLoad);
+            }
+            if (acElement) {
+                acElement.textContent = formatKw(scenario.acLoad);
+            }
+        }
+
+        function estimateFlowByLoad(loadKw, deltaTemp) {
+            return Math.round(loadKw / (1.163 * deltaTemp));
+        }
+
+        function formatKw(value) {
+            return Math.round(value).toLocaleString() + " kW";
+        }
+
+        function formatPct(ratio, digits) {
+            return (ratio * 100).toFixed(digits) + "%";
+        }
+
+        function clampNumber(value, min, max) {
+            return Math.min(Math.max(value, min), max);
+        }
+
+        function renderTrendChart(scenarioInput) {
+            const scenario = scenarioInput || resolveTopologyScenario(window.cusTopologyFilter || { mode: "24h", anchor: null });
+            const categories = ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"];
+            const profileByMode = {
+                today: [0.9, 0.92, 1.01, 1.08, 1.04, 0.96],
+                "24h": [0.88, 0.91, 0.97, 1.02, 1.0, 0.94],
+                custom: [0.86, 0.9, 0.96, 1.1, 1.05, 0.92]
+            };
+            const profile = profileByMode[scenario.mode] || profileByMode["24h"];
+            const midBaseRatio = scenario.midLoad / Math.max(scenario.totalLoad, 1);
+
+            const totalLoadSeries = profile.map(function mapTotal(factor, idx) {
+                const ripple = 1 + 0.01 * Math.sin(idx * 1.2);
+                return Math.round(scenario.totalLoad * factor * ripple);
+            });
+            const midLoadSeries = totalLoadSeries.map(function mapMid(total, idx) {
+                return Math.round(total * clampNumber(midBaseRatio + 0.01 * Math.cos(idx), 0.5, 0.68));
+            });
+            const lowLoadSeries = totalLoadSeries.map(function mapLow(total, idx) {
+                return total - midLoadSeries[idx];
+            });
+            const predictedPowerSeries = totalLoadSeries.map(function mapPredicted(total, idx) {
+                return Math.round(total * (1.035 + 0.01 * Math.cos(idx * 0.8)));
+            });
+            const savingRateSeries = totalLoadSeries.map(function mapSaving(total, idx) {
+                return Number((((predictedPowerSeries[idx] - total) / Math.max(predictedPowerSeries[idx], 1)) * 100).toFixed(1));
+            });
+
+            const strategyDispatches = [
+                { x: 0, y: predictedPowerSeries[0], pkg: "PKG-WINTER", note: "全自然冷却策略下发" },
+                { x: 2, y: predictedPowerSeries[2], pkg: "PKG-TRANS", note: "部分自然冷却策略下发" },
+                { x: 4, y: predictedPowerSeries[4], pkg: "PKG-SUMMER", note: "动态负载优化策略下发" }
+            ];
+
+            Highcharts.chart("trend-chart", {
+                chart: {
+                    backgroundColor: "transparent",
+                    spacing: [10, 12, 8, 8]
+                },
+                title: { text: null },
+                credits: { enabled: false },
+                xAxis: {
+                    categories: categories,
+                    lineColor: "#cbd5e1",
+                    tickColor: "#cbd5e1"
+                },
+                yAxis: [{
+                    title: { text: "负荷(kW)" },
+                    gridLineColor: "#e5edf5"
+                }, {
+                    title: { text: "节电率(%)" },
+                    opposite: true
+                }],
+                tooltip: { shared: true, valueDecimals: 1 },
+                legend: {
+                    itemStyle: { color: "#334155", fontSize: "11px" }
+                },
+                series: [{
+                    type: "line",
+                    name: "中温系统负荷",
+                    data: midLoadSeries,
+                    color: "#39a1ff",
+                    lineWidth: 3
+                }, {
+                    type: "line",
+                    name: "低温系统负荷",
+                    data: lowLoadSeries,
+                    color: "#1864ab",
+                    lineWidth: 3
+                }, {
+                    type: "line",
+                    name: "模型预测用电量",
+                    data: predictedPowerSeries,
+                    color: "#ff7a45",
+                    lineWidth: 2,
+                    dashStyle: "ShortDash",
+                    marker: {
+                        enabled: true,
+                        radius: 3
+                    }
+                }, {
+                    type: "scatter",
+                    name: "策略包下发标识",
+                    data: strategyDispatches,
+                    color: "#7c3aed",
+                    yAxis: 0,
+                    marker: {
+                        symbol: "diamond",
+                        radius: 5,
+                        lineWidth: 1,
+                        lineColor: "#5b21b6"
+                    },
+                    dataLabels: {
+                        enabled: true,
+                        formatter: function dispatchLabelFormatter() {
+                            return this.point.pkg;
+                        },
+                        y: -12,
+                        style: {
+                            color: "#5b21b6",
+                            fontSize: "10px",
+                            textOutline: "none",
+                            fontWeight: "700"
+                        }
+                    },
+                    tooltip: {
+                        pointFormatter: function dispatchTooltipFormatter() {
+                            return "<span style=\"color:#7c3aed\">●</span> " + this.pkg + "：" + this.note + "<br/>";
+                        }
+                    }
+                }, {
+                    type: "area",
+                    name: "综合节电率",
+                    yAxis: 1,
+                    data: savingRateSeries,
+                    color: "rgba(24,137,24,0.35)",
+                    lineColor: "#188918",
+                    threshold: 0
+                }]
+            });
+        }
+
+        function renderRoiChart(scenarioInput) {
+            const scenario = scenarioInput || resolveTopologyScenario(window.cusTopologyFilter || { mode: "24h", anchor: null });
+            const roiByMode = {
+                today: [76, 41, 9],
+                "24h": [72, 38, 8],
+                custom: [74, 40, 9]
+            };
+            const roiSeries = roiByMode[scenario.mode] || roiByMode["24h"];
+            const savingSeries = [
+                Math.round(scenario.totalLoad * 0.16),
+                Math.round(scenario.totalLoad * 0.085),
+                Math.round(scenario.totalLoad * 0.02)
+            ];
+
+            Highcharts.chart("roi-chart", {
+                chart: {
+                    backgroundColor: "transparent",
+                    type: "column",
+                    spacing: [10, 12, 8, 8]
+                },
+                title: { text: null },
+                credits: { enabled: false },
+                xAxis: {
+                    categories: ["PKG-WINTER", "PKG-TRANS", "PKG-SUMMER"],
+                    lineColor: "#cbd5e1"
+                },
+                yAxis: [{
+                    title: { text: "节电率(%)" },
+                    max: 100,
+                    gridLineColor: "#e5edf5"
+                }, {
+                    title: { text: "节电量(kWh)" },
+                    opposite: true
+                }],
+                tooltip: { shared: true },
+                legend: {
+                    itemStyle: { color: "#334155", fontSize: "11px" }
+                },
+                series: [{
+                    name: "模拟节电率(中位值)",
+                    data: roiSeries,
+                    color: "#0a6ed1"
+                }, {
+                    name: "模拟每小时节电量(中位值)",
+                    type: "spline",
+                    yAxis: 1,
+                    data: savingSeries,
+                    color: "#ff7a45",
+                    marker: { enabled: true, radius: 4 }
+                }]
+            });
+        }
+    </script>
+</body>
+</html>

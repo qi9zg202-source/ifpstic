@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>环境变量管理台</title>
+  <style>
+    :root {
+      --sap-bg: #f5f6f7;
+      --sap-surface: #ffffff;
+      --sap-border: #d9d9d9;
+      --sap-text: #1f2d3d;
+      --sap-sub: #5a6b7b;
+      --sap-primary: #0a6ed1;
+      --sap-danger: #bb0000;
+      --sap-success: #107e3e;
+      --sap-warning: #e9730c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--sap-text);
+      background: linear-gradient(180deg, #f7f9fb 0%, var(--sap-bg) 100%);
+    }
+
+    #app-root {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    #app-header {
+      background: var(--sap-surface);
+      border: 1px solid var(--sap-border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #header-title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    #header-subtitle {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: var(--sap-sub);
+    }
+
+    #status-pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    #status-pill.active {
+      background: #edf9f1;
+      color: var(--sap-success);
+      border-color: #b5dfc2;
+    }
+
+    #status-pill.paused {
+      background: #fff4e5;
+      color: var(--sap-warning);
+      border-color: #ffd19c;
+    }
+
+    #control-panel {
+      background: var(--sap-surface);
+      border: 1px solid var(--sap-border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    #action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .action-btn {
+      height: 34px;
+      border-radius: 6px;
+      border: 1px solid var(--sap-border);
+      background: #fff;
+      padding: 0 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    #btn-enable {
+      color: #fff;
+      background: var(--sap-success);
+      border-color: var(--sap-success);
+    }
+
+    #btn-pause {
+      color: #fff;
+      background: var(--sap-danger);
+      border-color: var(--sap-danger);
+    }
+
+    #btn-refresh {
+      color: #fff;
+      background: var(--sap-primary);
+      border-color: var(--sap-primary);
+    }
+
+    #btn-reload {
+      color: var(--sap-text);
+      background: #f7f7f7;
+    }
+
+    #meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .meta-card {
+      border: 1px solid var(--sap-border);
+      border-radius: 6px;
+      background: #fafafa;
+      padding: 8px 10px;
+    }
+
+    .meta-label {
+      font-size: 11px;
+      color: var(--sap-sub);
+      margin-bottom: 4px;
+    }
+
+    .meta-value {
+      font-size: 12px;
+      font-weight: 600;
+      word-break: break-all;
+    }
+
+    #data-section {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 12px;
+    }
+
+    .panel {
+      background: var(--sap-surface);
+      border: 1px solid var(--sap-border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      min-width: 0;
+    }
+
+    .panel-title {
+      margin: 0 0 10px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    #env-table-wrap {
+      overflow: auto;
+      max-height: 520px;
+      border: 1px solid var(--sap-border);
+      border-radius: 6px;
+    }
+
+    #env-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    #env-table thead th {
+      position: sticky;
+      top: 0;
+      background: #f3f5f7;
+      text-align: left;
+      border-bottom: 1px solid var(--sap-border);
+      padding: 8px;
+    }
+
+    #env-table tbody td {
+      border-bottom: 1px solid #eceff2;
+      padding: 8px;
+      vertical-align: top;
+      word-break: break-all;
+    }
+
+    .masked-value {
+      font-family: Menlo, Monaco, Consolas, monospace;
+      letter-spacing: 0.6px;
+    }
+
+    #log-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 8px;
+      max-height: 520px;
+      overflow: auto;
+    }
+
+    .log-item {
+      border: 1px solid var(--sap-border);
+      border-radius: 6px;
+      padding: 8px;
+      background: #fafafa;
+    }
+
+    .log-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .log-meta {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--sap-sub);
+      word-break: break-all;
+    }
+
+    #toast {
+      min-height: 20px;
+      font-size: 12px;
+      color: var(--sap-sub);
+    }
+
+    @media (max-width: 980px) {
+      #meta-grid { grid-template-columns: 1fr; }
+      #data-section { grid-template-columns: 1fr; }
+      #env-table-wrap, #log-list { max-height: 360px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app-root">
+    <header id="app-header">
+      <div id="header-left">
+        <h1 id="header-title">环境变量管理台</h1>
+        <p id="header-subtitle">SQLite 驱动 + 系统环境变量 + VSCode 配置联动</p>
+      </div>
+      <div id="status-pill" class="paused">状态读取中...</div>
+    </header>
+
+    <section id="control-panel">
+      <div id="action-row">
+        <button id="btn-enable" class="action-btn" type="button">开启</button>
+        <button id="btn-pause" class="action-btn" type="button">暂停</button>
+        <button id="btn-refresh" class="action-btn" type="button">刷新（系统+VSCode）</button>
+        <button id="btn-reload" class="action-btn" type="button">重载页面数据</button>
+      </div>
+
+      <div id="meta-grid">
+        <div id="meta-db" class="meta-card">
+          <div id="meta-db-label" class="meta-label">SQLite 文件</div>
+          <div id="meta-db-value" class="meta-value">-</div>
+        </div>
+        <div id="meta-refresh" class="meta-card">
+          <div id="meta-refresh-label" class="meta-label">最近刷新</div>
+          <div id="meta-refresh-value" class="meta-value">-</div>
+        </div>
+        <div id="meta-target-shell" class="meta-card">
+          <div id="meta-target-shell-label" class="meta-label">系统环境目标文件</div>
+          <div id="meta-target-shell-value" class="meta-value">-</div>
+        </div>
+        <div id="meta-target-vscode" class="meta-card">
+          <div id="meta-target-vscode-label" class="meta-label">VSCode 配置目标文件</div>
+          <div id="meta-target-vscode-value" class="meta-value">-</div>
+        </div>
+      </div>
+
+      <div id="toast"></div>
+    </section>
+
+    <section id="data-section">
+      <article id="env-panel" class="panel">
+        <h2 id="env-panel-title" class="panel-title">环境变量（来自本目录 SQLite）</h2>
+        <div id="env-table-wrap">
+          <table id="env-table">
+            <thead>
+              <tr id="env-head-row">
+                <th id="th-key">Key</th>
+                <th id="th-value">Value（脱敏）</th>
+                <th id="th-updated">更新时间</th>
+                <th id="th-source">来源</th>
+              </tr>
+            </thead>
+            <tbody id="env-table-body"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article id="log-panel" class="panel">
+        <h2 id="log-panel-title" class="panel-title">同步日志</h2>
+        <ul id="log-list"></ul>
+      </article>
+    </section>
+  </div>
+
+  <script>
+    const apiBase = `${location.protocol}//${location.host}`;
+
+    const elStatus = document.getElementById('status-pill');
+    const elDb = document.getElementById('meta-db-value');
+    const elRefresh = document.getElementById('meta-refresh-value');
+    const elShellTargets = document.getElementById('meta-target-shell-value');
+    const elVscodeTargets = document.getElementById('meta-target-vscode-value');
+    const elToast = document.getElementById('toast');
+    const elEnvBody = document.getElementById('env-table-body');
+    const elLogList = document.getElementById('log-list');
+
+    const btnEnable = document.getElementById('btn-enable');
+    const btnPause = document.getElementById('btn-pause');
+    const btnRefresh = document.getElementById('btn-refresh');
+    const btnReload = document.getElementById('btn-reload');
+
+    function maskValue(text) {
+      const value = String(text || '');
+      if (value.length <= 8) return '*'.repeat(Math.max(4, value.length));
+      const prefix = value.slice(0, 4);
+      const suffix = value.slice(-4);
+      return `${prefix}${'*'.repeat(Math.max(6, value.length - 8))}${suffix}`;
+    }
+
+    function setBusy(busy) {
+      btnEnable.disabled = busy;
+      btnPause.disabled = busy;
+      btnRefresh.disabled = busy;
+      btnReload.disabled = busy;
+    }
+
+    function setToast(text, isError = false) {
+      elToast.textContent = text;
+      elToast.style.color = isError ? '#bb0000' : '#5a6b7b';
+    }
+
+    function renderState(payload) {
+      const enabled = payload.state && payload.state.enabled;
+      elStatus.textContent = enabled ? '已开启' : '已暂停';
+      elStatus.className = enabled ? 'active' : 'paused';
+
+      elDb.textContent = payload.dbPath || '-';
+      elRefresh.textContent = payload.state?.lastRefreshAt || '-';
+      elShellTargets.textContent = (payload.targets?.shellFiles || []).join('\n') || '-';
+      elVscodeTargets.textContent = (payload.targets?.vscodeFiles || []).join('\n') || '-';
+
+      elEnvBody.innerHTML = '';
+      const rows = payload.envRows || [];
+      for (const row of rows) {
+        const tr = document.createElement('tr');
+
+        const tdKey = document.createElement('td');
+        tdKey.textContent = row.env_key;
+
+        const tdValue = document.createElement('td');
+        tdValue.className = 'masked-value';
+        tdValue.textContent = maskValue(row.env_value);
+
+        const tdUpdated = document.createElement('td');
+        tdUpdated.textContent = row.updated_at || '-';
+
+        const tdSource = document.createElement('td');
+        tdSource.textContent = row.source_file || '-';
+
+        tr.appendChild(tdKey);
+        tr.appendChild(tdValue);
+        tr.appendChild(tdUpdated);
+        tr.appendChild(tdSource);
+        elEnvBody.appendChild(tr);
+      }
+
+      elLogList.innerHTML = '';
+      const logs = payload.logs || [];
+      for (const log of logs) {
+        const li = document.createElement('li');
+        li.className = 'log-item';
+
+        const top = document.createElement('div');
+        top.className = 'log-top';
+        top.textContent = `${log.action} | ${log.result}`;
+
+        const meta = document.createElement('div');
+        meta.className = 'log-meta';
+        meta.textContent = `${log.created_at} | ${log.message || ''}`;
+
+        li.appendChild(top);
+        li.appendChild(meta);
+        elLogList.appendChild(li);
+      }
+    }
+
+    async function getStatus() {
+      const res = await fetch(`${apiBase}/api/status`);
+      if (!res.ok) throw new Error(`status=${res.status}`);
+      return await res.json();
+    }
+
+    async function postAction(pathname) {
+      const res = await fetch(`${apiBase}${pathname}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || `status=${res.status}`);
+      }
+      return data;
+    }
+
+    async function loadAll() {
+      setBusy(true);
+      try {
+        const payload = await getStatus();
+        renderState(payload);
+        setToast('数据已更新。');
+      } catch (error) {
+        setToast(`加载失败: ${error.message}`, true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function runAction(pathname, okText) {
+      setBusy(true);
+      try {
+        await postAction(pathname);
+        const payload = await getStatus();
+        renderState(payload);
+        setToast(okText);
+      } catch (error) {
+        setToast(`操作失败: ${error.message}`, true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    btnEnable.addEventListener('click', () => runAction('/api/enable', '已开启并同步到系统环境与 VSCode。'));
+    btnPause.addEventListener('click', () => runAction('/api/pause', '已暂停并从系统环境移除。'));
+    btnRefresh.addEventListener('click', () => runAction('/api/refresh', '已刷新操作系统环境变量和 VSCode 配置文件。'));
+    btnReload.addEventListener('click', loadAll);
+
+    loadAll();
+  </script>
+</body>
+</html>
