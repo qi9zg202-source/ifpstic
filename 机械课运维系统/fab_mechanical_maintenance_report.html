@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="zh-cn" id="mechanical-html-root">
+<head id="mechanical-head-root">
+  <meta id="mechanical-meta-charset" charset="utf-8">
+  <meta id="mechanical-meta-viewport" name="viewport" content="width=device-width, initial-scale=1">
+  <title id="mechanical-title-tag">机械课运维成本报表</title>
+  <link id="mechanical-font-inter" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <script id="mechanical-script-d3" src="https://d3js.org/d3.v7.min.js"></script>
+  <script id="mechanical-script-highcharts" src="https://code.highcharts.com/highcharts.js"></script>
+  <style id="mechanical-style-block">
+    :root{
+      --sap-bg:#f5f7fa;
+      --sap-surface:#ffffff;
+      --sap-border:#d5dbe7;
+      --sap-accent:#0a6ed1;
+      --sap-accent-soft:#d8e8fb;
+      --sap-text:#16263f;
+      --sap-muted:#7b8ba6;
+      --sap-highlight:#eff3fb;
+      --sap-gradient:linear-gradient(135deg,#0a6ed1,#6ec1e4);
+      --sap-finance-bg:#edf3ff;
+    }
+    html,body{height:100%;margin:0;padding:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:var(--sap-bg);color:var(--sap-text);overflow-x:hidden}
+    #mechanical-page-shell{max-width:1200px;margin:0 auto;padding:24px 20px;box-sizing:border-box;display:flex;flex-direction:column;gap:18px}
+    #mechanical-header{display:flex;flex-direction:column;gap:12px}
+    #mechanical-title-block{display:flex;flex-direction:column;gap:0}
+    #mechanical-title-text{margin:0;font-size:24px;font-weight:600;color:var(--sap-text)}
+    #mechanical-control-strip{display:flex;flex-wrap:wrap;gap:12px;align-items:center;background:var(--sap-surface);border:1px solid var(--sap-border);border-radius:10px;padding:12px 16px;box-shadow:0 1px 2px rgba(15,23,42,0.08)}
+    #mechanical-phase-label,#mechanical-year-label{font-size:13px;color:var(--sap-muted)}
+    #mechanical-phase-select{border:1px solid var(--sap-border);border-radius:8px;padding:8px 12px;font-size:13px;background:#fdfefe;color:var(--sap-text);min-width:120px;min-height:44px}
+    #mechanical-year-range{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--sap-border);border-radius:10px;background:var(--sap-highlight)}
+    .mechanical-year-range-label{font-size:12px;color:var(--sap-muted)}
+    #mechanical-year-start,#mechanical-year-end{border:1px solid var(--sap-border);border-radius:8px;padding:6px 10px;font-size:13px;background:#fff;color:var(--sap-text);min-width:110px}
+    #mechanical-control-buttons{display:flex;gap:8px;margin-left:auto}
+    #mechanical-refresh-button,#mechanical-reset-button,#mechanical-export-button{border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;transition:box-shadow 0.2s ease,transform 0.2s ease}
+    #mechanical-refresh-button{background:var(--sap-accent);color:#fff}
+    #mechanical-refresh-button:hover{box-shadow:0 6px 18px rgba(10,110,209,0.2);transform:translateY(-1px)}
+    #mechanical-reset-button{background:#fff;color:var(--sap-accent);border:1px solid var(--sap-accent-soft)}
+    #mechanical-reset-button:hover{box-shadow:0 6px 18px rgba(15,23,42,0.08);transform:translateY(-1px)}
+    #mechanical-export-button{background:#102a43;color:#fff}
+    #mechanical-export-button:hover{box-shadow:0 6px 18px rgba(16,42,67,0.25);transform:translateY(-1px)}
+    #mechanical-visual-section{display:flex;flex-direction:column;gap:16px}
+    #mechanical-chart-card,#mechanical-table-card{background:var(--sap-surface);border:1px solid var(--sap-border);border-radius:12px;padding:18px;box-shadow:0 8px 24px rgba(15,23,42,0.08)}
+    #mechanical-chart-card{display:flex;flex-direction:column;gap:12px}
+    #mechanical-chart-heading-row,#mechanical-table-heading-row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end}
+    #mechanical-chart-heading,#mechanical-table-heading{margin:0;font-size:18px;font-weight:600}
+    #mechanical-chart-subtitle{font-size:12px;color:var(--sap-muted)}
+    #mechanical-chart-container{width:100%;height:320px}
+    #mechanical-table-wrapper{border-radius:10px;border:1px solid var(--sap-border);overflow:auto;background:var(--sap-highlight)}
+    #mechanical-data-table{width:100%;min-width:1920px;border-collapse:separate;border-spacing:0;background:var(--sap-surface);font-size:12px;table-layout:fixed;color:var(--sap-text)}
+    #mechanical-data-table thead th{background:var(--sap-gradient);color:#fff;padding:10px;border-right:1px solid rgba(255,255,255,0.3);border-bottom:1px solid rgba(255,255,255,0.3);text-align:center;font-weight:600;letter-spacing:0.3px}
+    #mechanical-data-table thead th[data-note]::after{content:attr(data-note);display:block;font-size:11px;font-weight:400;color:#dfe8f7;margin-top:4px}
+    #mechanical-data-table thead th:last-child{border-right:none}
+    #mechanical-data-table tbody td{padding:10px;border-right:1px solid var(--sap-border);border-bottom:1px solid var(--sap-border);text-align:center;background:var(--sap-surface);min-width:150px}
+    #mechanical-data-table tbody tr:nth-child(even) td{background:#fbfdff}
+    #mechanical-data-table tbody tr:hover td{background:#eef4fb}
+    #mechanical-data-table tbody td.section-cell,#mechanical-data-table tbody td.item-cell{text-align:left;font-weight:600}
+    #mechanical-data-table tbody td.item-cell{font-weight:500;color:#1b2f4b}
+    #mechanical-data-table tbody td.value-cell{color:#1c3b61;font-weight:400}
+    #mechanical-data-table tbody td:last-child{border-right:none}
+    #mechanical-data-table tbody tr:last-child td{border-bottom:none}
+    #mechanical-data-table tbody tr.summary-row td{font-weight:600;background:#e3efff}
+    .mechanical-cell-wrapper{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;width:100%}
+    .mechanical-cell-actions{display:flex;align-items:center;gap:4px;flex-shrink:0}
+    .mechanical-history-trigger{display:none;border:none;background:none;color:var(--sap-accent);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1}
+    .mechanical-history-trigger.visible{display:inline-flex;align-items:center}
+    .mechanical-history-trigger:hover{color:#084d99}
+    .mechanical-history-trigger-icon{pointer-events:none}
+    .mechanical-submit-btn,.mechanical-cancel-btn{display:none;border:1px solid var(--sap-border);background:#fff;border-radius:6px;padding:2px 4px;font-size:12px;cursor:pointer;color:var(--sap-text);transition:box-shadow 0.15s ease,transform 0.15s ease;line-height:1;width:26px;height:26px}
+    .mechanical-submit-btn.visible,.mechanical-cancel-btn.visible{display:inline-flex;align-items:center;justify-content:center}
+    .mechanical-submit-btn:hover,.mechanical-cancel-btn:hover{box-shadow:0 4px 10px rgba(16,34,56,0.12);transform:translateY(-1px)}
+    #mechanical-history-modal{position:fixed;inset:0;background:rgba(18,34,64,0.45);display:none;align-items:center;justify-content:center;z-index:50}
+    #mechanical-history-modal.visible{display:flex}
+    #mechanical-history-dialog{background:var(--sap-surface);border-radius:12px;padding:16px;width:420px;box-shadow:0 14px 34px rgba(16,34,56,0.35);border:1px solid var(--sap-border)}
+    #mechanical-history-dialog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    #mechanical-history-dialog-title{margin:0;font-size:16px;color:var(--sap-text)}
+    #mechanical-history-dialog-close{border:none;background:none;font-size:18px;color:var(--sap-muted);cursor:pointer}
+    #mechanical-history-dialog-table{width:100%;border-collapse:collapse;font-size:12px;color:var(--sap-text)}
+    #mechanical-history-dialog-table th,#mechanical-history-dialog-table td{border:1px solid var(--sap-border);padding:6px;text-align:center}
+    #mechanical-data-table th[id$='phase1-total'],
+    #mechanical-data-table th[id$='phase2-total'],
+    #mechanical-data-table th[id$='combined-total'],
+    #mechanical-data-table td[id$='phase1-total'],
+    #mechanical-data-table td[id$='phase2-total'],
+    #mechanical-data-table td[id$='combined-total']{
+      background:var(--sap-finance-bg);
+      color:var(--sap-text);
+      font-weight:600;
+    }
+    .mechanical-input-field{width:100%;box-sizing:border-box;border:1px solid var(--sap-border);border-radius:6px;padding:4px 6px;font-size:12px;text-align:right;background:#fdfefe;color:var(--sap-text);flex:1;min-width:0}
+    .mechanical-input-field:focus{outline:1px solid var(--sap-accent);box-shadow:0 0 0 1px var(--sap-accent-soft)}
+    #mechanical-footnote{font-size:12px;color:var(--sap-muted);margin:4px 0 0 2px}
+  </style>
+</head>
+<body id="mechanical-body-root">
+  <div id="mechanical-page-shell">
+    <header id="mechanical-header">
+      <div id="mechanical-title-block">
+        <h1 id="mechanical-title-text">机械课运维成本报表</h1>
+      </div>
+      <div id="mechanical-control-strip">
+        <label id="mechanical-phase-label" for="mechanical-phase-select">厂区</label>
+        <select id="mechanical-phase-select">
+          <option id="mechanical-phase-option-all" value="all">全部厂区</option>
+          <option id="mechanical-phase-option-1" value="phase1">一期厂区</option>
+          <option id="mechanical-phase-option-2" value="phase2">二期厂区</option>
+        </select>
+        <span id="mechanical-year-label">预算年度范围</span>
+        <div id="mechanical-year-range">
+          <span id="mechanical-year-start-label" class="mechanical-year-range-label">开始</span>
+          <input id="mechanical-year-start" type="number" min="2015" max="2035" value="2023" aria-label="开始年份">
+          <span id="mechanical-year-end-label" class="mechanical-year-range-label">结束</span>
+          <input id="mechanical-year-end" type="number" min="2015" max="2035" value="2028" aria-label="结束年份">
+        </div>
+        <div id="mechanical-control-buttons">
+          <button id="mechanical-refresh-button" type="button">查询</button>
+          <button id="mechanical-reset-button" type="button">重置</button>
+          <button id="mechanical-export-button" type="button">导出</button>
+        </div>
+      </div>
+    </header>
+    <section id="mechanical-visual-section">
+      <article id="mechanical-chart-card">
+        <div id="mechanical-chart-heading-row">
+          <h2 id="mechanical-chart-heading">年度费用趋势预览</h2>
+          <span id="mechanical-chart-subtitle">单位：万元（未税）</span>
+        </div>
+        <div id="mechanical-chart-container"></div>
+      </article>
+      <article id="mechanical-table-card">
+        <div id="mechanical-table-heading-row">
+          <h2 id="mechanical-table-heading">机械课运维费用矩阵</h2>
+        </div>
+        <div id="mechanical-table-wrapper">
+          <table id="mechanical-data-table">
+            <colgroup id="mechanical-colgroup">
+            <col id="mechanical-col-section" style="width:12%">
+              <col id="mechanical-col-item" style="width:280px">
+              <col id="mechanical-col-phase1-2025" style="width:150px">
+              <col id="mechanical-col-phase1-2026" style="width:150px">
+              <col id="mechanical-col-phase1-2027" style="width:150px">
+              <col id="mechanical-col-phase1-2028" style="width:150px">
+              <col id="mechanical-col-phase1-total" style="width:150px">
+              <col id="mechanical-col-phase2-2025" style="width:150px">
+              <col id="mechanical-col-phase2-2026" style="width:150px">
+              <col id="mechanical-col-phase2-2027" style="width:150px">
+              <col id="mechanical-col-phase2-2028" style="width:150px">
+              <col id="mechanical-col-phase2-total" style="width:150px">
+              <col id="mechanical-col-combined-total" style="width:150px">
+            </colgroup>
+            <thead id="mechanical-table-head">
+              <tr id="mechanical-head-row-primary">
+                <th id="mechanical-head-section" rowspan="2">类别</th>
+                <th id="mechanical-head-item" rowspan="2">ME运维费用项</th>
+                <th id="mechanical-head-phase1" colspan="5">一期</th>
+                <th id="mechanical-head-phase2" colspan="5">二期</th>
+                <th id="mechanical-head-combined">一二期统计</th>
+              </tr>
+              <tr id="mechanical-head-row-secondary">
+                <th id="mechanical-head-phase1-2025" data-note="万元(未税)">2025年</th>
+                <th id="mechanical-head-phase1-2026" data-note="万元(未税)">2026年</th>
+                <th id="mechanical-head-phase1-2027" data-note="万元(未税)">2027年</th>
+                <th id="mechanical-head-phase1-2028" data-note="万元(未税)">2028年</th>
+                <th id="mechanical-head-phase1-total" data-note="2025~2028年合计">Total</th>
+                <th id="mechanical-head-phase2-2025" data-note="万元(未税)">2025年</th>
+                <th id="mechanical-head-phase2-2026" data-note="万元(未税)">2026年</th>
+                <th id="mechanical-head-phase2-2027" data-note="万元(未税)">2027年</th>
+                <th id="mechanical-head-phase2-2028" data-note="万元(未税)">2028年</th>
+                <th id="mechanical-head-phase2-total" data-note="2025~2028年合计">Total</th>
+                <th id="mechanical-head-combined-total" data-note="一期+二期合计">Total</th>
+              </tr>
+            </thead>
+            <tbody id="mechanical-table-body"></tbody>
+          </table>
+        </div>
+        <p id="mechanical-footnote">备注：公式仅为占位，实际汇总逻辑可结合财务系统动态更新。</p>
+      </article>
+    </section>
+  </div>
+  <div id="mechanical-history-modal">
+    <div id="mechanical-history-dialog">
+      <div id="mechanical-history-dialog-header">
+        <h3 id="mechanical-history-dialog-title">更改历史</h3>
+        <button id="mechanical-history-dialog-close" type="button">×</button>
+      </div>
+      <table id="mechanical-history-dialog-table">
+        <thead>
+          <tr>
+            <th>序号</th>
+            <th>修改时间</th>
+            <th>修改前值</th>
+            <th>修改后值</th>
+          </tr>
+        </thead>
+        <tbody id="mechanical-history-dialog-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <script id="mechanical-script-block">
+    (function(){
+      const mechanicalColumns=[
+        {id:'phase1-2025'},
+        {id:'phase1-2026'},
+        {id:'phase1-2027'},
+        {id:'phase1-2028'},
+        {id:'phase1-total'},
+        {id:'phase2-2025'},
+        {id:'phase2-2026'},
+        {id:'phase2-2027'},
+        {id:'phase2-2028'},
+        {id:'phase2-total'},
+        {id:'combined-total'}
+      ];
+      const editableColumns=new Set([
+        'phase1-2025','phase1-2026','phase1-2027','phase1-2028',
+        'phase2-2025','phase2-2026','phase2-2027','phase2-2028'
+      ]);
+      const yearColumnsPhase1=['phase1-2025','phase1-2026','phase1-2027','phase1-2028'];
+      const yearColumnsPhase2=['phase2-2025','phase2-2026','phase2-2027','phase2-2028'];
+      const rowValueStore={};
+      const persistedStore=loadPersistedValues();
+      const summaryRowId='summary-summary-row';
+      const summaryColumns=['phase1-2025','phase1-2026','phase1-2027','phase1-2028','phase1-total','phase2-2025','phase2-2026','phase2-2027','phase2-2028','phase2-total','combined-total'];
+      const summaryCells={};
+      const cellHistories={};
+      const historyModal=document.getElementById('mechanical-history-modal');
+      const historyTitle=document.getElementById('mechanical-history-dialog-title');
+      const historyBody=document.getElementById('mechanical-history-dialog-body');
+      const historyClose=document.getElementById('mechanical-history-dialog-close');
+
+      const formatNumber=value=>{
+        if(!Number.isFinite(value)){return '--';}
+        const fixed=value.toFixed(2).replace(/\.00$/,'');
+        return fixed||'0';
+      };
+
+      const updateTotalsForRow=rowId=>{
+        const store=rowValueStore[rowId];
+        if(!store){return;}
+        const phase1Sum=yearColumnsPhase1.reduce((sum,key)=>sum+(store[key]||0),0);
+        const phase2Sum=yearColumnsPhase2.reduce((sum,key)=>sum+(store[key]||0),0);
+        const combinedSum=phase1Sum+phase2Sum;
+        const phase1TotalCell=document.getElementById(`mechanical-${rowId}-phase1-total`);
+        const phase2TotalCell=document.getElementById(`mechanical-${rowId}-phase2-total`);
+        const combinedTotalCell=document.getElementById(`mechanical-${rowId}-combined-total`);
+        store['phase1-total']=phase1Sum;
+        store['phase2-total']=phase2Sum;
+        store['combined-total']=combinedSum;
+        if(phase1TotalCell){phase1TotalCell.textContent=formatNumber(phase1Sum);}    
+        if(phase2TotalCell){phase2TotalCell.textContent=formatNumber(phase2Sum);}    
+        if(combinedTotalCell){combinedTotalCell.textContent=formatNumber(combinedSum);}   
+      };
+
+      const handleInputChange=event=>{
+        const input=event.target;
+        const rowId=input.dataset.rowId;
+        const columnId=input.dataset.columnId;
+        if(!rowValueStore[rowId]){return;}
+        const prevValue=rowValueStore[rowId][columnId]??0;
+        const value=parseFloat(input.value);
+        const safeValue=Number.isFinite(value)?value:0;
+        rowValueStore[rowId][columnId]=safeValue;
+        const historyKey=input.dataset.historyKey;
+        const historyTitleText=input.dataset.historyTitle;
+        if(historyKey&&safeValue!==prevValue){
+          recordCellHistory(historyKey,historyTitleText,prevValue,safeValue);
+        }
+        const icon=document.querySelector(`button[data-history-key="${historyKey}"]`);
+        if(icon){
+          icon.classList.add('visible');
+          if(historyTitleText){icon.setAttribute('data-history-title',historyTitleText);}
+        }
+        toggleActionVisibility(rowId,columnId,safeValue);
+        updateTotalsForRow(rowId);
+        updateSummaryRow();
+      };
+
+      const calculateColumnSum=columnId=>{
+        return mechanicalRows.reduce((sum,row)=>{
+          if(row.isSummary){return sum;}
+          const store=rowValueStore[row.rowId];
+          const value=store&&Number.isFinite(store[columnId])?store[columnId]:NaN;
+          if(Number.isFinite(value)){
+            return sum+value;
+          }
+          const cell=document.getElementById(`mechanical-${row.rowId}-${columnId}`);
+          const textValue=cell?parseFloat(cell.textContent):NaN;
+          return Number.isFinite(textValue)?sum+textValue:sum;
+        },0);
+      };
+
+      const updateSummaryRow=()=>{
+        summaryColumns.forEach(columnId=>{
+          if(!summaryCells[columnId]){
+            summaryCells[columnId]=document.getElementById(`mechanical-${summaryRowId}-${columnId}`);
+          }
+          const cell=summaryCells[columnId];
+          if(!cell){return;}
+          const columnSum=calculateColumnSum(columnId);
+          cell.textContent=formatNumber(columnSum);
+        });
+      };
+
+      const mechanicalSections=[
+        {id:'energy',label:'能源费',items:[
+          {id:'boiler',label:'热水炉'},
+          {id:'gas',label:'天然气'},
+          {id:'steam',label:'蒸汽购置类'}
+        ]},
+        {id:'maintenance',label:'维运PR',items:[
+          {id:'pm-cleanroom',label:'机械课PM-无尘室内部'},
+          {id:'chemical-filter',label:'无尘室空调用备品（化学过滤器）'},
+          {id:'water-treatment',label:'无尘室空调冷冻冷却水塔水处理'},
+          {id:'voc-support',label:'机械课PM-VOC支撑设备'},
+          {id:'exhaust-instrument',label:'Exhaust&VOC 仪表备品'},
+          {id:'acid-exhaust',label:'酸碱Exhaust&VOC 备品备件'},
+          {id:'exhaust-controller',label:'Exhaust电控箱振动控制器及三方数据比对'},
+          {id:'pcw-pw-hv',label:'PCW/PW/HV 系统备品备件'},
+          {id:'gas-system',label:'气体系统及动压系统备品备件'},
+          {id:'cus-system',label:'CUS系统备品备件（热工检测及维护）'},
+          {id:'chilled-water',label:'机械课冷水/局部冷水备品备件'},
+          {id:'loop-water',label:'机械课循环水备品备件'},
+          {id:'plant-room',label:'机械课机房备品备件-设备运行维护'},
+          {id:'cogen-package',label:'工地热电联产系统PM人力包'},
+          {id:'mcc-plc',label:'ME系统MCC、PLC、VFD维保保养、紧急维修'},
+          {id:'building-facility',label:'机械课建筑设施（MAU/ExH/PCW/PW/GHVAC）'},
+          {id:'exhaust-maintain',label:'Exhaust system maintain'}
+        ]},
+        {id:'apm',label:'APM类',items:[
+          {id:'apm-labor',label:'APM劳人及改造'}
+        ]},
+        {id:'engineering',label:'工程改造',items:[
+          {id:'traffic-exhaust',label:'工耗交通 Exhaust&VOC 项管配套紧急改造'}
+        ]},
+        {id:'summary',label:'合计',items:[
+          {id:'summary-row',label:'25项次',values:{
+            'phase1-2025':'E7+...+E31',
+            'phase1-2026':'F7+...+F31',
+            'phase1-2027':'G7+...+G31',
+            'phase1-2028':'H7+...+H31',
+            'phase1-total':'E7+F7+G7+H7',
+            'phase2-2025':'J7+...+J31',
+            'phase2-2026':'K7+...+K31',
+            'phase2-2027':'L7+...+L31',
+            'phase2-2028':'M7+...+M31',
+            'phase2-total':'J7+K7+L7+M7',
+            'combined-total':'N7+...+N31'
+          },isSummary:true}
+        ]}
+      ];
+
+      const mechanicalRows=[];
+      mechanicalSections.forEach(section=>{
+        section.items.forEach((item,index)=>{
+          const rowValues={};
+          mechanicalColumns.forEach(column=>{
+            rowValues[column.id]=(item.values&&item.values[column.id])||'--';
+          });
+          mechanicalRows.push({
+            rowId:`${section.id}-${item.id}`,
+            sectionId:section.id,
+            sectionLabel:section.label,
+            sectionRowspan:section.items.length,
+            showSection:index===0,
+            itemId:item.id,
+            itemLabel:item.label,
+            values:rowValues,
+            isSummary:!!item.isSummary
+          });
+        });
+      });
+
+      const tableBody=d3.select('#mechanical-table-body');
+      const tableRows=tableBody.selectAll('tr')
+        .data(mechanicalRows)
+        .enter()
+        .append('tr')
+        .attr('id',d=>`mechanical-row-${d.rowId}`)
+        .classed('summary-row',d=>d.isSummary);
+
+      tableRows.each(function(rowData){
+        const currentRow=d3.select(this);
+        if(rowData.showSection){
+          currentRow.append('td')
+            .attr('id',`mechanical-cell-${rowData.sectionId}`)
+            .attr('class','section-cell')
+            .attr('rowspan',rowData.sectionRowspan)
+            .text(rowData.sectionLabel);
+        }
+        currentRow.append('td')
+          .attr('id',`mechanical-item-${rowData.itemId}`)
+          .attr('class','item-cell')
+          .text(rowData.itemLabel);
+
+        if(!rowData.isSummary){
+          rowValueStore[rowData.rowId]={};
+        }
+
+        mechanicalColumns.forEach(column=>{
+          const cell=currentRow.append('td')
+            .attr('id',`mechanical-${rowData.rowId}-${column.id}`)
+            .attr('class','value-cell');
+
+          if(!rowData.isSummary && editableColumns.has(column.id)){
+            const wrapper=document.createElement('div');
+            wrapper.className='mechanical-cell-wrapper';
+            const input=document.createElement('input');
+            input.type='number';
+            input.step='0.01';
+            input.min='0';
+            input.id=`mechanical-input-${rowData.rowId}-${column.id}`;
+            input.className='mechanical-input-field';
+            input.placeholder='0';
+            input.dataset.rowId=rowData.rowId;
+            input.dataset.columnId=column.id;
+            const historyKey=`${rowData.rowId}-${column.id}`;
+            input.dataset.historyKey=historyKey;
+            input.dataset.historyTitle=`${rowData.itemLabel} ${column.id.toUpperCase()}`;
+            const persistedValue=Number.isFinite(parseFloat(persistedStore?.[rowData.rowId]?.[column.id]))?parseFloat(persistedStore[rowData.rowId][column.id]):null;
+            const numericValue=Number.isFinite(persistedValue)?persistedValue:parseFloat(rowData.values[column.id]);
+            if(Number.isFinite(numericValue)){
+              input.value=numericValue;
+              rowValueStore[rowData.rowId][column.id]=numericValue;
+            }else{
+              rowValueStore[rowData.rowId][column.id]=0;
+            }
+            input.dataset.initialValue=rowValueStore[rowData.rowId][column.id];
+            input.addEventListener('input',handleInputChange);
+            const actions=document.createElement('div');
+            actions.className='mechanical-cell-actions';
+            const icon=document.createElement('button');
+            icon.type='button';
+            icon.className='mechanical-history-trigger';
+            icon.innerHTML='<span class="mechanical-history-trigger-icon">⏱</span>';
+            icon.dataset.historyKey=historyKey;
+            icon.dataset.historyTitle=`${rowData.itemLabel} ${column.id.toUpperCase()}`;
+            icon.addEventListener('click',handleHistoryIconClick);
+            const submitBtn=document.createElement('button');
+            submitBtn.type='button';
+            submitBtn.className='mechanical-submit-btn';
+            submitBtn.innerHTML='&#128190;';
+            submitBtn.dataset.rowId=rowData.rowId;
+            submitBtn.dataset.columnId=column.id;
+            submitBtn.addEventListener('click',handlePersistClick);
+            const cancelBtn=document.createElement('button');
+            cancelBtn.type='button';
+            cancelBtn.className='mechanical-cancel-btn';
+            cancelBtn.innerHTML='&#10006;';
+            cancelBtn.dataset.rowId=rowData.rowId;
+            cancelBtn.dataset.columnId=column.id;
+            cancelBtn.addEventListener('click',handleCancelClick);
+            actions.appendChild(icon);
+            actions.appendChild(submitBtn);
+            actions.appendChild(cancelBtn);
+            wrapper.appendChild(input);
+            wrapper.appendChild(actions);
+            cell.node().appendChild(wrapper);
+          }else{
+            cell.text(rowData.values[column.id]);
+          }
+        });
+      });
+
+      Object.keys(rowValueStore).forEach(updateTotalsForRow);
+      updateSummaryRow();
+
+      const chartData={
+        categories:['2023','2024','2025','2026','2027','2028'],
+        phase1:[28,30,32,34,30,28],
+        phase2:[18,20,21,24,25,27]
+      };
+      const mechanicalChart=Highcharts.chart('mechanical-chart-container',{
+        chart:{type:'spline',backgroundColor:'transparent'},
+        title:{text:''},
+        xAxis:{categories:chartData.categories,lineColor:'#d0dae7',tickColor:'#d0dae7'},
+        yAxis:{title:{text:'万元(未税)'},gridLineColor:'#e1e8f2',labels:{style:{color:'#43536d'}}},
+        legend:{align:'right',verticalAlign:'top',itemStyle:{color:'#1b2f4b'}},
+        colors:['#0a6ed1','#34c38f'],
+        tooltip:{shared:true,valueSuffix:' 万元'},
+        credits:{enabled:false},
+        series:[
+          {name:'一期',data:chartData.phase1},
+          {name:'二期',data:chartData.phase2}
+        ]
+      });
+
+      const phaseSelect=document.getElementById('mechanical-phase-select');
+      const refreshButton=document.getElementById('mechanical-refresh-button');
+      const resetButton=document.getElementById('mechanical-reset-button');
+      const exportButton=document.getElementById('mechanical-export-button');
+      const yearStartInput=document.getElementById('mechanical-year-start');
+      const yearEndInput=document.getElementById('mechanical-year-end');
+      const minYear=Number(chartData.categories[0]);
+      const maxYear=Number(chartData.categories[chartData.categories.length-1]);
+
+      const formatYearValue=year=>`${year}`;
+
+      const parseYearFromInput=value=>{
+        if(value===null||value===undefined||value===''){return null;}
+        const parsed=parseInt(value,10);
+        return Number.isNaN(parsed)?null:parsed;
+      };
+
+      const getSelectedYears=()=>{
+        let startYear=parseYearFromInput(yearStartInput.value);
+        let endYear=parseYearFromInput(yearEndInput.value);
+        if(startYear===null){startYear=minYear;}
+        if(endYear===null){endYear=maxYear;}
+        if(startYear>endYear){[startYear,endYear]=[endYear,startYear];}
+        startYear=Math.max(minYear,startYear);
+        endYear=Math.min(maxYear,endYear);
+        return chartData.categories.filter(year=>{
+          const numeric=Number(year);
+          return numeric>=startYear&&numeric<=endYear;
+        });
+      };
+
+      const updateSeriesVisibility=()=>{
+        mechanicalChart.series.forEach((series,index)=>{
+          const showPhase1=phaseSelect.value==='phase1'&&index===0;
+          const showPhase2=phaseSelect.value==='phase2'&&index===1;
+          const showAll=phaseSelect.value==='all';
+          series.setVisible(showAll||showPhase1||showPhase2,false);
+        });
+      };
+
+      const refreshChart=()=>{
+        const selectedYears=getSelectedYears();
+        const indexes=selectedYears.map(year=>chartData.categories.indexOf(year));
+        const filterData=data=>indexes.map(idx=>data[idx]);
+        mechanicalChart.xAxis[0].setCategories(selectedYears,false);
+        mechanicalChart.series[0].setData(filterData(chartData.phase1),false);
+        mechanicalChart.series[1].setData(filterData(chartData.phase2),false);
+        updateSeriesVisibility();
+        mechanicalChart.redraw();
+      };
+
+      const resetYearRange=()=>{
+        yearStartInput.value=formatYearValue(minYear);
+        yearEndInput.value=formatYearValue(maxYear);
+      };
+
+      const exportTable=()=>{
+        const rows=document.querySelectorAll('#mechanical-data-table tr');
+        const csvLines=[];
+        rows.forEach(row=>{
+          const cells=row.querySelectorAll('th,td');
+          const values=Array.from(cells).map(cell=>{
+            const input=cell.querySelector('input');
+            const text=input?(input.value||'0'):cell.textContent.trim();
+            const escaped=text.replace(/"/g,'""');
+            return `"${escaped}"`;
+          });
+          csvLines.push(values.join(','));
+        });
+        const blob=new Blob([csvLines.join('\n')],{type:'text/csv;charset=utf-8;'});
+        const url=URL.createObjectURL(blob);
+        const link=document.createElement('a');
+        link.href=url;
+        link.download='mechanical_maintenance_report.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      };
+
+      yearStartInput.addEventListener('change',refreshChart);
+      yearEndInput.addEventListener('change',refreshChart);
+      refreshButton.addEventListener('click',refreshChart);
+      resetButton.addEventListener('click',()=>{
+        resetYearRange();
+        refreshChart();
+      });
+      exportButton.addEventListener('click',exportTable);
+      phaseSelect.addEventListener('change',()=>{
+        updateSeriesVisibility();
+        mechanicalChart.redraw();
+      });
+
+      resetYearRange();
+      refreshChart();
+
+      function loadPersistedValues(){
+        try{
+          const raw=localStorage.getItem('mechanical-persisted-values');
+          return raw?JSON.parse(raw):{};
+        }catch(err){
+          console.warn('加载持久化数据失败',err);
+          return {};
+        }
+      }
+
+      function persistCellValue(rowId,columnId,value){
+        if(!persistedStore[rowId]){persistedStore[rowId]={};}
+        persistedStore[rowId][columnId]=value;
+        try{
+          localStorage.setItem('mechanical-persisted-values',JSON.stringify(persistedStore));
+        }catch(err){
+          console.warn('保存持久化数据失败',err);
+        }
+      }
+
+      function handlePersistClick(event){
+        const btn=event.currentTarget;
+        const {rowId,columnId}=btn.dataset;
+        const input=document.getElementById(`mechanical-input-${rowId}-${columnId}`);
+        if(!input){return;}
+        const value=parseFloat(input.value);
+        const safeValue=Number.isFinite(value)?value:0;
+        rowValueStore[rowId][columnId]=safeValue;
+        persistCellValue(rowId,columnId,safeValue);
+        input.dataset.initialValue=safeValue;
+        toggleActionVisibility(rowId,columnId,safeValue);
+        updateTotalsForRow(rowId);
+        updateSummaryRow();
+      }
+
+      function handleCancelClick(event){
+        const btn=event.currentTarget;
+        const {rowId,columnId}=btn.dataset;
+        const input=document.getElementById(`mechanical-input-${rowId}-${columnId}`);
+        if(!input){return;}
+        const initial=parseFloat(input.dataset.initialValue);
+        const revertValue=Number.isFinite(initial)?initial:0;
+        input.value=revertValue;
+        rowValueStore[rowId][columnId]=revertValue;
+        toggleActionVisibility(rowId,columnId,revertValue);
+        updateTotalsForRow(rowId);
+        updateSummaryRow();
+      }
+
+      function toggleActionVisibility(rowId,columnId,currentValue){
+        const input=document.getElementById(`mechanical-input-${rowId}-${columnId}`);
+        const submitBtn=document.querySelector(`button.mechanical-submit-btn[data-row-id="${rowId}"][data-column-id="${columnId}"]`);
+        const cancelBtn=document.querySelector(`button.mechanical-cancel-btn[data-row-id="${rowId}"][data-column-id="${columnId}"]`);
+        if(!input||!submitBtn||!cancelBtn){return;}
+        const initial=parseFloat(input.dataset.initialValue);
+        const initialSafe=Number.isFinite(initial)?initial:0;
+        const isChanged=(Number.isFinite(currentValue)?currentValue:0)!==initialSafe;
+        submitBtn.classList.toggle('visible',isChanged);
+        cancelBtn.classList.toggle('visible',isChanged);
+      }
+
+      function recordCellHistory(key,title,beforeValue,afterValue){
+        if(!cellHistories[key]){cellHistories[key]=[];}
+        const entry={time:new Date().toLocaleString('zh-CN',{hour12:false}),before:formatNumber(beforeValue),after:formatNumber(afterValue)};
+        cellHistories[key].unshift(entry);
+        if(cellHistories[key].length>20){cellHistories[key].pop();}
+        const icon=document.querySelector(`button[data-history-key="${key}"]`);
+        if(icon){
+          icon.classList.add('visible');
+          if(title){icon.setAttribute('data-history-title',title);}
+        }
+      }
+
+      function handleHistoryIconClick(event){
+        event.stopPropagation();
+        const key=event.currentTarget.dataset.historyKey;
+        const title=event.currentTarget.dataset.historyTitle||'更改历史';
+        const entries=cellHistories[key]||[];
+        openHistoryModal(title,entries);
+      }
+
+      function openHistoryModal(title,entries){
+        historyTitle.textContent=title;
+        historyBody.innerHTML='';
+        if(!entries.length){
+          const row=document.createElement('tr');
+          const cell=document.createElement('td');
+          cell.colSpan=4;
+          cell.textContent='暂无更改';
+          row.appendChild(cell);
+          historyBody.appendChild(row);
+        }else{
+          entries.forEach((entry,index)=>{
+            const row=document.createElement('tr');
+            const indexCell=document.createElement('td');
+            indexCell.textContent=index+1;
+            const timeCell=document.createElement('td');
+            timeCell.textContent=entry.time;
+            const beforeCell=document.createElement('td');
+            beforeCell.textContent=entry.before;
+            const afterCell=document.createElement('td');
+            afterCell.textContent=entry.after;
+            row.appendChild(indexCell);
+            row.appendChild(timeCell);
+            row.appendChild(beforeCell);
+            row.appendChild(afterCell);
+            historyBody.appendChild(row);
+          });
+        }
+        historyModal.classList.add('visible');
+      }
+
+      function closeHistoryModal(){
+        historyModal.classList.remove('visible');
+      }
+
+      historyClose.addEventListener('click',closeHistoryModal);
+      historyModal.addEventListener('click',event=>{
+        if(event.target===historyModal){closeHistoryModal();}
+      });
+    })();
+  </script>
+</body>
+</html>

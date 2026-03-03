@@ -1,0 +1,2301 @@
+<!doctype html>
+<html lang="zh-cn" id="budget-html-root">
+<head id="budget-head-root">
+  <meta charset="utf-8" id="budget-meta-charset">
+  <meta name="viewport" content="width=device-width, initial-scale=1" id="budget-meta-viewport">
+  <title id="budget-title-tag">机械课预算报表</title>
+  <link id="budget-font-link" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap">
+  <script id="budget-d3-script" src="https://d3js.org/d3.v7.min.js"></script>
+  <script id="budget-highcharts-script" src="https://code.highcharts.com/highcharts.js"></script>
+  <style id="budget-style-block">
+    :root{
+      --sap-bg:#f4f7fb;
+      --sap-surface:#ffffff;
+      --sap-soft:#eef3fb;
+      --sap-border:#d5dde8;
+      --sap-text:#0f1f3a;
+      --sap-muted:#7b879c;
+      --sap-accent:#0a6ed1;
+      --sap-green:#2ebd85;
+      --sap-orange:#f6c343;
+      --sap-shadow:0 12px 30px rgba(15,31,58,0.08);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:var(--sap-bg);color:var(--sap-text);overflow-x:hidden;overflow-y:auto}
+    #budget-page-shell{max-width:1600px;margin:0 auto;padding:20px 24px;display:flex;flex-direction:column;gap:16px}
+    #budget-header{display:flex;flex-direction:column;gap:12px}
+    #budget-title-row{display:flex;align-items:flex-end;justify-content:space-between}
+    #budget-title{margin:0;font-size:26px;font-weight:600}
+    #budget-subtitle{font-size:13px;color:var(--sap-muted)}
+    #budget-control-strip{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--sap-surface);border:1px solid var(--sap-border);border-radius:12px;box-shadow:var(--sap-shadow)}
+    #budget-plant-select,#budget-year-input,#budget-owner-input{border:1px solid var(--sap-border);border-radius:8px;padding:8px 12px;font-size:13px;background:#fff;color:var(--sap-text)}
+    #budget-snapshot-buttons{display:flex;align-items:center;gap:8px;margin-left:auto}
+    #budget-snapshot-buttons button{border:1px solid var(--sap-accent);background:#fff;color:var(--sap-accent);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s ease}
+    #budget-snapshot-buttons button:hover{background:var(--sap-accent);color:#fff}
+    #budget-snapshot-history-table tbody tr{cursor:pointer;transition:background 0.2s ease}
+    #budget-snapshot-history-table tbody tr.snapshot-row-selected{background:#e5f1ff}
+    #budget-snapshot-history-table thead th{position:sticky;top:0;background:#eef2fb;color:#1f2633;font-weight:600;z-index:1}
+    .snapshot-detail-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+    .snapshot-detail-header h4{margin:0;font-size:15px;color:#1d2736;font-weight:600}
+    .snapshot-detail-header button{border:1px solid var(--sap-border);background:#fff;color:var(--sap-accent);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer}
+    .snapshot-detail-header button:hover{border-color:var(--sap-accent)}
+    .snapshot-detail-header button:disabled{opacity:0.4;cursor:not-allowed}
+    #budget-snapshot-history-modal .budget-modal-content{max-width:1200px;width:min(1200px,96vw)}
+    .snapshot-history-body{display:grid;grid-template-columns:1.35fr 1fr;gap:20px;align-items:stretch;max-height:75vh;min-height:460px;overflow:auto;width:100%}
+    .snapshot-history-table-wrapper{height:100%;display:flex;flex-direction:column;padding:14px;border:1px solid #dfe4ee;border-radius:12px;background:#f8f9fc;box-shadow:0 10px 24px rgba(17,24,39,0.08)}
+    .snapshot-panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .snapshot-panel-header h4{margin:0;font-size:14px;font-weight:600;color:#1d2736}
+    .snapshot-panel-subtitle{margin:2px 0 0;font-size:12px;color:#6b778c}
+    .snapshot-table-scroll{flex:1;overflow:auto;border-radius:10px;border:1px solid #e3e7f1;background:#fff}
+    .snapshot-history-table-wrapper table{width:100%;border-collapse:collapse;font-size:12px}
+    .snapshot-history-table-wrapper table th,.snapshot-history-table-wrapper table td{border-bottom:1px solid #edf0f5;padding:8px 10px;text-align:left}
+    .snapshot-detail-panel{height:100%;border:1px solid #dfe4ee;border-radius:12px;padding:14px;background:#fff;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 24px rgba(17,24,39,0.08)}
+    .snapshot-detail-content{flex:1;overflow:auto;border:1px dashed #e0e5f2;border-radius:10px;padding:8px;background:#fdfefe}
+    #budget-year-input{width:110px}
+    #budget-buttons{display:flex;gap:8px;margin-left:0}
+    #budget-buttons button{border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s ease}
+    .budget-cell-editor{display:flex;align-items:center;gap:4px;width:100%}
+    .budget-cell-editor .budget-edit-input,.budget-cell-editor .budget-edit-select{flex:1}
+    .budget-history-indicator{display:none;border:none;background:transparent;color:var(--sap-accent);font-size:14px;cursor:pointer;padding:0 2px;line-height:1}
+    .budget-history-indicator.visible{display:inline-flex}
+    .budget-history-indicator:hover{color:#063d7a}
+    #budget-history-popover{position:absolute;min-width:260px;max-width:340px;background:#fff;border:1px solid #cfd5e5;border-radius:12px;padding:12px;box-shadow:0 18px 40px rgba(16,29,56,0.25);z-index:2000;display:none}
+    #budget-history-popover.show{display:block}
+    .budget-history-popover-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:13px;color:#1f2633}
+    .budget-history-popover-close{border:none;background:transparent;font-size:16px;cursor:pointer;color:#6b7280}
+    .budget-history-popover-close:hover{color:#111827}
+    #budget-history-popover table{width:100%;border-collapse:collapse;font-size:12px}
+    #budget-history-popover th,#budget-history-popover td{border:1px solid #e4e8f3;padding:4px 6px;text-align:left}
+    #budget-history-popover th{background:#f3f5fb;color:#1f2633;font-weight:600}
+    #budget-history-popover tbody tr:nth-child(even){background:#fafbfd}
+
+    #budget-query-btn{background:var(--sap-accent);color:#fff;box-shadow:0 10px 20px rgba(10,110,209,0.2)}
+    #budget-reset-btn{background:#fff;color:var(--sap-accent);border:1px solid var(--sap-accent)}
+    #budget-metric-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0}
+    .budget-metric-card{background:var(--sap-surface);border:1px solid var(--sap-border);border-radius:12px;padding:12px 16px;box-shadow:var(--sap-shadow);display:flex;flex-direction:column;gap:8px}
+    .budget-metric-header{display:flex;justify-content:space-between;align-items:flex-end;gap:8px}
+    @media(max-width:900px){.budget-metric-breakdown{flex-wrap:wrap}}
+    .budget-metric-breakdown{display:flex;gap:0;flex-wrap:nowrap;font-size:12px;color:var(--sap-muted)}
+    .budget-metric-half{flex:1 1 180px;display:flex;flex-direction:column;gap:4px;padding:6px;border:1px dashed var(--sap-border);border-radius:0;background:#f9fbff;min-width:170px}
+    .budget-metric-half-title,.budget-metric-quarter{display:flex;justify-content:flex-start;align-items:center;gap:4px}
+    .budget-metric-half-title{font-weight:600;color:var(--sap-muted)}
+    .budget-metric-half-title span,.budget-metric-quarter span{display:inline-flex;align-items:center;min-width:60px}
+    .budget-metric-half-title span::after,.budget-metric-quarter span::after{content:'：';margin-left:2px;color:var(--sap-muted)}
+    .budget-metric-half-title strong{color:var(--sap-text);font-size:14px}
+    .budget-metric-quarter{font-size:11px}
+    .budget-metric-quarter strong{color:var(--sap-text);font-size:12px}
+    .budget-metric-label{font-size:13px;color:var(--sap-muted)}
+    .budget-metric-value{font-size:22px;font-weight:600;color:var(--sap-accent)}
+    #budget-visual-section{display:flex;flex-direction:column;gap:16px}
+    .budget-card{background:var(--sap-surface);border:1px solid var(--sap-border);border-radius:14px;padding:18px;box-shadow:var(--sap-shadow);display:flex;flex-direction:column;gap:12px}
+    #budget-chart-container{width:100%;height:320px}
+    #budget-table-heading-row{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    #budget-table-heading-group{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
+    #budget-table-heading{position:relative;margin:0;font-size:20px;font-weight:600;color:#1e2432;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+    #budget-table-heading::after{content:'\25BC';font-size:12px;color:var(--sap-muted);transition:transform 0.2s ease}
+    #budget-table-heading.active::after{transform:rotate(180deg)}
+    .budget-column-picker{position:absolute;top:calc(100% + 6px);left:0;width:260px;max-height:320px;overflow:auto;background:#fff;border:1px solid var(--sap-border);border-radius:10px;box-shadow:0 12px 30px rgba(14,30,63,0.18);padding:12px;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:20}
+    .budget-column-picker.show{opacity:1;pointer-events:auto}
+    .budget-column-picker h4{margin:0;font-size:13px;color:var(--sap-muted)}
+    .budget-column-picker-actions{display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px}
+    .budget-column-picker-actions button{border:1px solid var(--sap-border);background:#fff;color:#1f2a44;border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer}
+    .budget-column-picker-actions button.primary{color:#fff;background:var(--sap-accent);border-color:var(--sap-accent)}
+    .budget-column-picker-actions button:hover{border-color:var(--sap-accent);color:var(--sap-accent)}
+    .budget-column-check{display:flex;align-items:center;gap:6px;font-size:12px;color:#1d2736;margin-bottom:6px}
+    #budget-table-heading{cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+    #budget-table-heading::after{content:'\25BC';font-size:12px;color:var(--sap-muted);transition:transform 0.2s ease}
+    #budget-table-heading.active::after{transform:rotate(180deg)}
+    .budget-column-picker{position:absolute;top:calc(100% + 6px);right:0;width:260px;max-height:320px;overflow:auto;background:#fff;border:1px solid var(--sap-border);border-radius:10px;box-shadow:0 12px 30px rgba(14,30,63,0.18);padding:12px;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:20}
+    .budget-column-picker.show{opacity:1;pointer-events:auto}
+    .budget-column-picker h4{margin:0 0 8px;font-size:13px;color:var(--sap-muted)}
+    .budget-column-check{display:flex;align-items:center;gap:6px;font-size:12px;color:#1d2736;margin-bottom:6px}
+    #budget-table-filters{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+    .budget-filter-field{display:flex;flex-direction:column;font-size:12px;color:var(--sap-muted);gap:4px}
+    .budget-filter-field input{min-width:160px;border:1px solid var(--sap-border);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--sap-text);background:#fff}
+    .budget-filter-buttons{display:flex;gap:8px;margin-bottom:6px}
+    .budget-filter-buttons button{border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer}
+    #filter-apply-btn{background:var(--sap-accent);color:#fff}
+    #filter-reset-btn{background:#fff;color:var(--sap-accent);border:1px solid var(--sap-accent)}
+    #budget-table-heading{position:relative;margin:0;font-size:20px;font-weight:600;color:#1e2432;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+    #budget-table-heading::after{content:'\25BC';font-size:12px;color:var(--sap-muted);transition:transform 0.2s ease}
+    #budget-table-heading.active::after{transform:rotate(180deg)}
+    .budget-column-picker{position:absolute;top:calc(100% + 6px);right:0;width:260px;max-height:320px;overflow:auto;background:#fff;border:1px solid var(--sap-border);border-radius:10px;box-shadow:0 12px 30px rgba(14,30,63,0.18);padding:12px;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:20}
+    .budget-column-picker.show{opacity:1;pointer-events:auto}
+    .budget-column-picker h4{margin:0 0 8px;font-size:13px;color:var(--sap-muted)}
+    .budget-column-check{display:flex;align-items:center;gap:6px;font-size:12px;color:#1d2736;margin-bottom:6px}
+    .budget-column-check input{margin:0}
+    .budget-column-group-title{font-weight:600;margin:8px 0 4px;font-size:12px;color:#5b6277}
+    .budget-col-hidden{display:none!important}
+    #budget-data-table th.budget-action-col,#budget-data-table td.budget-action-col{position:sticky;right:0;background:#fff;box-shadow:-4px 0 8px rgba(18,28,45,0.08);z-index:5}
+    #budget-data-table td.budget-action-col{background:#f5f7fb}
+    .budget-detail-btn{border:1px solid var(--sap-accent);background:#fff;color:var(--sap-accent);border-radius:50%;padding:4px;font-size:11px;cursor:pointer;width:28px;height:28px;display:flex;align-items:center;justify-content:center}
+    .budget-detail-btn:hover{background:var(--sap-accent);color:#fff}
+    #budget-chart-heading-row{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .budget-chart-title-group{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .budget-chart-compare{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sap-muted)}
+    .budget-chart-compare span{cursor:pointer;color:var(--sap-accent);font-weight:600}
+    #budget-chart-compare-year{border:1px solid var(--sap-border);border-radius:8px;padding:6px 12px;font-size:12px;color:var(--sap-text);background:#fff;min-width:150px}
+    .po-detail-header-actions{display:flex;align-items:center;gap:8px}
+    .po-detail-title-group{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .po-detail-po-info{font-size:14px;color:var(--sap-muted)}
+    .po-detail-export-btn{border:1px solid var(--sap-accent);background:#fff;color:var(--sap-accent);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-right:8px}
+    .po-item-manage-btn{border:none;background:#fff;color:var(--sap-accent);border-radius:50%;width:24px;height:24px;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 6px rgba(10,110,209,0.2)}
+    .po-item-manage-btn:hover{background:var(--sap-accent);color:#fff}
+    .po-item-manage-btn{border:none;background:#fff;color:var(--sap-accent);border-radius:50%;width:24px;height:24px;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 6px rgba(10,110,209,0.2)}
+    .po-item-manage-btn:hover{background:var(--sap-accent);color:#fff}
+    #budget-po-detail-modal .budget-modal-content{max-width:960px;width:min(960px,95vw)}
+    .po-detail-form{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end}
+    .po-detail-field{flex:1;min-width:160px;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--sap-muted)}
+    .po-detail-field input,.po-detail-field select{border:1px solid var(--sap-border);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--sap-text);background:#fff}
+    .po-detail-item-group{display:flex;align-items:center;gap:8px}
+    .po-detail-item-group{display:flex;align-items:center;gap:8px}
+    .po-detail-filter-buttons{display:flex;gap:10px;margin-top:2px;flex-wrap:nowrap;align-items:flex-end;margin-left:auto;justify-content:flex-end}
+    .po-detail-start-field .po-detail-start-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .po-detail-granularity-btn{border:1px solid var(--sap-accent);background:#fff;color:var(--sap-accent);border-radius:12px;padding:2px 10px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.2s ease}
+    .po-detail-granularity-btn.active{background:var(--sap-accent);color:#fff;box-shadow:0 4px 10px rgba(10,110,209,0.2)}
+    .po-detail-field input:disabled{background:#f4f6fb;color:#9ba8c1;cursor:not-allowed}
+    .po-cell-editor{display:flex;align-items:center;gap:6px}
+    .po-cell-actions{display:flex;gap:4px;opacity:0;pointer-events:none;transition:opacity 0.2s ease}
+    .po-cell-actions.show{opacity:1;pointer-events:auto}
+    .po-cell-actions button{border:none;background:transparent;color:#6b778c;font-size:14px;cursor:pointer;padding:2px}
+    .po-cell-actions button:hover{color:var(--sap-accent)}
+    .po-detail-filter-buttons button{border:1px solid var(--sap-accent);background:#fff;color:var(--sap-accent);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer}
+    .po-detail-filter-buttons button.po-detail-query-btn{background:var(--sap-accent);color:#fff}
+    #po-detail-table-wrapper{max-height:60vh;overflow:auto;border:1px solid #e0e4ec;border-radius:8px;padding:4px;margin-top:4px}
+    #po-detail-table{width:100%;border-collapse:collapse;font-size:12px;color:#1d2736}
+    #po-detail-table th,#po-detail-table td{border:1px solid #e0e4ec;padding:6px;text-align:center;background:#fff}
+    #po-detail-table tbody tr:nth-child(even) td{background:#f7f9fd}
+    #po-detail-table tr.po-summary-row td{background:#eef2ff;font-weight:600}
+    #po-detail-table tr.po-summary-row td{background:#eef2ff;font-weight:600}
+    #po-detail-table thead th{position:sticky;top:0;background:#f0f3fb;z-index:2;box-shadow:0 2px 4px rgba(15,31,58,0.08)}
+    #po-detail-table input,#po-detail-table select{width:100%;border:1px solid var(--sap-border);border-radius:6px;padding:4px;font-size:12px}
+    #po-detail-pagination{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:8px}
+    #po-detail-pagination button{border:1px solid var(--sap-accent);background:#fff;color:var(--sap-accent);border-radius:8px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer}
+    #po-detail-pagination button:disabled{opacity:0.4;cursor:not-allowed}
+    #po-detail-table-wrapper{max-height:60vh;overflow:auto;border:1px solid #e0e4ec;border-radius:8px;padding:4px;margin-top:4px}
+    #po-detail-table{width:100%;border-collapse:collapse;font-size:12px;color:#1d2736}
+    #po-detail-table th,#po-detail-table td{border:1px solid #e0e4ec;padding:6px;text-align:center;background:#fff}
+    #po-detail-table tbody tr:nth-child(even) td{background:#f7f9fd}
+    #po-detail-table tr.po-summary-row td{background:#eef2ff;font-weight:600}
+    #po-detail-table thead th{position:sticky;top:0;background:#f0f3fb;z-index:2;box-shadow:0 2px 4px rgba(15,31,58,0.08)}
+    #po-detail-table input,#po-detail-table select{width:100%;border:1px solid var(--sap-border);border-radius:6px;padding:4px;font-size:12px}
+    #po-detail-pagination{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:8px}
+    #po-detail-pagination button{border:1px solid var(--sap-accent);background:#fff;color:var(--sap-accent);border-radius:8px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer}
+    #po-detail-pagination button:disabled{opacity:0.4;cursor:not-allowed}
+    #budget-table-actions{display:flex;gap:8px;align-items:center}
+    .budget-action-btn{border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s ease}
+    #budget-edit-toggle-btn{background:#1d2740;color:#fff;box-shadow:0 10px 20px rgba(12,26,57,0.25)}
+    #budget-edit-toggle-btn.editing{background:var(--sap-green);box-shadow:0 10px 20px rgba(46,189,133,0.25)}
+    #budget-import-btn{background:var(--sap-accent);color:#fff;box-shadow:0 10px 20px rgba(10,110,209,0.15)}
+    #budget-export-btn{background:#fff;color:var(--sap-accent);border:1px solid var(--sap-accent)}
+    #budget-table-wrapper{border-radius:14px;border:1px solid #e0e4ec;background:#f9fbff;padding:14px;overflow-x:auto;box-shadow:0 8px 24px rgba(18,28,45,0.08)}
+    #budget-data-table{width:100%;min-width:3600px;border-collapse:separate;border-spacing:0;font-size:11px;color:#1d2736;font-family:'IBM Plex Sans','Inter',sans-serif}
+    .budget-modal-backdrop{position:fixed;inset:0;background:rgba(9,22,43,0.4);backdrop-filter:blur(1px);opacity:0;pointer-events:none;transition:opacity 0.25s ease;z-index:40}
+    .budget-modal-backdrop.show{opacity:1;pointer-events:auto}
+    .budget-modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity 0.25s ease,transform 0.25s ease;z-index:50}
+    .budget-modal.show{opacity:1;pointer-events:auto}
+    .budget-modal-content{width:420px;max-width:90vw;background:var(--sap-surface);border-radius:14px;border:1px solid var(--sap-border);box-shadow:var(--sap-shadow);padding:20px;transform:translateY(12px);transition:transform 0.25s ease}
+    .budget-modal.show .budget-modal-content{transform:translateY(0)}
+    .budget-modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .budget-modal-header h3{margin:0;font-size:18px;font-weight:600}
+    .budget-modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--sap-muted)}
+    #budget-template-download{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--sap-accent);background:#fff;color:var(--sap-accent);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;margin-bottom:16px;text-decoration:none}
+    .budget-modal-body{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;font-size:13px;color:var(--sap-text)}
+    .budget-modal-body input[type="file"]{font-size:12px}
+    .budget-modal-footer{display:flex;justify-content:flex-end;gap:12px}
+    .budget-modal-footer button{border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer}
+    #budget-import-cancel{background:#f0f2f6;color:var(--sap-text)}
+    #budget-import-confirm{background:var(--sap-accent);color:#fff;box-shadow:0 10px 20px rgba(10,110,209,0.2)}
+    #budget-data-table thead th{background:#edf0f5;color:#212a38;padding:8px;text-align:center;font-weight:600;border:1px solid #d9dde6;letter-spacing:0.2px}
+    #budget-data-table thead tr:first-child th{background:#dfe3eb;color:#0f1622;font-weight:700}
+    #budget-data-table thead tr:nth-child(2) th{background:#f3f4f7;color:#1d2838}
+    #budget-data-table thead tr:nth-child(3) th{background:#fafbfc;color:#2a3242;font-weight:600}
+    #budget-data-table tbody td{padding:8px;border:1px solid #e3e6ef;text-align:center;background:#fff;white-space:nowrap}
+    #budget-data-table tbody tr:nth-child(odd) td{background:#fbfcfe}
+    #budget-data-table tbody tr:nth-child(even) td{background:#f5f6fa}
+    #budget-data-table tbody tr.budget-row-selected td{background:#dfe9ff}
+    #budget-data-table input[type="text"],#budget-data-table input[type="number"],#budget-data-table input[type="date"],#budget-data-table select{width:100%;border:1px solid var(--sap-border);border-radius:6px;padding:4px 6px;font-size:11px;font-family:inherit;color:var(--sap-text);background:#fff}
+    #budget-data-table input:focus,#budget-data-table select:focus{outline:1px solid var(--sap-accent)}
+    #budget-data-table input:disabled,#budget-data-table select:disabled{background:#f4f6fb;color:#99a3b8;cursor:not-allowed}
+    .budget-col-small{min-width:120px}
+    .budget-col-medium{min-width:190px}
+    .budget-col-wide{min-width:240px}
+    .budget-col-amount{min-width:150px}
+    #budget-data-table thead th[rowspan="2"],#budget-data-table thead th[rowspan="3"]{background:linear-gradient(135deg,#0a6ed1,#5abbed);color:#fff}
+    .budget-text-left{text-align:left;white-space:normal}
+    .budget-negative{color:#d53939;font-weight:600}
+    @media(max-width:1400px){
+      #budget-page-shell{padding:16px}
+      #budget-metric-row{grid-template-columns:repeat(2,1fr)}
+    }
+  </style>
+</head>
+<body id="budget-body-root">
+  <div id="budget-page-shell">
+    <header id="budget-header">
+      <div id="budget-title-row">
+        <div>
+          <h1 id="budget-title">机械课预算报表</h1>
+                  </div>
+      </div>
+      <div id="budget-control-strip">
+        <select id="budget-plant-select" aria-label="厂区选择">
+          <option value="phase1" selected>创新中心一期</option>
+          <option value="phase2">创新中心二期</option>
+        </select>
+        <input id="budget-year-input" type="number" min="2020" max="2035" value="2025" aria-label="预算年度">
+        <select id="budget-owner-input" aria-label="预算编号"></select>
+        <div id="budget-buttons">
+          <button id="budget-query-btn" type="button">查询</button>
+          <button id="budget-reset-btn" type="button">重置</button>
+        </div>
+        <div id="budget-snapshot-buttons">
+          <button type="button" id="budget-snapshot-btn">快照</button>
+          <button type="button" id="budget-snapshot-history-btn">快照历史</button>
+        </div>
+      </div>
+      <div id="budget-metric-row">
+        <div class="budget-metric-card" id="budget-metric-total">
+          <div class="budget-metric-header">
+            <span class="budget-metric-label">年度预算</span>
+            <span class="budget-metric-value" id="budget-metric-total-value">--</span>
+          </div>
+          <div class="budget-metric-breakdown">
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>上半年</span><strong id="budget-total-half1">--</strong></div>
+              <div class="budget-metric-quarter"><span>一季度</span><strong id="budget-total-q1">--</strong></div>
+              <div class="budget-metric-quarter"><span>二季度</span><strong id="budget-total-q2">--</strong></div>
+            </div>
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>下半年</span><strong id="budget-total-half2">--</strong></div>
+              <div class="budget-metric-quarter"><span>三季度</span><strong id="budget-total-q3">--</strong></div>
+              <div class="budget-metric-quarter"><span>四季度</span><strong id="budget-total-q4">--</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="budget-metric-card" id="budget-metric-executed">
+          <div class="budget-metric-header">
+            <span class="budget-metric-label">执行金额</span>
+            <span class="budget-metric-value" id="budget-metric-executed-value">--</span>
+          </div>
+          <div class="budget-metric-breakdown">
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>上半年</span><strong id="budget-exe-half1">--</strong></div>
+              <div class="budget-metric-quarter"><span>一季度</span><strong id="budget-exe-q1">--</strong></div>
+              <div class="budget-metric-quarter"><span>二季度</span><strong id="budget-exe-q2">--</strong></div>
+            </div>
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>下半年</span><strong id="budget-exe-half2">--</strong></div>
+              <div class="budget-metric-quarter"><span>三季度</span><strong id="budget-exe-q3">--</strong></div>
+              <div class="budget-metric-quarter"><span>四季度</span><strong id="budget-exe-q4">--</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="budget-metric-card" id="budget-metric-remaining">
+          <div class="budget-metric-header">
+            <span class="budget-metric-label">剩余金额</span>
+            <span class="budget-metric-value" id="budget-metric-remaining-value">--</span>
+          </div>
+          <div class="budget-metric-breakdown">
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>上半年</span><strong id="budget-rem-half1">--</strong></div>
+              <div class="budget-metric-quarter"><span>一季度</span><strong id="budget-rem-q1">--</strong></div>
+              <div class="budget-metric-quarter"><span>二季度</span><strong id="budget-rem-q2">--</strong></div>
+            </div>
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>下半年</span><strong id="budget-rem-half2">--</strong></div>
+              <div class="budget-metric-quarter"><span>三季度</span><strong id="budget-rem-q3">--</strong></div>
+              <div class="budget-metric-quarter"><span>四季度</span><strong id="budget-rem-q4">--</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="budget-metric-card" id="budget-metric-rate">
+          <div class="budget-metric-header">
+            <span class="budget-metric-label">预算执行率</span>
+            <span class="budget-metric-value" id="budget-metric-rate-value">--</span>
+          </div>
+          <div class="budget-metric-breakdown">
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>上半年</span><strong id="budget-rate-half1">--</strong></div>
+              <div class="budget-metric-quarter"><span>一季度</span><strong id="budget-rate-q1">--</strong></div>
+              <div class="budget-metric-quarter"><span>二季度</span><strong id="budget-rate-q2">--</strong></div>
+            </div>
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>下半年</span><strong id="budget-rate-half2">--</strong></div>
+              <div class="budget-metric-quarter"><span>三季度</span><strong id="budget-rate-q3">--</strong></div>
+              <div class="budget-metric-quarter"><span>四季度</span><strong id="budget-rate-q4">--</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section id="budget-visual-section">
+      <article class="budget-card" id="budget-chart-card">
+        <div id="budget-chart-heading-row">
+          <div class="budget-chart-title-group">
+            <h2 id="budget-chart-heading">月度预算趋势</h2>
+            <label class="budget-chart-compare">
+              <span id="budget-chart-compare-label">对比年设置</span>
+              <select id="budget-chart-compare-year"></select>
+            </label>
+          </div>
+        </div>
+        <div id="budget-chart-container"></div>
+      </article>
+
+      <article class="budget-card" id="budget-table-card">
+        <div id="budget-table-heading-row">
+          <div id="budget-table-heading-group">
+            <div style="position:relative">
+              <h2 id="budget-table-heading">预算执行明细</h2>
+              <div id="budget-column-picker" class="budget-column-picker">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                  <h4 style="margin:0">显示列</h4>
+                  <div class="budget-column-picker-actions">
+                    <button type="button" id="budget-column-select-all" class="primary">全选</button>
+                    <button type="button" id="budget-column-invert">反选</button>
+                    <button type="button" id="budget-column-reset">重置</button>
+                  </div>
+                </div>
+                <div id="budget-column-picker-body"></div>
+              </div>
+            </div>
+            <div id="budget-table-filters">
+              <label class="budget-filter-field">
+                <span>预算编号</span>
+                <input type="text" id="filter-budget-code" list="filter-budget-code-options" placeholder="输入或选择">
+                <datalist id="filter-budget-code-options"></datalist>
+              </label>
+              <label class="budget-filter-field">
+                <span>预算名称</span>
+                <input type="text" id="filter-budget-name" list="filter-budget-name-options" placeholder="输入或选择">
+                <datalist id="filter-budget-name-options"></datalist>
+              </label>
+              <label class="budget-filter-field">
+                <span>PO号</span>
+                <input type="text" id="filter-po-number" list="filter-po-number-options" placeholder="输入或选择">
+                <datalist id="filter-po-number-options"></datalist>
+              </label>
+              <div class="budget-filter-buttons">
+                <button type="button" id="filter-apply-btn">查询</button>
+                <button type="button" id="filter-reset-btn">重置</button>
+              </div>
+            </div>
+          </div>
+          <div id="budget-table-actions">
+            <button id="budget-edit-toggle-btn" class="budget-action-btn" type="button">编辑</button>
+            <button id="budget-import-btn" class="budget-action-btn" type="button">导入</button>
+            <button id="budget-export-btn" class="budget-action-btn" type="button">导出</button>
+          </div>
+        </div>
+        <div id="budget-table-wrapper">
+          <table id="budget-data-table">
+                        <thead id="budget-table-head">
+              <tr id="budget-head-top">
+                <th rowspan="3">序号</th>
+                <th colspan="8">预算项目</th>
+                <th colspan="6">PR追踪</th>
+                <th colspan="5">PO追踪</th>
+                <th colspan="29">GR追踪</th>
+                <th rowspan="3" class="budget-action-col">操作</th>
+              </tr>
+              <tr id="budget-head-middle">
+                <th rowspan="2">预算编号</th>
+                <th rowspan="2">预算名称</th>
+                <th rowspan="2">old PO</th>
+                <th rowspan="2">项目代码</th>
+                <th rowspan="2">总金额</th>
+                <th rowspan="2">执行金额</th>
+                <th rowspan="2">剩余金额</th>
+                <th rowspan="2">预算执行率</th>
+                <th rowspan="2">PR名称</th>
+                <th rowspan="2">完成状态</th>
+                <th rowspan="2">PR预算金额(未税)</th>
+                <th rowspan="2">负责人</th>
+                <th rowspan="2">计划上会日期</th>
+                <th rowspan="2">实际开PR日期</th>
+                <th rowspan="2">PO号</th>
+                <th rowspan="2">PO实际金额(未税)</th>
+                <th rowspan="2">生成PO日期</th>
+                <th rowspan="2">PO到期日期</th>
+                <th rowspan="2">PO厂商</th>
+                <th colspan="5">收货汇总</th>
+                <th colspan="2">1月</th>
+                <th colspan="2">2月</th>
+                <th colspan="2">3月</th>
+                <th colspan="2">4月</th>
+                <th colspan="2">5月</th>
+                <th colspan="2">6月</th>
+                <th colspan="2">7月</th>
+                <th colspan="2">8月</th>
+                <th colspan="2">9月</th>
+                <th colspan="2">10月</th>
+                <th colspan="2">11月</th>
+                <th colspan="2">12月</th>
+              </tr>
+              <tr id="budget-head-bottom">
+                <th>计划请款金额</th>
+                <th>计划收货总比例</th>
+                <th>实际请款金额</th>
+                <th>实际请款差额</th>
+                <th>请款执行率</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+              </tr>
+            </thead>
+
+            <tbody id="budget-table-body"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <div class="budget-modal" id="budget-import-modal" role="dialog" aria-modal="true" aria-labelledby="budget-import-title">
+    <div class="budget-modal-content">
+      <div class="budget-modal-header">
+        <h3 id="budget-import-title">导入预算数据</h3>
+        <button type="button" class="budget-modal-close" id="budget-import-close" aria-label="关闭">×</button>
+      </div>
+      <a id="budget-template-download" href="v2.8预算管理表头v202512wb.xlsx" download>下载模板</a>
+      <div class="budget-modal-body">
+        <label for="budget-import-file">上传文件 (支持 .xls/.xlsx/.csv)</label>
+        <input type="file" id="budget-import-file" accept=".xls,.xlsx,.csv">
+      </div>
+      <div class="budget-modal-footer">
+        <button type="button" id="budget-import-cancel">取消</button>
+        <button type="button" id="budget-import-confirm">上传</button>
+      </div>
+    </div>
+  </div>
+  <div class="budget-modal" id="budget-edit-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="budget-edit-modal-title">
+    <div class="budget-modal-content">
+      <div class="budget-modal-header">
+        <h3 id="budget-edit-modal-title">是否保存更改</h3>
+        <button type="button" class="budget-modal-close" id="budget-edit-modal-close" aria-label="关闭">×</button>
+      </div>
+      <div class="budget-modal-body">
+        <p>当前对表格的修改尚未保存，是否保存更改？</p>
+      </div>
+      <div class="budget-modal-footer">
+        <button type="button" id="budget-edit-continue-btn">继续编辑</button>
+        <button type="button" id="budget-edit-cancel-btn">取消编辑</button>
+        <button type="button" id="budget-edit-save-btn">保存</button>
+      </div>
+    </div>
+  </div>
+  <div class="budget-modal" id="budget-po-detail-modal" role="dialog" aria-modal="true" aria-labelledby="po-detail-title">
+    <div class="budget-modal-content">
+      <div class="budget-modal-header">
+        <div class="po-detail-title-group">
+          <h3 id="po-detail-title">PO执行明细</h3>
+          <span id="po-detail-po-info" class="po-detail-po-info"></span>
+        </div>
+        <div class="po-detail-header-actions">
+          <button type="button" id="po-detail-export-btn" class="po-detail-export-btn">导出</button>
+          <button type="button" class="budget-modal-close" id="budget-po-detail-close" aria-label="关闭">×</button>
+        </div>
+      </div>
+      <div class="budget-modal-body">
+        <div class="po-detail-form">
+          <label class="po-detail-field po-detail-start-field">
+            <div class="po-detail-start-header">
+              <span>开始时间</span>
+              <button type="button" id="po-detail-granularity-toggle" class="po-detail-granularity-btn">按月</button>
+            </div>
+            <input type="month" id="po-detail-start">
+          </label>
+          <label class="po-detail-field">
+            <span>结束时间</span>
+            <input type="month" id="po-detail-end">
+          </label>
+          <label class="po-detail-field">
+            <span>品名</span>
+            <div class="po-detail-item-group">
+              <select id="po-detail-item-select"></select>
+              <button type="button" id="po-item-manage-btn" class="po-item-manage-btn">+</button>
+            </div>
+          </label>
+          <div class="po-detail-filter-buttons">
+            <button type="button" id="po-detail-query-btn" class="po-detail-query-btn">查询</button>
+            <button type="button" id="po-detail-reset-btn">重置</button>
+          </div>
+        </div>
+        <div id="po-detail-table-wrapper">
+          <table id="po-detail-table">
+            <thead>
+              <tr>
+                <th>项次名称</th>
+                <th>执行时间</th>
+                <th>执行数量</th>
+                <th>单位</th>
+                <th>执行金额(元)</th>
+              </tr>
+            </thead>
+            <tbody id="po-detail-table-body"></tbody>
+          </table>
+        </div>
+        <div id="po-detail-pagination">
+          <button type="button" id="po-detail-prev">上一页</button>
+          <span id="po-detail-page-info">1/1</span>
+          <button type="button" id="po-detail-next">下一页</button>
+        </div>
+      </div>
+      <div class="budget-modal-footer">
+        <button type="button" id="budget-po-detail-cancel">取消</button>
+        <button type="button" id="budget-po-detail-save">保存</button>
+      </div>
+    </div>
+  </div>
+  <div class="budget-modal" id="po-item-modal" role="dialog" aria-modal="true" aria-labelledby="po-item-modal-title">
+    <div class="budget-modal-content" style="max-width:640px;width:min(640px,92vw)">
+      <div class="budget-modal-header">
+        <h3 id="po-item-modal-title">项次管理</h3>
+        <button type="button" class="budget-modal-close" id="po-item-modal-close" aria-label="关闭">×</button>
+      </div>
+      <div class="budget-modal-body">
+        <table id="po-item-table" style="width:100%;border-collapse:collapse;font-size:12px;color:#1d2736">
+          <thead>
+            <tr>
+              <th style="border:1px solid #e0e4ec;padding:6px;width:60px">序号</th>
+              <th style="border:1px solid #e0e4ec;padding:6px">项次名称</th>
+              <th style="border:1px solid #e0e4ec;padding:6px;width:120px">单位</th>
+              <th style="border:1px solid #e0e4ec;padding:6px;width:80px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="po-item-table-body"></tbody>
+        </table>
+        <button type="button" id="po-item-add-row" class="po-item-manage-btn" style="margin-top:10px;align-self:flex-start">+</button>
+      </div>
+      <div class="budget-modal-footer">
+        <button type="button" id="po-item-modal-cancel">取消</button>
+        <button type="button" id="po-item-modal-confirm">确认</button>
+      </div>
+    </div>
+  </div>
+  <div class="budget-modal" id="budget-snapshot-modal" role="dialog" aria-modal="true" aria-labelledby="budget-snapshot-title">
+    <div class="budget-modal-content">
+      <div class="budget-modal-header">
+        <h3 id="budget-snapshot-title">保存快照</h3>
+        <button type="button" class="budget-modal-close" id="budget-snapshot-close" aria-label="关闭">×</button>
+      </div>
+      <div class="budget-modal-body">
+        <label>
+          <span>快照名称</span>
+          <input type="text" id="budget-snapshot-name" placeholder="请输入快照名称">
+        </label>
+        <label>
+          <span>关联年份</span>
+          <input type="text" id="budget-snapshot-year" readonly>
+        </label>
+        <label>
+          <span>快照描述</span>
+          <textarea id="budget-snapshot-desc" rows="3" placeholder="请输入描述信息"></textarea>
+        </label>
+      </div>
+      <div class="budget-modal-footer">
+        <button type="button" id="budget-snapshot-cancel">取消</button>
+        <button type="button" id="budget-snapshot-save">保存</button>
+      </div>
+    </div>
+  </div>
+  <div class="budget-modal" id="budget-snapshot-history-modal" role="dialog" aria-modal="true" aria-labelledby="budget-snapshot-history-title">
+    <div class="budget-modal-content">
+      <div class="budget-modal-header">
+        <h3 id="budget-snapshot-history-title">快照历史</h3>
+        <button type="button" class="budget-modal-close" id="budget-snapshot-history-close" aria-label="关闭">×</button>
+      </div>
+      <div class="budget-modal-body snapshot-history-body">
+        <div class="snapshot-history-table-wrapper">
+          <div class="snapshot-panel-header">
+            <div>
+              <h4>快照列表</h4>
+              <p class="snapshot-panel-subtitle">请选择一条记录查看右侧详情</p>
+            </div>
+          </div>
+          <div class="snapshot-table-scroll">
+            <table id="budget-snapshot-history-table">
+              <thead>
+                <tr style="background:#f4f6fb">
+                  <th style="border:1px solid #dde3ed;padding:6px;width:60px">序号</th>
+                  <th style="border:1px solid #dde3ed;padding:6px">快照名称</th>
+                  <th style="border:1px solid #dde3ed;padding:6px;width:140px">快照关联时间</th>
+                  <th style="border:1px solid #dde3ed;padding:6px">快照描述</th>
+                </tr>
+              </thead>
+              <tbody id="budget-snapshot-history-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="budget-snapshot-detail" class="snapshot-detail-panel">
+          <div class="snapshot-detail-header">
+            <div>
+              <h4 id="budget-snapshot-detail-title">快照详情</h4>
+              <p class="snapshot-panel-subtitle">所选快照的明细数据</p>
+            </div>
+            <button type="button" id="budget-snapshot-detail-export" disabled>导出</button>
+          </div>
+          <div id="budget-snapshot-detail-content" class="snapshot-detail-content"><em>选择快照查看详情</em></div>
+        </div>
+      </div>
+      <div class="budget-modal-footer">
+        <button type="button" id="budget-snapshot-history-cancel">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="budget-history-popover" role="dialog" aria-label="更改历史">
+    <div class="budget-history-popover-header">
+      <span>更改历史</span>
+      <button type="button" class="budget-history-popover-close" id="budget-history-popover-close" aria-label="关闭">×</button>
+    </div>
+    <div class="budget-history-popover-body">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:50px">序号</th>
+            <th style="width:140px">修改时间</th>
+            <th>原值</th>
+            <th>修改后值</th>
+          </tr>
+        </thead>
+        <tbody id="budget-history-popover-body">
+          <tr><td colspan="4" style="text-align:center;padding:6px">暂无历史记录</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="budget-modal-backdrop" id="budget-modal-backdrop"></div>
+
+  <script id="budget-script-block">
+    (function(){
+      const monthConfig=[
+        {key:'jan',label:'1月'},{key:'feb',label:'2月'},{key:'mar',label:'3月'},{key:'apr',label:'4月'},
+        {key:'may',label:'5月'},{key:'jun',label:'6月'},{key:'jul',label:'7月'},{key:'aug',label:'8月'},
+        {key:'sep',label:'9月'},{key:'oct',label:'10月'},{key:'nov',label:'11月'},{key:'dec',label:'12月'}
+      ];
+      const poDetailSummaryDefs=[
+        {label:'统计',keys:monthConfig.map(cfg=>cfg.key)},
+        {label:'年统计',keys:monthConfig.map(cfg=>cfg.key)},
+        {label:'上半年统计',keys:monthConfig.slice(0,6).map(cfg=>cfg.key)},
+        {label:'下半年统计',keys:monthConfig.slice(6).map(cfg=>cfg.key)},
+        {label:'一季度统计',keys:monthConfig.slice(0,3).map(cfg=>cfg.key)},
+        {label:'二季度统计',keys:monthConfig.slice(3,6).map(cfg=>cfg.key)},
+        {label:'三季度统计',keys:monthConfig.slice(6,9).map(cfg=>cfg.key)},
+        {label:'四季度统计',keys:monthConfig.slice(9).map(cfg=>cfg.key)}
+      ];
+      const PO_DETAIL_PAGE_SIZE=12;
+      let poDetailRows=[];
+      let poDetailCurrentPage=1;
+      let poDetailActiveRow=null;
+      let poDetailDefaultStart='';
+      let poDetailDefaultEnd='';
+      let poDetailCurrentStart='';
+      let poDetailCurrentEnd='';
+      let poDetailCustomRange=false;
+      let poDetailGranularity='month';
+
+      const budgetRows=[
+        {
+          id:'row-1',
+          budget:{code:'Z6ME0050E101',name:'2025年机械课机台维保耗材',oldPo:'否',project:'C02113',total:1680000,executed:1024500,remaining:655500,rate:0.61},
+          gr:{planAmount:750000,receptionRatio:0.58,actualAmount:690000,difference:60000,execRate:0.92},
+          months:{
+            jan:{plan:210000,actual:180000},feb:{plan:220000,actual:205000},mar:{plan:240000,actual:215000},apr:{plan:260000,actual:200000},
+            may:{plan:260000,actual:220000},jun:{plan:240000,actual:210000},jul:{plan:200000,actual:160000},aug:{plan:180000,actual:150000},
+            sep:{plan:170000,actual:140000},oct:{plan:160000,actual:120000},nov:{plan:140000,actual:90000},dec:{plan:130000,actual:70000}
+          },
+          prs:[
+            {
+              name:'CMP机台维保耗材-PR1',status:'已出PO',amount:620000,owner:'E001-程琼',planMeeting:'2025-02-18',actualPr:'2025-02-20',
+              pos:[
+                {number:'4500288810-01',amount:420000,created:'2025-03-05',due:'2025-05-15',vendor:'富士电机(上海)自动化有限公司'},
+                {number:'4500288810-02',amount:200000,created:'2025-04-12',due:'2025-06-20',vendor:'横河电机(中国)有限公司'}
+              ]
+            },
+            {
+              name:'CMP机台维保耗材-PR2',status:'审批中',amount:630000,owner:'E004-刘鹏',planMeeting:'2025-04-05',actualPr:'',
+              pos:[
+                {number:'4500288855-01',amount:315000,created:'2025-05-10',due:'2025-07-30',vendor:'英华达技术服务有限公司'},
+                {number:'4500288855-02',amount:315000,created:'2025-05-22',due:'2025-08-30',vendor:'江苏科华工业设备有限公司'}
+              ]
+            }
+          ]
+        },
+        {
+          id:'row-2',
+          budget:{code:'Z6ME0050E205',name:'冷却塔系统节能改造',oldPo:'是',project:'C03207',total:2150000,executed:1356000,remaining:794000,rate:0.63},
+          gr:{planAmount:980000,receptionRatio:0.41,actualAmount:420000,difference:560000,execRate:0.43},
+          months:{
+            jan:{plan:180000,actual:120000},feb:{plan:200000,actual:140000},mar:{plan:220000,actual:150000},apr:{plan:260000,actual:160000},
+            may:{plan:260000,actual:170000},jun:{plan:230000,actual:180000},jul:{plan:210000,actual:150000},aug:{plan:200000,actual:140000},
+            sep:{plan:190000,actual:130000},oct:{plan:180000,actual:110000},nov:{plan:160000,actual:90000},dec:{plan:150000,actual:60000}
+          },
+          prs:[
+            {
+              name:'冷却塔节能改造-PR1',status:'采购议价',amount:820000,owner:'E002-王立',planMeeting:'2025-03-12',actualPr:'2025-03-25',
+              pos:[
+                {number:'4500291123-01',amount:520000,created:'2025-04-02',due:'2025-07-10',vendor:'日立建机(中国)有限公司'},
+                {number:'4500291123-02',amount:300000,created:'2025-04-18',due:'2025-08-05',vendor:'上海台达能源技术有限公司'}
+              ]
+            },
+            {
+              name:'冷却塔节能改造-PR2',status:'已启动',amount:680000,owner:'E003-赵敏',planMeeting:'2025-05-08',actualPr:'2025-05-18',
+              pos:[
+                {number:'4500291850-01',amount:360000,created:'2025-06-01',due:'2025-08-20',vendor:'江苏双良节能系统有限公司'},
+                {number:'4500291850-02',amount:320000,created:'2025-06-16',due:'2025-09-05',vendor:'浙江精功科技股份有限公司'}
+              ]
+            }
+          ]
+        },
+        {
+          id:'row-3',
+          budget:{code:'Z6ME0050E312',name:'化学供应系统安全整改',oldPo:'否',project:'C04115',total:1425000,executed:645000,remaining:780000,rate:0.45},
+          gr:{planAmount:600000,receptionRatio:0.22,actualAmount:310000,difference:290000,execRate:0.52},
+          months:{
+            jan:{plan:120000,actual:60000},feb:{plan:130000,actual:70000},mar:{plan:140000,actual:75000},apr:{plan:150000,actual:80000},
+            may:{plan:160000,actual:82000},jun:{plan:160000,actual:85000},jul:{plan:150000,actual:88000},aug:{plan:140000,actual:90000},
+            sep:{plan:130000,actual:92000},oct:{plan:120000,actual:95000},nov:{plan:110000,actual:98000},dec:{plan:100000,actual:100000}
+          },
+          prs:[
+            {
+              name:'化学供应系统整改-PR1',status:'PR流程中',amount:420000,owner:'E003-赵敏',planMeeting:'2025-04-28',actualPr:'2025-05-06',
+              pos:[
+                {number:'4500295019-01',amount:210000,created:'2025-06-18',due:'2025-08-30',vendor:'英华达技术服务有限公司'},
+                {number:'4500295019-02',amount:210000,created:'2025-07-10',due:'2025-09-22',vendor:'苏州吴中化工集团有限公司'}
+              ]
+            },
+            {
+              name:'化学供应系统整改-PR2',status:'采购议价',amount:360000,owner:'E001-程琼',planMeeting:'2025-07-05',actualPr:'2025-07-18',
+              pos:[
+                {number:'4500295750-01',amount:180000,created:'2025-08-01',due:'2025-10-05',vendor:'上海博惠化工科技有限公司'},
+                {number:'4500295750-02',amount:180000,created:'2025-08-20',due:'2025-11-02',vendor:'南京道同工程技术有限公司'}
+              ]
+            }
+          ]
+        }
+      ];
+
+
+      const tableRows=[];
+      let budgetSeq=1;
+      budgetRows.forEach(project=>{
+        const prsList=(project.prs&&project.prs.length)?project.prs:[{
+          name:'--',status:'--',amount:0,owner:'--',planMeeting:'',actualPr:'',
+          pos:[{number:'--',amount:0,created:'',due:'',vendor:'--'}]
+        }];
+        const projectRowspan=prsList.reduce((sum,pr)=>{
+          const count=(pr.pos&&pr.pos.length)?pr.pos.length:1;
+          return sum+count;
+        },0);
+        const projectSequence=budgetSeq++;
+        prsList.forEach((pr,prIndex)=>{
+          const poList=(pr.pos&&pr.pos.length)?pr.pos:[{number:'--',amount:0,created:'',due:'',vendor:'--'}];
+          const prRowspan=poList.length;
+          poList.forEach((po,poIndex)=>{
+            tableRows.push({
+              id:`${project.id}-pr${prIndex+1}-po${poIndex+1}`,
+              seq:projectSequence,
+              budget:project.budget,
+              pr,
+              po,
+              gr:project.gr,
+              months:project.months,
+              budgetRowspan:projectRowspan,
+              prRowspan,
+              renderBudgetCells:prIndex===0&&poIndex===0,
+              renderPrCells:poIndex===0
+            });
+          });
+        });
+      });
+
+
+      const unique=arr=>Array.from(new Set(arr.filter(Boolean)));
+      const filterOptionSets={
+        codes:unique(budgetRows.map(project=>project.budget.code)),
+        names:unique(budgetRows.map(project=>project.budget.name)),
+        poNumbers:unique(tableRows.map(item=>item.po.number)),
+        items:unique(tableRows.map(item=>item.pr.name||item.po.vendor||item.budget.name))
+      };
+      let poItemDefinitions=filterOptionSets.items.map(name=>({name,unit:'件'}));
+      const populateDatalist=(id,values)=>{
+        const list=document.getElementById(id);
+        if(!list){return;}
+        list.innerHTML='';
+        values.forEach(val=>{
+          const option=document.createElement('option');
+          option.value=val;
+          list.appendChild(option);
+        });
+      };
+      populateDatalist('filter-budget-code-options',filterOptionSets.codes);
+      populateDatalist('filter-budget-name-options',filterOptionSets.names);
+      const unitOptions=['吨','次','件','个','米'];
+      populateDatalist('filter-po-number-options',filterOptionSets.poNumbers);
+      const formatCurrency=value=>`¥${(value||0).toLocaleString('zh-CN',{minimumFractionDigits:0})}`;
+      const formatPercent=value=>value==null?'--':(value*100).toFixed(1)+'%';
+      const safeText=value=>value??'--';
+      const yesNoOptions=['是','否'].map(item=>({value:item,label:item}));
+      const statusOptions=['已出PO','审批中','已启动','PR流程中','采购议价','已完成'].map(item=>({value:item,label:item}));
+      const ownerOptions=['E001-程琼','E002-王立','E003-赵敏','E004-刘鹏'].map(item=>({value:item,label:item}));
+      const snapshotHistoryData=[];
+      const cellHistories=new Map();
+      const historyIndicators=new Map();
+      const buildHistoryKey=(row,meta)=>{
+        if(!meta||!meta.path||!meta.path.length){return null;}
+        return `${row.id}-${meta.path.join('.')}`;
+      };
+      const normalizeHistoryValue=value=>{
+        if(value===undefined||value===null){return '';}
+        return String(value);
+      };
+
+      let historyPopover=null;
+      let historyPopoverBody=null;
+      let historyPopoverClose=null;
+      let historyPopoverCurrentKey=null;
+      let historyPopoverAnchor=null;
+
+
+      const getValueByPath=(obj,path)=>path.reduce((acc,key)=>acc?acc[key]:undefined,obj);
+      const setValueByPath=(obj,path,value)=>{
+        let target=obj;
+        for(let i=0;i<path.length-1;i++){
+          if(!target[path[i]]){target[path[i]]={};}
+          target=target[path[i]];
+        }
+        target[path[path.length-1]]=value;
+      };
+
+      const updateHistoryIndicatorVisibility=key=>{
+        if(!key){return;}
+        const indicator=historyIndicators.get(key);
+        const hasHistory=(cellHistories.get(key)||[]).length>0;
+        if(indicator){indicator.classList.toggle('visible',hasHistory);}
+      };
+      const registerHistoryIndicator=(key,indicator)=>{
+        if(!key||!indicator){return;}
+        historyIndicators.set(key,indicator);
+        updateHistoryIndicatorVisibility(key);
+      };
+
+
+      const renderHistoryTable=(records)=>{
+        if(!historyPopoverBody){return;}
+        historyPopoverBody.innerHTML='';
+        if(!records.length){
+          const row=document.createElement('tr');
+          const cell=document.createElement('td');
+          cell.colSpan=4;
+          cell.textContent='暂无历史记录';
+          cell.style.textAlign='center';
+          cell.style.padding='6px';
+          row.appendChild(cell);
+          historyPopoverBody.appendChild(row);
+          return;
+        }
+        records.forEach((item,index)=>{
+          const row=document.createElement('tr');
+          const seq=document.createElement('td');
+          seq.textContent=index+1;
+          const time=document.createElement('td');
+          time.textContent=item.timestamp||'--';
+          const oldCell=document.createElement('td');
+          oldCell.textContent=item.oldValue??'';
+          const newCell=document.createElement('td');
+          newCell.textContent=item.newValue??'';
+          row.appendChild(seq);
+          row.appendChild(time);
+          row.appendChild(oldCell);
+          row.appendChild(newCell);
+          historyPopoverBody.appendChild(row);
+        });
+      };
+      const repositionHistoryPopover=()=>{
+        if(!historyPopover||!historyPopoverAnchor||!historyPopover.classList.contains('show')){return;}
+        const anchorRect=historyPopoverAnchor.getBoundingClientRect();
+        const popRect=historyPopover.getBoundingClientRect();
+        let top=anchorRect.bottom+window.scrollY+8;
+        let left=anchorRect.right+window.scrollX-popRect.width;
+        const minLeft=window.scrollX+8;
+        const maxLeft=window.scrollX+window.innerWidth-popRect.width-8;
+        if(left<minLeft){left=minLeft;}
+        if(left>maxLeft){left=maxLeft;}
+        const viewportBottom=window.scrollY+window.innerHeight;
+        if(top+popRect.height>viewportBottom-8){
+          top=anchorRect.top+window.scrollY-popRect.height-8;
+        }
+        const minTop=window.scrollY+8;
+        if(top<minTop){top=minTop;}
+        historyPopover.style.left=`${left}px`;
+        historyPopover.style.top=`${top}px`;
+      };
+      const showHistoryPopover=(key,anchor)=>{
+        if(!historyPopover||!anchor){return;}
+        const records=cellHistories.get(key)||[];
+        renderHistoryTable(records);
+        historyPopoverCurrentKey=key;
+        historyPopoverAnchor=anchor;
+        historyPopover.classList.add('show');
+        historyPopover.style.visibility='hidden';
+        historyPopover.style.left='0px';
+        historyPopover.style.top='0px';
+        repositionHistoryPopover();
+        historyPopover.style.visibility='visible';
+      };
+      const hideHistoryPopover=()=>{
+        if(historyPopover){
+          historyPopover.classList.remove('show');
+          historyPopover.style.visibility='';
+        }
+        historyPopoverCurrentKey=null;
+        historyPopoverAnchor=null;
+      };
+      const toggleHistoryPopover=(key,anchor)=>{
+        if(!historyPopover){return;}
+        if(historyPopover.classList.contains('show')&&historyPopoverCurrentKey===key){
+          hideHistoryPopover();
+          return;
+        }
+        showHistoryPopover(key,anchor);
+      };
+      const commitCellEditHistories=()=>{
+        const controls=document.querySelectorAll('.budget-edit-input, .budget-edit-select');
+        if(!controls.length){return;}
+        const timestamp=new Date().toLocaleString('zh-CN',{hour12:false});
+        controls.forEach(ctrl=>{
+          const key=ctrl.dataset.historyKey;
+          if(!key){return;}
+          const previous=ctrl.dataset.originalValue??'';
+          const current=normalizeHistoryValue(ctrl.value);
+          if(previous===current){return;}
+          const record={timestamp,oldValue:previous,newValue:current};
+          const list=cellHistories.get(key)||[];
+          list.unshift(record);
+          cellHistories.set(key,list);
+          ctrl.dataset.originalValue=current;
+          updateHistoryIndicatorVisibility(key);
+          if(historyPopoverCurrentKey===key){
+            renderHistoryTable(list);
+            repositionHistoryPopover();
+          }
+        });
+      };
+
+      const poDetailFieldMap={
+        qty:{prop:'qty',draft:'draftQty'},
+        unit:{prop:'unit',draft:'draftUnit'},
+        amount:{prop:'amount',draft:'draftAmount'}
+      };
+      const getFieldValue=(entry,field)=>entry[poDetailFieldMap[field].prop];
+      const setFieldValue=(entry,field,value)=>{entry[poDetailFieldMap[field].prop]=value;};
+      const getDraftValue=(entry,field)=>entry[poDetailFieldMap[field].draft];
+      const setDraftValue=(entry,field,value)=>{entry[poDetailFieldMap[field].draft]=value;};
+      const isFieldDirty=(entry,field)=>getDraftValue(entry,field)!==getFieldValue(entry,field);
+      const createCellActions=(entry,field,refreshControl,onSave)=>{
+        const actions=document.createElement('div');
+        actions.className='po-cell-actions';
+        const cancelBtn=document.createElement('button');
+        cancelBtn.type='button';
+        cancelBtn.title='放弃更改';
+        cancelBtn.textContent='✖';
+        cancelBtn.addEventListener('click',event=>{
+          event.stopPropagation();
+          setDraftValue(entry,field,getFieldValue(entry,field));
+          refreshControl();
+          updateVisibility();
+        });
+        const saveBtn=document.createElement('button');
+        saveBtn.type='button';
+        saveBtn.title='保存';
+        saveBtn.textContent='💾';
+        saveBtn.addEventListener('click',event=>{
+          event.stopPropagation();
+          setFieldValue(entry,field,getDraftValue(entry,field));
+          if(typeof onSave==='function'){onSave();}
+          updateVisibility();
+        });
+        actions.appendChild(cancelBtn);
+        actions.appendChild(saveBtn);
+        const updateVisibility=()=>{
+          actions.classList.toggle('show',isFieldDirty(entry,field));
+        };
+        updateVisibility();
+        return {actions,updateVisibility};
+      };
+
+      const applyPoDetailGranularityUI=()=>{
+        if(!poDetailStart){return;}
+        const baseYear=(poDetailCurrentStart||poDetailDefaultStart||`${new Date().getFullYear()}-01`).slice(0,4);
+        if(poDetailGranularity==='year'){
+          poDetailStart.type='number';
+          poDetailStart.min='2000';
+          poDetailStart.max='2100';
+          poDetailStart.placeholder='选择年份';
+          poDetailStart.value=baseYear;
+          if(poDetailEnd){
+            poDetailEnd.disabled=true;
+          }
+          if(poDetailGranularityToggle){
+            poDetailGranularityToggle.textContent='按年';
+            poDetailGranularityToggle.classList.add('active');
+          }
+        }else{
+          poDetailStart.type='month';
+          poDetailStart.min='';
+          poDetailStart.max='';
+          poDetailStart.placeholder='';
+          if(poDetailCurrentStart){poDetailStart.value=poDetailCurrentStart;}
+          if(poDetailEnd){
+            poDetailEnd.disabled=false;
+            if(poDetailCurrentEnd){poDetailEnd.value=poDetailCurrentEnd;}
+          }
+          if(poDetailGranularityToggle){
+            poDetailGranularityToggle.textContent='按月';
+            poDetailGranularityToggle.classList.remove('active');
+          }
+        }
+      };
+      const setPoDetailGranularityMode=mode=>{
+        poDetailGranularity=mode;
+        applyPoDetailGranularityUI();
+      };
+
+      const createEditor=(cell,row,meta)=>{
+        const currentValue=getValueByPath(row,meta.path)||'';
+        let control;
+        if(meta.editType==='select'){
+          control=document.createElement('select');
+          control.className='budget-edit-select';
+          (meta.options||[]).forEach(opt=>{
+            const option=document.createElement('option');
+            option.value=opt.value;
+            option.textContent=opt.label;
+            control.appendChild(option);
+          });
+          control.value=currentValue||meta.defaultValue||((meta.options||[])[0]?.value||'');
+          control.addEventListener('change',event=>{setValueByPath(row,meta.path,event.target.value);});
+        }else{
+          control=document.createElement('input');
+          control.className='budget-edit-input';
+          if(meta.editType==='number'){
+            control.type='number';
+            control.step='0.01';
+            control.value=currentValue!==''?currentValue:'';
+            control.addEventListener('change',event=>{const val=event.target.value;setValueByPath(row,meta.path,val===''?'':Number(val));});
+          }else if(meta.editType==='date'){
+            control.type='date';
+            control.value=currentValue;
+            control.addEventListener('change',event=>{setValueByPath(row,meta.path,event.target.value);});
+          }else{
+            control.type='text';
+            control.value=currentValue;
+            control.addEventListener('input',event=>{setValueByPath(row,meta.path,event.target.value);});
+          }
+        }
+        if(meta.dataField){control.dataset.field=meta.dataField;}
+        const historyKey=buildHistoryKey(row,meta);
+        control.dataset.historyKey=historyKey||'';
+        control.dataset.originalValue=normalizeHistoryValue(currentValue);
+        control.disabled=true;
+        const wrapper=document.createElement('div');
+        wrapper.className='budget-cell-editor';
+        wrapper.appendChild(control);
+        if(historyKey){
+          cell.attr('data-history-key',historyKey);
+          const indicator=document.createElement('button');
+          indicator.type='button';
+          indicator.className='budget-history-indicator';
+          indicator.setAttribute('aria-label','查看修改历史');
+          indicator.title='查看修改历史';
+          indicator.textContent='⏱';
+          indicator.addEventListener('click',event=>{
+            event.stopPropagation();
+            toggleHistoryPopover(historyKey,indicator);
+          });
+          registerHistoryIndicator(historyKey,indicator);
+          wrapper.appendChild(indicator);
+        }
+        cell.node().appendChild(wrapper);
+      };
+
+
+      const tableBody=d3.select('#budget-table-body');
+      const rows=tableBody.selectAll('tr').data(tableRows).enter().append('tr')
+        .attr('id',d=>`budget-row-${d.id}`)
+        .attr('data-budget-code',d=>d.budget.code||'')
+        .attr('data-budget-name',d=>d.budget.name||'')
+        .attr('data-po-number',d=>d.po.number||'');
+
+      rows.on('click',function(){
+        const currentRow=d3.select(this);
+        const budgetCode=currentRow.attr('data-budget-code');
+        const isActive=currentRow.classed('budget-row-selected');
+        tableBody.selectAll('tr').classed('budget-row-selected',false);
+        if(!isActive&&budgetCode){
+          const safeCode=(window.CSS&&CSS.escape)?CSS.escape(budgetCode):budgetCode.replace(/"/g,'\\"');
+          const selector=`tr[data-budget-code="${safeCode}"]`;
+          tableBody.selectAll(selector).classed('budget-row-selected',true);
+        }
+      });
+
+      rows.each(function(row){
+        const current=d3.select(this);
+        const baseColumns=[
+          {value:row.seq,scope:'budget'},
+          {editType:'text',path:['budget','code'],alignLeft:true,cellClass:'budget-col-medium',scope:'budget',dataField:'budget-code'},
+          {editType:'text',path:['budget','name'],alignLeft:true,cellClass:'budget-col-wide',scope:'budget'},
+          {editType:'select',path:['budget','oldPo'],options:yesNoOptions,cellClass:'budget-col-small',scope:'budget'},
+          {editType:'text',path:['budget','project'],alignLeft:true,cellClass:'budget-col-medium',scope:'budget'},
+          {editType:'number',path:['budget','total'],cellClass:'budget-col-amount',scope:'budget'},
+          {value:formatCurrency(row.budget.executed),cellClass:'budget-col-amount',scope:'budget'},
+          {value:formatCurrency(row.budget.remaining),cellClass:'budget-col-amount',scope:'budget'},
+          {value:formatPercent(row.budget.rate),scope:'budget'},
+          {editType:'text',path:['pr','name'],alignLeft:true,cellClass:'budget-col-wide',scope:'pr'},
+          {editType:'select',path:['pr','status'],options:statusOptions,cellClass:'budget-col-small',scope:'pr'},
+          {editType:'number',path:['pr','amount'],cellClass:'budget-col-amount',scope:'pr'},
+          {editType:'select',path:['pr','owner'],options:ownerOptions,cellClass:'budget-col-medium',scope:'pr'},
+          {editType:'date',path:['pr','planMeeting'],cellClass:'budget-col-medium',scope:'pr'},
+          {editType:'date',path:['pr','actualPr'],cellClass:'budget-col-medium',scope:'pr'},
+          {editType:'text',path:['po','number'],cellClass:'budget-col-medium',scope:'po'},
+          {editType:'number',path:['po','amount'],cellClass:'budget-col-amount',scope:'po'},
+          {editType:'date',path:['po','created'],cellClass:'budget-col-medium',scope:'po'},
+          {editType:'date',path:['po','due'],cellClass:'budget-col-medium',scope:'po'},
+          {editType:'text',path:['po','vendor'],alignLeft:true,cellClass:'budget-col-wide',scope:'po'},
+          {editType:'number',path:['gr','planAmount'],cellClass:'budget-col-amount',scope:'po'},
+          {value:(row.gr.receptionRatio*100).toFixed(0)+'%',cellClass:'budget-col-small',scope:'po'},
+          {value:formatCurrency(row.gr.actualAmount),cellClass:'budget-col-amount',scope:'po'},
+          {value:formatCurrency(row.gr.difference),cellClass:'budget-col-amount',scope:'po'},
+          {value:formatPercent(row.gr.execRate),scope:'po'}
+        ];
+        const monthColumns=[];
+        monthConfig.forEach((cfg,idx)=>{
+          const month=row.months[cfg.key]||{plan:0,actual:0};
+          if(idx<10){
+            monthColumns.push({editType:'number',path:['months',cfg.key,'plan'],cellClass:'budget-col-amount',scope:'po'});
+          }else{
+            monthColumns.push({value:formatCurrency(month.plan),cellClass:'budget-col-amount',scope:'po'});
+          }
+          monthColumns.push({value:formatCurrency(month.actual),cellClass:'budget-col-amount',scope:'po'});
+        });
+
+        const columnMeta=[...baseColumns,...monthColumns,{scope:'action',cellClass:'budget-action-col',action:true}];
+        columnMeta.forEach(meta=>{
+          const shouldRender=meta.scope==='budget'?row.renderBudgetCells:(meta.scope==='pr'?row.renderPrCells:true);
+          if(!shouldRender){return;}
+          const classes=[];
+          if(meta.alignLeft){classes.push('budget-text-left');}
+          if(meta.cellClass){classes.push(meta.cellClass);}
+          const cell=current.append('td');
+          if(meta.scope==='budget'&&row.budgetRowspan>1){cell.attr('rowspan',row.budgetRowspan);}else if(meta.scope==='pr'&&row.prRowspan>1){cell.attr('rowspan',row.prRowspan);}
+          if(classes.length){cell.attr('class',classes.join(' '));}
+          if(meta.action){
+            const btn=document.createElement('button');
+            btn.type='button';
+            btn.className='budget-detail-btn';
+            btn.setAttribute('aria-label','PO执行明细');
+            btn.title='PO执行明细';
+            btn.innerHTML='ℹ️';
+            btn.addEventListener('click',event=>{
+              event.stopPropagation();
+              openPoDetail(row);
+            });
+            cell.node().appendChild(btn);
+          }else if(meta.editType){
+            createEditor(cell,row,meta);
+          }else{
+            cell.text(meta.value);
+          }
+        });
+      });
+
+
+      const buildBudgetColumnDefinitions=()=>{
+        const table=document.getElementById('budget-data-table');
+        if(!table||!table.tHead){return [];}
+        const headerRows=Array.from(table.tHead.rows);
+        const grid=[];
+        headerRows.forEach((row,rowIndex)=>{
+          let colIndex=0;
+          const cells=Array.from(row.cells);
+          cells.forEach(cell=>{
+            while(grid[rowIndex]?.[colIndex]){colIndex++;}
+            const rowspan=cell.rowSpan||1;
+            const colspan=cell.colSpan||1;
+            for(let r=0;r<rowspan;r++){
+              grid[rowIndex+r] ||= [];
+              for(let c=0;c<colspan;c++){
+                grid[rowIndex+r][colIndex+c]=cell;
+              }
+            }
+            colIndex+=colspan;
+          });
+        });
+        const lastRowIndex=grid.length-1;
+        const leafDefs=[];
+        const lastRow=grid[lastRowIndex]||[];
+        lastRow.forEach((cell,colIdx)=>{
+          if(!cell){return;}
+          const label=(cell.textContent||'').trim()||`列${colIdx+1}`;
+          const ancestors=[];
+          for(let r=0;r<lastRowIndex;r++){
+            const ancestor=grid[r]?.[colIdx];
+            if(ancestor&&ancestor!==cell){
+              const text=(ancestor.textContent||'').trim();
+              if(text&&ancestors[ancestors.length-1]!==text){
+                ancestors.push(text);
+              }
+            }
+          }
+          leafDefs.push({id:`col-${colIdx}`,index:colIdx,label,ancestors});
+        });
+        return leafDefs;
+      };
+      const assignColumnIdsToRows=(rows,defs)=>{
+        if(!rows||!defs.length){return;}
+        const tracker=new Array(defs.length).fill(0);
+        rows.forEach(row=>{
+          let colIndex=0;
+          const advance=()=>{
+            while(colIndex<tracker.length && tracker[colIndex]>0){
+              tracker[colIndex]--;
+              colIndex++;
+            }
+          };
+          advance();
+          Array.from(row.cells).forEach(cell=>{
+            advance();
+            const colspan=cell.colSpan||1;
+            const rowspan=cell.rowSpan||1;
+            if(colspan===1){
+              const def=defs[colIndex];
+              if(def){cell.setAttribute('data-col-id',def.id);}
+            }
+            if(rowspan>1){
+              for(let i=0;i<colspan;i++){
+                tracker[colIndex+i]=Math.max(tracker[colIndex+i],rowspan-1);
+              }
+            }
+            colIndex+=colspan;
+          });
+          advance();
+        });
+      };
+      const budgetDataTable=document.getElementById('budget-data-table');
+      const budgetColumnDefinitions=budgetDataTable?buildBudgetColumnDefinitions():[];
+      if(budgetDataTable&&budgetColumnDefinitions.length){
+        assignColumnIdsToRows(Array.from(budgetDataTable.tHead?.rows||[]),budgetColumnDefinitions);
+        const tbody=budgetDataTable.tBodies[0];
+        if(tbody){assignColumnIdsToRows(Array.from(tbody.rows||[]),budgetColumnDefinitions);}
+      }
+      const columnCellsMap={};
+      const columnVisibilityState={};
+      budgetColumnDefinitions.forEach(def=>{
+        columnCellsMap[def.id]=Array.from(document.querySelectorAll(`[data-col-id="${def.id}"]`));
+        columnVisibilityState[def.id]=true;
+      });
+      const columnPicker=document.getElementById('budget-column-picker');
+      const columnPickerBody=document.getElementById('budget-column-picker-body');
+      const columnPickerSelectAll=document.getElementById('budget-column-select-all');
+      const columnPickerInvert=document.getElementById('budget-column-invert');
+      const columnPickerReset=document.getElementById('budget-column-reset');
+      const columnHeading=document.getElementById('budget-table-heading');
+      const setColumnVisibility=(colId,visible)=>{
+        columnVisibilityState[colId]=visible;
+        const cells=columnCellsMap[colId];
+        if(cells){cells.forEach(cell=>cell.classList.toggle('budget-col-hidden',!visible));}
+      };
+      const renderColumnPicker=()=>{
+        if(!columnPickerBody||!budgetColumnDefinitions.length){return;}
+        columnPickerBody.innerHTML='';
+        const groups=new Map();
+        budgetColumnDefinitions.forEach(def=>{
+          const group=def.ancestors[0]||'基础字段';
+          if(!groups.has(group)){groups.set(group,[]);}
+          groups.get(group).push(def);
+        });
+        groups.forEach((cols,groupName)=>{
+          const title=document.createElement('div');
+          title.className='budget-column-group-title';
+          title.textContent=groupName;
+          columnPickerBody.appendChild(title);
+          cols.forEach(def=>{
+            const label=document.createElement('label');
+            label.className='budget-column-check';
+            const checkbox=document.createElement('input');
+            checkbox.type='checkbox';
+            checkbox.checked=columnVisibilityState[def.id];
+            checkbox.dataset.columnId=def.id;
+            checkbox.addEventListener('change',()=>{setColumnVisibility(def.id,checkbox.checked);});
+            const span=document.createElement('span');
+            span.textContent=def.label;
+            label.appendChild(checkbox);
+            label.appendChild(span);
+            columnPickerBody.appendChild(label);
+          });
+        });
+      };
+      const setAllColumnsVisible=visible=>{
+        Object.keys(columnVisibilityState).forEach(colId=>{
+          setColumnVisibility(colId,visible);
+        });
+        renderColumnPicker();
+      };
+      const invertColumnVisibility=()=>{
+        Object.entries(columnVisibilityState).forEach(([colId,state])=>{
+          setColumnVisibility(colId,!state);
+        });
+        renderColumnPicker();
+      };
+      const resetColumnVisibility=()=>{
+        setAllColumnsVisible(true);
+      };
+      if(columnPickerSelectAll){
+        columnPickerSelectAll.addEventListener('click',()=>{setAllColumnsVisible(true);});
+      }
+      if(columnPickerInvert){
+        columnPickerInvert.addEventListener('click',invertColumnVisibility);
+      }
+      if(columnPickerReset){
+        columnPickerReset.addEventListener('click',resetColumnVisibility);
+      }
+      renderColumnPicker();
+      let columnPickerOpen=false;
+      const closeColumnPicker=()=>{
+        columnPickerOpen=false;
+        columnPicker?.classList.remove('show');
+        columnHeading?.classList.remove('active');
+      };
+      if(columnHeading&&columnPicker){
+        columnHeading.addEventListener('click',event=>{
+          event.stopPropagation();
+          columnPickerOpen=!columnPickerOpen;
+          columnPicker.classList.toggle('show',columnPickerOpen);
+          columnHeading.classList.toggle('active',columnPickerOpen);
+        });
+        document.addEventListener('click',event=>{
+          if(!columnPickerOpen){return;}
+          if(!columnPicker.contains(event.target)&&!columnHeading.contains(event.target)){
+            closeColumnPicker();
+          }
+        });
+      }
+
+      const refreshBudgetNumberOptions=()=>{
+        const select=document.getElementById('budget-owner-input');
+        if(!select){return;}
+        const codes=['全部预算编号',...new Set(tableRows.map(item=>item.budget?.code).filter(Boolean))];
+        const previousValue=select.value;
+        select.innerHTML='';
+        codes.forEach(code=>{
+          const option=document.createElement('option');
+          option.value=code;
+          option.textContent=code;
+          select.appendChild(option);
+        });
+        if(previousValue&&codes.includes(previousValue)){
+          select.value=previousValue;
+        }else{
+          select.value='全部预算编号';
+        }
+      };
+      refreshBudgetNumberOptions();
+
+      const getCurrentBudgetYear=()=>document.getElementById('budget-year-input')?.value||String(new Date().getFullYear());
+      const captureBudgetTableHtml=()=>document.getElementById('budget-data-table')?.outerHTML||'<em>无数据</em>';
+      let snapshotDetailCurrent=null;
+      const resetSnapshotDetail=()=>{
+        snapshotDetailCurrent=null;
+        if(snapshotDetailTitle){snapshotDetailTitle.textContent='快照详情';}
+        if(snapshotDetailContent){snapshotDetailContent.innerHTML='<em>选择快照查看详情</em>'; }
+        if(snapshotDetailExportBtn){snapshotDetailExportBtn.disabled=true;}
+        const historyTable=document.getElementById('budget-snapshot-history-table');
+        if(historyTable){historyTable.querySelectorAll('tbody tr').forEach(row=>row.classList.remove('snapshot-row-selected'));}
+      };
+      const showSnapshotDetail=item=>{
+        snapshotDetailCurrent=item;
+        if(snapshotDetailTitle){snapshotDetailTitle.textContent=item.name?`快照详情 · ${item.name}`:'快照详情';}
+        if(snapshotDetailContent){snapshotDetailContent.innerHTML=item.tableHtml||'<em>无表格数据</em>'; }
+        if(snapshotDetailExportBtn){snapshotDetailExportBtn.disabled=!item.tableHtml;}
+      };
+      const renderSnapshotHistory=()=>{
+        if(!snapshotHistoryBody){return;}
+        snapshotHistoryBody.innerHTML='';
+        resetSnapshotDetail();
+        if(!snapshotHistoryData.length){
+          const row=document.createElement('tr');
+          const cell=document.createElement('td');
+          cell.colSpan=5;
+          cell.textContent='暂无快照';
+          cell.style.padding='8px';
+          row.appendChild(cell);
+          snapshotHistoryBody.appendChild(row);
+          return;
+        }
+        snapshotHistoryData.forEach((item,index)=>{
+          const row=document.createElement('tr');
+          const addCell=value=>{const td=document.createElement('td');td.style.border='1px solid #dde3ed';td.style.padding='6px';td.textContent=value;row.appendChild(td);};
+          addCell(index+1);
+          addCell(item.name);
+          addCell(item.year||'--');
+          addCell(item.description||'--');
+          row.addEventListener('click',()=>{
+            Array.from(document.querySelectorAll('#budget-snapshot-history-table tbody tr')).forEach(r=>r.classList.remove('snapshot-row-selected'));
+            row.classList.add('snapshot-row-selected');
+            showSnapshotDetail(item);
+          });
+          snapshotHistoryBody.appendChild(row);
+        });
+        const firstRow=snapshotHistoryBody.querySelector('tr');
+        if(firstRow){
+          firstRow.classList.add('snapshot-row-selected');
+          showSnapshotDetail(snapshotHistoryData[0]);
+        }
+      };
+      const openSnapshotModal=()=>{
+        if(snapshotNameInput){snapshotNameInput.value=`预算快照-${new Date().toLocaleString('zh-CN',{hour12:false})}`;}
+        if(snapshotYearInput){snapshotYearInput.value=getCurrentBudgetYear();}
+        if(snapshotDescInput){snapshotDescInput.value='';}
+        setSnapshotModalVisible(true);
+      };
+      const saveSnapshot=()=>{
+        if(!snapshotNameInput||!snapshotYearInput){return;}
+        const name=snapshotNameInput.value.trim();
+        if(!name){alert('请填写快照名称');return;}
+        const year=snapshotYearInput.value.trim()||getCurrentBudgetYear();
+        const description=snapshotDescInput?.value.trim()||'';
+        snapshotHistoryData.push({
+          id:snapshotHistoryData.length+1,
+          name,
+          year,
+          description,
+          timestamp:new Date().toLocaleString('zh-CN',{hour12:false}),
+          tableHtml:captureBudgetTableHtml()
+        });
+        renderSnapshotHistory();
+        alert('快照保存成功 (示例)');
+        setSnapshotModalVisible(false);
+      };
+
+      const filterInputs={
+        code:document.getElementById('filter-budget-code'),
+        name:document.getElementById('filter-budget-name'),
+        po:document.getElementById('filter-po-number')
+      };
+      const applyFilters=()=>{
+        const code=(filterInputs.code?.value||'').trim().toLowerCase();
+        const name=(filterInputs.name?.value||'').trim().toLowerCase();
+        const po=(filterInputs.po?.value||'').trim().toLowerCase();
+        document.querySelectorAll('#budget-table-body tr').forEach(rowEl=>{
+          const dataset=rowEl.dataset||{};
+          const matchCode=!code||(dataset.budgetCode||'').toLowerCase().includes(code);
+          const matchName=!name||(dataset.budgetName||'').toLowerCase().includes(name);
+          const matchPo=!po||(dataset.poNumber||'').toLowerCase().includes(po);
+          rowEl.style.display=(matchCode&&matchName&&matchPo)?'':'none';
+        });
+      };
+      Object.values(filterInputs).forEach(input=>{
+        if(input){input.addEventListener('input',applyFilters);}
+      });
+      applyFilters();
+      const parseMonthIndex=value=>{
+        if(!value){return null;}
+        const parts=value.split('-');
+        if(parts.length<2){return null;}
+        const month=Number(parts[1]);
+        if(Number.isNaN(month)){return null;}
+        return Math.min(Math.max(month,1),12)-1;
+      };
+      const getCustomRangeKeys=()=>{
+        const startIdx=parseMonthIndex(poDetailCurrentStart);
+        const endIdx=parseMonthIndex(poDetailCurrentEnd);
+        if(startIdx==null||endIdx==null){
+          return monthConfig.map(cfg=>cfg.key);
+        }
+        const from=Math.min(startIdx,endIdx);
+        const to=Math.max(startIdx,endIdx);
+        return monthConfig.slice(from,to+1).map(cfg=>cfg.key);
+      };
+      const getPoDetailSummaryData=()=>poDetailSummaryDefs.map((def,idx)=>{
+        let keys=def.keys;
+        let isNA=false;
+        if(poDetailCustomRange){
+          if(idx===0){
+            keys=getCustomRangeKeys();
+          }else{
+            isNA=true;
+          }
+        }
+        if(isNA||!keys||!keys.length){
+          return {qty:null,amount:null,isNA:true};
+        }
+        const related=poDetailRows.filter(entry=>keys.includes(entry.key));
+        const qty=related.reduce((sum,item)=>sum+(item.qty||0),0);
+        const amount=related.reduce((sum,item)=>sum+(item.amount||0),0);
+        return {qty,amount,isNA:false};
+      });
+      const updatePoDetailSummaryRows=()=>{
+        const summaryData=getPoDetailSummaryData();
+        document.querySelectorAll('#po-detail-table .po-summary-row').forEach(rowEl=>{
+          const idx=Number(rowEl.dataset.summaryIndex||0);
+          const data=summaryData[idx]||{qty:0,amount:0,isNA:false};
+          const qtyText=data.isNA?'NA':((data.qty||0).toLocaleString('zh-CN'));
+          const amountText=data.isNA?'NA':((data.amount||0).toLocaleString('zh-CN'));
+          const cells=rowEl.querySelectorAll('td');
+          if(cells[2]){cells[2].textContent=qtyText;}
+          if(cells[4]){cells[4].textContent=amountText;}
+        });
+      };
+      const renderPoDetailTablePage=()=>{
+        if(!poDetailTableBody){return;}
+        const totalPages=Math.max(1,Math.ceil(poDetailRows.length/PO_DETAIL_PAGE_SIZE));
+        poDetailCurrentPage=Math.min(Math.max(1,poDetailCurrentPage),totalPages);
+        poDetailTableBody.innerHTML='';
+        const startIndex=(poDetailCurrentPage-1)*PO_DETAIL_PAGE_SIZE;
+        const pageRows=poDetailRows.slice(startIndex,startIndex+PO_DETAIL_PAGE_SIZE);
+        pageRows.forEach(entry=>{
+          const monthRow=document.createElement('tr');
+          const nameCell=document.createElement('td');
+          nameCell.textContent=entry.name;
+          const timeCell=document.createElement('td');
+          timeCell.textContent=entry.label;
+          const qtyCell=document.createElement('td');
+          const qtyWrapper=document.createElement('div');
+          qtyWrapper.className='po-cell-editor';
+          const qtyInput=document.createElement('input');
+          qtyInput.type='number';
+          qtyInput.min='0';
+          qtyInput.step='1';
+          const syncQtyInput=()=>{qtyInput.value=getDraftValue(entry,'qty');};
+          syncQtyInput();
+          const qtyActions=createCellActions(entry,'qty',syncQtyInput,()=>{updatePoDetailSummaryRows();});
+          qtyInput.addEventListener('input',e=>{
+            const val=Number(e.target.value);
+            setDraftValue(entry,'qty',Number.isNaN(val)?0:val);
+            qtyActions.updateVisibility();
+          });
+          qtyWrapper.appendChild(qtyInput);
+          qtyWrapper.appendChild(qtyActions.actions);
+          qtyCell.appendChild(qtyWrapper);
+          const unitCell=document.createElement('td');
+          unitCell.textContent=getFieldValue(entry,'unit');
+          const amountCell=document.createElement('td');
+          const amountWrapper=document.createElement('div');
+          amountWrapper.className='po-cell-editor';
+          const amountInput=document.createElement('input');
+          amountInput.type='number';
+          amountInput.min='0';
+          amountInput.step='100';
+          const syncAmountInput=()=>{amountInput.value=getDraftValue(entry,'amount');};
+          syncAmountInput();
+          const amountActions=createCellActions(entry,'amount',syncAmountInput,()=>{updatePoDetailSummaryRows();});
+          amountInput.addEventListener('input',e=>{
+            const val=Number(e.target.value);
+            setDraftValue(entry,'amount',Number.isNaN(val)?0:val);
+            amountActions.updateVisibility();
+          });
+          amountWrapper.appendChild(amountInput);
+          amountWrapper.appendChild(amountActions.actions);
+          amountCell.appendChild(amountWrapper);
+          [nameCell,timeCell,qtyCell,unitCell,amountCell].forEach(cell=>monthRow.appendChild(cell));
+          poDetailTableBody.appendChild(monthRow);
+        });
+        const summaryData=getPoDetailSummaryData();
+        summaryData.forEach((summary,idx)=>{
+          const rowEl=document.createElement('tr');
+          rowEl.className='po-summary-row';
+          rowEl.dataset.summaryIndex=idx;
+          const labelCell=document.createElement('td');
+          labelCell.textContent=poDetailSummaryDefs[idx].label;
+          const timeCell=document.createElement('td');
+          timeCell.textContent='--';
+          const qtyCell=document.createElement('td');
+          qtyCell.textContent=summary.isNA?'NA':((summary.qty||0).toLocaleString('zh-CN'));
+          const unitCell=document.createElement('td');
+          unitCell.textContent='--';
+          const amountCell=document.createElement('td');
+          amountCell.textContent=summary.isNA?'NA':((summary.amount||0).toLocaleString('zh-CN'));
+          [labelCell,timeCell,qtyCell,unitCell,amountCell].forEach(cell=>rowEl.appendChild(cell));
+          poDetailTableBody.appendChild(rowEl);
+        });
+        const totalPagesDisplay=Math.max(1,Math.ceil(poDetailRows.length/PO_DETAIL_PAGE_SIZE));
+        if(poDetailPageInfo){poDetailPageInfo.textContent=`${poDetailCurrentPage}/${totalPagesDisplay}`;}
+        if(poDetailPrevBtn){poDetailPrevBtn.disabled=poDetailCurrentPage<=1;}
+        if(poDetailNextBtn){poDetailNextBtn.disabled=poDetailCurrentPage>=totalPagesDisplay;}
+      };
+      const buildPoDetailTable=(row,customItem)=>{
+        const sourceRow=(row===undefined)?poDetailActiveRow:row;
+        const months=sourceRow?.months||{};
+        const resolvedName=(customItem?.name)||sourceRow?.pr?.name||sourceRow?.po?.vendor||sourceRow?.budget?.name||'--';
+        const resolvedUnit=customItem?.unit||unitOptions[0];
+        poDetailRows=monthConfig.map(cfg=>{
+          const actual=sourceRow?(months[cfg.key]?.actual||0):0;
+          const qty=sourceRow?Math.round(actual/1000):0;
+          const record={key:cfg.key,label:cfg.label,name:resolvedName,qty,unit:resolvedUnit,amount:actual};
+          record.draftQty=qty;
+          record.draftUnit=resolvedUnit;
+          record.draftAmount=actual;
+          return record;
+        });
+        poDetailCurrentPage=1;
+        renderPoDetailTablePage();
+      };
+      const openPoDetail=row=>{
+        poDetailActiveRow=row;
+        const currentYear=document.getElementById('budget-year-input')?.value||String(new Date().getFullYear());
+        poDetailDefaultStart=`${currentYear}-01`;
+        poDetailDefaultEnd=`${currentYear}-12`;
+        poDetailCurrentStart=poDetailDefaultStart;
+        poDetailCurrentEnd=poDetailDefaultEnd;
+        poDetailCustomRange=false;
+        if(poDetailStart){poDetailStart.value=poDetailDefaultStart;}
+        if(poDetailEnd){poDetailEnd.value=poDetailDefaultEnd;}
+        setPoDetailGranularityMode('year');
+        if(poDetailItemSelect){setPoDetailItemValue(row.pr.name||row.po.vendor||row.budget.name||'');}
+        if(poDetailPoInfo){poDetailPoInfo.textContent='PO号：'+(row.po.number||'--');}
+        buildPoDetailTable(row);
+        setPoDetailVisible(true);
+      };
+      const refreshPoItemRowIndex=()=>{
+        if(!poItemTableBody){return;}
+        Array.from(poItemTableBody.children).forEach((row,idx)=>{
+          const cell=row.querySelector('.po-item-index');
+          if(cell){cell.textContent=idx+1;}
+        });
+      };
+      const appendPoItemRow=(name='',unit=unitOptions[0])=>{
+        if(!poItemTableBody){return;}
+        const tr=document.createElement('tr');
+        const seqCell=document.createElement('td');
+        seqCell.className='po-item-index';
+        const nameCell=document.createElement('td');
+        const nameInput=document.createElement('input');
+        nameInput.type='text';
+        nameInput.className='po-item-name';
+        nameInput.value=name;
+        nameCell.appendChild(nameInput);
+        const unitCell=document.createElement('td');
+        const unitSelect=document.createElement('select');
+        unitSelect.className='po-item-unit';
+        unitOptions.forEach(opt=>{
+          const option=document.createElement('option');
+          option.value=opt;
+          option.textContent=opt;
+          unitSelect.appendChild(option);
+        });
+        unitSelect.value=unit||unitOptions[0];
+        unitCell.appendChild(unitSelect);
+        const actionCell=document.createElement('td');
+        const deleteBtn=document.createElement('button');
+        deleteBtn.type='button';
+        deleteBtn.textContent='删除';
+        deleteBtn.addEventListener('click',()=>{
+          if(poItemTableBody.children.length>1){
+            tr.remove();
+            refreshPoItemRowIndex();
+          }
+        });
+        actionCell.appendChild(deleteBtn);
+        [seqCell,nameCell,unitCell,actionCell].forEach(cell=>{
+          cell.style.border='1px solid #e0e4ec';
+          cell.style.padding='6px';
+          tr.appendChild(cell);
+        });
+        poItemTableBody.appendChild(tr);
+        refreshPoItemRowIndex();
+      };
+      const renderPoItemRows=()=>{
+        if(!poItemTableBody){return;}
+        poItemTableBody.innerHTML='';
+        const source=poItemDefinitions.length?poItemDefinitions:[{name:'',unit:unitOptions[0]}];
+        source.forEach(item=>appendPoItemRow(item.name,item.unit));
+      };
+      const filterApplyBtn=document.getElementById('filter-apply-btn');
+      const filterResetBtn=document.getElementById('filter-reset-btn');
+      if(filterApplyBtn){filterApplyBtn.addEventListener('click',applyFilters);}
+      if(filterResetBtn){
+        filterResetBtn.addEventListener('click',()=>{
+          if(filterInputs.code){filterInputs.code.value='';}
+          if(filterInputs.name){filterInputs.name.value='';}
+          if(filterInputs.po){filterInputs.po.value='';}
+          applyFilters();
+        });
+      }
+
+      const metrics=budgetRows.reduce((acc,row)=>{
+        acc.total+=row.budget.total;
+        acc.executed+=row.budget.executed;
+        acc.remaining+=row.budget.remaining;
+        return acc;
+      },{total:0,executed:0,remaining:0});
+      metrics.rate=metrics.total?metrics.executed/metrics.total:0;
+      document.getElementById('budget-metric-total-value').textContent=formatCurrency(metrics.total);
+      document.getElementById('budget-metric-executed-value').textContent=formatCurrency(metrics.executed);
+      document.getElementById('budget-metric-remaining-value').textContent=formatCurrency(metrics.remaining);
+      document.getElementById('budget-metric-rate-value').textContent=formatPercent(metrics.rate);
+
+      const monthlyTotals={plan:{},actual:{}};
+      monthConfig.forEach(cfg=>{
+        monthlyTotals.plan[cfg.key]=budgetRows.reduce((sum,row)=>sum+(row.months[cfg.key]?.plan||0),0);
+        monthlyTotals.actual[cfg.key]=budgetRows.reduce((sum,row)=>sum+(row.months[cfg.key]?.actual||0),0);
+      });
+      const remainingTotals={};
+      monthConfig.forEach(cfg=>{
+        remainingTotals[cfg.key]=(monthlyTotals.plan[cfg.key]||0)-(monthlyTotals.actual[cfg.key]||0);
+      });
+      const periodKeys={
+        half1:['jan','feb','mar','apr','may','jun'],
+        half2:['jul','aug','sep','oct','nov','dec'],
+        q1:['jan','feb','mar'],q2:['apr','may','jun'],q3:['jul','aug','sep'],q4:['oct','nov','dec']
+      };
+      const sumPeriod=(source,keys)=>keys.reduce((sum,key)=>sum+(source[key]||0),0);
+      const breakdowns={
+        total:{},executed:{},remaining:{},rate:{}
+      };
+      Object.entries(periodKeys).forEach(([slot,keys])=>{
+        breakdowns.total[slot]=sumPeriod(monthlyTotals.plan,keys);
+        breakdowns.executed[slot]=sumPeriod(monthlyTotals.actual,keys);
+        breakdowns.remaining[slot]=sumPeriod(remainingTotals,keys);
+        const planValue=breakdowns.total[slot];
+        breakdowns.rate[slot]=planValue?breakdowns.executed[slot]/planValue:0;
+      });
+      const setBreakdown=(id,value,formatter=formatCurrency)=>{
+        const el=document.getElementById(id);
+        if(el){el.textContent=formatter(value);}
+      };
+      setBreakdown('budget-total-half1',breakdowns.total.half1);
+      setBreakdown('budget-total-half2',breakdowns.total.half2);
+      setBreakdown('budget-total-q1',breakdowns.total.q1);
+      setBreakdown('budget-total-q2',breakdowns.total.q2);
+      setBreakdown('budget-total-q3',breakdowns.total.q3);
+      setBreakdown('budget-total-q4',breakdowns.total.q4);
+
+      setBreakdown('budget-exe-half1',breakdowns.executed.half1);
+      setBreakdown('budget-exe-half2',breakdowns.executed.half2);
+      setBreakdown('budget-exe-q1',breakdowns.executed.q1);
+      setBreakdown('budget-exe-q2',breakdowns.executed.q2);
+      setBreakdown('budget-exe-q3',breakdowns.executed.q3);
+      setBreakdown('budget-exe-q4',breakdowns.executed.q4);
+
+      setBreakdown('budget-rem-half1',breakdowns.remaining.half1);
+      setBreakdown('budget-rem-half2',breakdowns.remaining.half2);
+      setBreakdown('budget-rem-q1',breakdowns.remaining.q1);
+      setBreakdown('budget-rem-q2',breakdowns.remaining.q2);
+      setBreakdown('budget-rem-q3',breakdowns.remaining.q3);
+      setBreakdown('budget-rem-q4',breakdowns.remaining.q4);
+
+      setBreakdown('budget-rate-half1',breakdowns.rate.half1,formatPercent);
+      setBreakdown('budget-rate-half2',breakdowns.rate.half2,formatPercent);
+      setBreakdown('budget-rate-q1',breakdowns.rate.q1,formatPercent);
+      setBreakdown('budget-rate-q2',breakdowns.rate.q2,formatPercent);
+      setBreakdown('budget-rate-q3',breakdowns.rate.q3,formatPercent);
+      setBreakdown('budget-rate-q4',breakdowns.rate.q4,formatPercent);
+
+      const exportButton=document.getElementById('budget-export-btn');
+      exportButton.addEventListener('click',()=>{
+        const table=document.getElementById('budget-data-table');
+        if(!table){return;}
+        const excelHtml=`<html><head><meta charset="utf-8"/></head><body>${table.outerHTML}</body></html>`;
+        const blob=new Blob([excelHtml],{type:'application/vnd.ms-excel'});
+        const url=URL.createObjectURL(blob);
+        const link=document.createElement('a');
+        link.href=url;
+        link.download='mechanical_budget_report.xls';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      });
+
+      const importButton=document.getElementById('budget-import-btn');
+      const importModal=document.getElementById('budget-import-modal');
+      const budgetSnapshotBtn=document.getElementById('budget-snapshot-btn');
+      const budgetSnapshotHistoryBtn=document.getElementById('budget-snapshot-history-btn');
+      const editConfirmModal=document.getElementById('budget-edit-confirm-modal');
+      const poDetailModal=document.getElementById('budget-po-detail-modal');
+      const poItemModal=document.getElementById('po-item-modal');
+      const modalBackdrop=document.getElementById('budget-modal-backdrop');
+      const importClose=document.getElementById('budget-import-close');
+      const importCancel=document.getElementById('budget-import-cancel');
+      const importConfirm=document.getElementById('budget-import-confirm');
+      const importFileInput=document.getElementById('budget-import-file');
+      const editModalClose=document.getElementById('budget-edit-modal-close');
+      const editContinueBtn=document.getElementById('budget-edit-continue-btn');
+      const editCancelBtn=document.getElementById('budget-edit-cancel-btn');
+      const editSaveBtn=document.getElementById('budget-edit-save-btn');
+      const snapshotModal=document.getElementById('budget-snapshot-modal');
+      const snapshotHistoryModal=document.getElementById('budget-snapshot-history-modal');
+      const snapshotCloseBtn=document.getElementById('budget-snapshot-close');
+      const snapshotCancelBtn=document.getElementById('budget-snapshot-cancel');
+      const snapshotSaveBtn=document.getElementById('budget-snapshot-save');
+      const snapshotNameInput=document.getElementById('budget-snapshot-name');
+      const snapshotYearInput=document.getElementById('budget-snapshot-year');
+      const snapshotDescInput=document.getElementById('budget-snapshot-desc');
+      const snapshotHistoryCloseBtn=document.getElementById('budget-snapshot-history-close');
+      const snapshotHistoryCancelBtn=document.getElementById('budget-snapshot-history-cancel');
+      const snapshotHistoryBody=document.getElementById('budget-snapshot-history-body');
+      const snapshotDetailContainer=document.getElementById('budget-snapshot-detail');
+      const snapshotDetailContent=document.getElementById('budget-snapshot-detail-content');
+      const snapshotDetailTitle=document.getElementById('budget-snapshot-detail-title');
+      const snapshotDetailExportBtn=document.getElementById('budget-snapshot-detail-export');
+      historyPopover=document.getElementById('budget-history-popover');
+      historyPopoverBody=document.getElementById('budget-history-popover-body');
+      historyPopoverClose=document.getElementById('budget-history-popover-close');
+      const poDetailExportBtn=document.getElementById('po-detail-export-btn');
+      const poDetailClose=document.getElementById('budget-po-detail-close');
+      const poDetailCancel=document.getElementById('budget-po-detail-cancel');
+      const poDetailSave=document.getElementById('budget-po-detail-save');
+      const poDetailTableBody=document.getElementById('po-detail-table-body');
+      const poDetailStart=document.getElementById('po-detail-start');
+      const poDetailEnd=document.getElementById('po-detail-end');
+      const poDetailItemSelect=document.getElementById('po-detail-item-select');
+      const poDetailGranularityToggle=document.getElementById('po-detail-granularity-toggle');
+      const poDetailPoInfo=document.getElementById('po-detail-po-info');
+      const poDetailPrevBtn=document.getElementById('po-detail-prev');
+      const poDetailNextBtn=document.getElementById('po-detail-next');
+      const poDetailPageInfo=document.getElementById('po-detail-page-info');
+      const poDetailQueryBtn=document.getElementById('po-detail-query-btn');
+      const poDetailResetBtn=document.getElementById('po-detail-reset-btn');
+      const poItemManageBtn=document.getElementById('po-item-manage-btn');
+      const poItemModalClose=document.getElementById('po-item-modal-close');
+      const poItemTableBody=document.getElementById('po-item-table-body');
+      const poItemAddRow=document.getElementById('po-item-add-row');
+      const poItemModalCancel=document.getElementById('po-item-modal-cancel');
+      const poItemModalConfirm=document.getElementById('po-item-modal-confirm');
+      const setPoDetailItemValue=value=>{
+        if(!poDetailItemSelect){return;}
+        if(!poItemDefinitions.length){
+          poDetailItemSelect.innerHTML='';
+          const placeholder=document.createElement('option');
+          placeholder.value='';
+          placeholder.textContent='--';
+          placeholder.disabled=true;
+          placeholder.selected=true;
+          poDetailItemSelect.appendChild(placeholder);
+          return;
+        }
+        if(value&&poItemDefinitions.some(item=>item.name===value)){
+          poDetailItemSelect.value=value;
+        }else if(poDetailItemSelect.options.length){
+          poDetailItemSelect.value=poDetailItemSelect.options[0].value;
+        }
+      };
+      const syncPoDetailItemOptions=(selectedValue='')=>{
+        if(!poDetailItemSelect){return;}
+        poDetailItemSelect.innerHTML='';
+        poItemDefinitions.forEach(item=>{
+          const option=document.createElement('option');
+          option.value=item.name;
+          option.textContent=item.name;
+          poDetailItemSelect.appendChild(option);
+        });
+        if(!poItemDefinitions.length){
+          const placeholder=document.createElement('option');
+          placeholder.value='';
+          placeholder.textContent='--';
+          placeholder.disabled=true;
+          placeholder.selected=true;
+          poDetailItemSelect.appendChild(placeholder);
+          return;
+        }
+        if(selectedValue&&poItemDefinitions.some(item=>item.name===selectedValue)){
+          poDetailItemSelect.value=selectedValue;
+        }else{
+          poDetailItemSelect.value=poItemDefinitions[0].name;
+        }
+      };
+      const syncBackdrop=()=>{
+        if(importModal.classList.contains('show')||editConfirmModal.classList.contains('show')||poDetailModal.classList.contains('show')||poItemModal.classList.contains('show')||snapshotModal.classList.contains('show')||snapshotHistoryModal.classList.contains('show')){
+          modalBackdrop.classList.add('show');
+        }else{
+          modalBackdrop.classList.remove('show');
+        }
+      };
+      const setImportModalVisible=visible=>{
+        if(visible){
+          importModal.classList.add('show');
+        }else{
+          importModal.classList.remove('show');
+          if(importFileInput){importFileInput.value='';}
+        }
+        syncBackdrop();
+      };
+      const setEditConfirmVisible=visible=>{
+        if(visible){
+          editConfirmModal.classList.add('show');
+        }else{
+          editConfirmModal.classList.remove('show');
+        }
+        syncBackdrop();
+      };
+      const setPoDetailVisible=visible=>{
+        if(visible){
+          poDetailModal.classList.add('show');
+        }else{
+          poDetailModal.classList.remove('show');
+        }
+        syncBackdrop();
+      };
+      const setPoItemModalVisible=visible=>{
+        if(visible){
+          poItemModal.classList.add('show');
+        }else{
+          poItemModal.classList.remove('show');
+        }
+        syncBackdrop();
+      };
+      const setSnapshotModalVisible=visible=>{
+        if(!snapshotModal){return;}
+        if(visible){
+          snapshotModal.classList.add('show');
+        }else{
+          snapshotModal.classList.remove('show');
+        }
+        syncBackdrop();
+      };
+      const setSnapshotHistoryVisible=visible=>{
+        if(!snapshotHistoryModal){return;}
+        if(visible){
+          snapshotHistoryModal.classList.add('show');
+        }else{
+          snapshotHistoryModal.classList.remove('show');
+        }
+        syncBackdrop();
+      };
+      importButton.addEventListener('click',()=>setImportModalVisible(true));
+      [importClose,importCancel].forEach(btn=>btn.addEventListener('click',()=>setImportModalVisible(false)));
+      modalBackdrop.addEventListener('click',()=>{
+        setImportModalVisible(false);
+        setEditConfirmVisible(false);
+        setPoDetailVisible(false);
+        setPoItemModalVisible(false);
+        setSnapshotModalVisible(false);
+        setSnapshotHistoryVisible(false);
+      });
+      importConfirm.addEventListener('click',()=>{
+        const file=importFileInput.files[0];
+        if(!file){
+          alert('请选择需要上传的文件');
+          return;
+        }
+        alert(`已上传：${file.name} (示例)`);
+        setImportModalVisible(false);
+      });
+
+      const editToggleButton=document.getElementById('budget-edit-toggle-btn');
+      let isEditing=false;
+      const setEditMode=state=>{
+        isEditing=state;
+        hideHistoryPopover();
+        document.querySelectorAll('.budget-edit-input, .budget-edit-select').forEach(ctrl=>{
+          ctrl.disabled=!state;
+        });
+        if(editToggleButton){
+          editToggleButton.textContent=state?'提交':'编辑';
+          editToggleButton.classList.toggle('editing',state);
+        }
+      };
+      if(editToggleButton){
+        editToggleButton.addEventListener('click',()=>{
+          if(isEditing){
+            setEditConfirmVisible(true);
+          }else{
+            setEditMode(true);
+          }
+        });
+      }
+      const handleContinueEditing=()=>setEditConfirmVisible(false);
+      const handleCancelEditing=()=>{
+        setEditConfirmVisible(false);
+        setEditMode(false);
+      };
+      const handleSaveEditing=()=>{
+        commitCellEditHistories();
+        alert('更改已保存 (示例)');
+        setEditConfirmVisible(false);
+        setEditMode(false);
+      };
+      [editModalClose,editContinueBtn].filter(Boolean).forEach(btn=>btn.addEventListener('click',handleContinueEditing));
+      if(editCancelBtn){editCancelBtn.addEventListener('click',handleCancelEditing);}
+      if(editSaveBtn){editSaveBtn.addEventListener('click',handleSaveEditing);}
+      if(poDetailClose){poDetailClose.addEventListener('click',()=>setPoDetailVisible(false));}
+      if(poDetailCancel){poDetailCancel.addEventListener('click',()=>setPoDetailVisible(false));}
+      if(poDetailSave){poDetailSave.addEventListener('click',()=>{
+        alert('PO执行明细已保存 (示例)');
+        setPoDetailVisible(false);
+      });}
+      if(poDetailExportBtn){
+        poDetailExportBtn.addEventListener('click',()=>{
+          const table=document.getElementById('po-detail-table');
+          if(!table){return;}
+          const html=`<html><head><meta charset="utf-8"/></head><body>${table.outerHTML}</body></html>`;
+          const blob=new Blob([html],{type:'application/vnd.ms-excel'});
+          const url=URL.createObjectURL(blob);
+          const link=document.createElement('a');
+          const poNumber=poDetailActiveRow?.po?.number||'PO_DETAIL';
+          const safeName=poNumber.replace(/[^0-9A-Za-z一-龥_-]/g,'_');
+          link.href=url;
+          link.download=`PO执行明细_${safeName}.xls`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        });
+      }
+      if(budgetSnapshotBtn){
+        budgetSnapshotBtn.addEventListener('click',openSnapshotModal);
+      }
+      if(snapshotCloseBtn){snapshotCloseBtn.addEventListener('click',()=>setSnapshotModalVisible(false));}
+      if(snapshotCancelBtn){snapshotCancelBtn.addEventListener('click',()=>setSnapshotModalVisible(false));}
+      if(snapshotSaveBtn){snapshotSaveBtn.addEventListener('click',saveSnapshot);}
+      if(snapshotHistoryCloseBtn){snapshotHistoryCloseBtn.addEventListener('click',()=>{setSnapshotHistoryVisible(false);resetSnapshotDetail();});}
+      if(snapshotHistoryCancelBtn){snapshotHistoryCancelBtn.addEventListener('click',()=>{setSnapshotHistoryVisible(false);resetSnapshotDetail();});}
+      if(budgetSnapshotHistoryBtn){
+        budgetSnapshotHistoryBtn.addEventListener('click',()=>{renderSnapshotHistory();setSnapshotHistoryVisible(true);});
+      }
+      
+      if(snapshotDetailExportBtn){
+        snapshotDetailExportBtn.addEventListener('click',()=>{
+          if(!snapshotDetailCurrent||!snapshotDetailCurrent.tableHtml){
+            alert('暂无快照详情可导出');
+            return;
+          }
+          const html=`<html><head><meta charset="utf-8"/></head><body>${snapshotDetailCurrent.tableHtml}</body></html>`;
+          const blob=new Blob([html],{type:'application/vnd.ms-excel'});
+          const url=URL.createObjectURL(blob);
+          const link=document.createElement('a');
+          const safeName=(snapshotDetailCurrent.name||'snapshot').replace(/[^0-9A-Za-z一-龥_-]/g,'_');
+          link.href=url;
+          link.download=`快照_${safeName}.xls`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        });
+      }
+
+      if(historyPopoverClose){historyPopoverClose.addEventListener('click',hideHistoryPopover);}
+      document.addEventListener('click',event=>{
+        if(!historyPopover||!historyPopover.classList.contains('show')){return;}
+        if(historyPopover.contains(event.target)){return;}
+        if(event.target.closest&&event.target.closest('.budget-history-indicator')){return;}
+        hideHistoryPopover();
+      });
+      window.addEventListener('resize',hideHistoryPopover);
+      window.addEventListener('scroll',()=>{
+        if(historyPopover&&historyPopover.classList.contains('show')){hideHistoryPopover();}
+      },true);
+
+      if(poItemManageBtn){poItemManageBtn.addEventListener('click',()=>{renderPoItemRows();setPoDetailVisible(false);setPoItemModalVisible(true);});}
+      if(poItemAddRow){poItemAddRow.addEventListener('click',()=>appendPoItemRow('',unitOptions[0]));}
+      if(poDetailPrevBtn){poDetailPrevBtn.addEventListener('click',()=>{poDetailCurrentPage--;renderPoDetailTablePage();});}
+      if(poDetailNextBtn){poDetailNextBtn.addEventListener('click',()=>{poDetailCurrentPage++;renderPoDetailTablePage();});}
+      const handlePoDetailRangeChange=()=>{
+        if(poDetailGranularity==='year'){
+          const rawYear=(poDetailStart?.value||'').toString();
+          const match=rawYear.match(/^(\d{4})$/);
+          const year=match?match[1]:String(new Date().getFullYear());
+          if(poDetailStart){poDetailStart.value=year;}
+          poDetailCurrentStart=`${year}-01`;
+          poDetailCurrentEnd=`${year}-12`;
+          poDetailCustomRange=false;
+          renderPoDetailTablePage();
+          return;
+        }
+        if(poDetailStart){poDetailCurrentStart=poDetailStart.value;}
+        if(poDetailEnd){poDetailCurrentEnd=poDetailEnd.value;}
+        const hasBoth=poDetailCurrentStart&&poDetailCurrentEnd;
+        poDetailCustomRange=hasBoth&&(poDetailCurrentStart!==poDetailDefaultStart||poDetailCurrentEnd!==poDetailDefaultEnd);
+        renderPoDetailTablePage();
+      };
+      const applyPoDetailItemSelection=()=>{
+        if(!poDetailActiveRow){return;}
+        const selectedName=poDetailItemSelect?.value||'';
+        const selectedItem=poItemDefinitions.find(item=>item.name===selectedName);
+        buildPoDetailTable(undefined,selectedItem);
+      };
+      const applyPoDetailFilters=()=>{
+        handlePoDetailRangeChange();
+        applyPoDetailItemSelection();
+      };
+      const resetPoDetailFilters=()=>{
+        setPoDetailGranularityMode('year');
+        const defaultStart=poDetailDefaultStart||poDetailCurrentStart||'';
+        const defaultEnd=poDetailDefaultEnd||poDetailCurrentEnd||'';
+        if(poDetailStart){poDetailStart.value=defaultStart;}
+        if(poDetailEnd){poDetailEnd.value=defaultEnd;}
+        poDetailCurrentStart=defaultStart;
+        poDetailCurrentEnd=defaultEnd;
+        poDetailCustomRange=false;
+        let baseName='';
+        if(poDetailItemSelect){
+          baseName=poDetailActiveRow?(poDetailActiveRow.pr?.name||poDetailActiveRow.po?.vendor||poDetailActiveRow.budget?.name||''):poDetailItemSelect.value;
+          setPoDetailItemValue(baseName);
+        }
+        const matched=poItemDefinitions.find(item=>item.name===baseName);
+        buildPoDetailTable(poDetailActiveRow,matched);
+      };
+      if(poDetailStart){poDetailStart.addEventListener('change',handlePoDetailRangeChange);}
+      if(poDetailEnd){poDetailEnd.addEventListener('change',handlePoDetailRangeChange);}
+      if(poDetailGranularityToggle){poDetailGranularityToggle.addEventListener('click',()=>{const next=poDetailGranularity==='month'?'year':'month';setPoDetailGranularityMode(next);handlePoDetailRangeChange();});}
+      if(poDetailQueryBtn){poDetailQueryBtn.addEventListener('click',applyPoDetailFilters);}
+      if(poDetailResetBtn){poDetailResetBtn.addEventListener('click',resetPoDetailFilters);}
+      const closePoItemModal=()=>{setPoItemModalVisible(false);setPoDetailVisible(true);};
+      if(poItemModalClose){poItemModalClose.addEventListener('click',closePoItemModal);}
+      if(poItemModalCancel){poItemModalCancel.addEventListener('click',closePoItemModal);}
+      if(poItemModalConfirm){poItemModalConfirm.addEventListener('click',()=>{
+        if(!poItemTableBody){return;}
+        const rows=Array.from(poItemTableBody.querySelectorAll('tr'));
+        const items=[];
+        rows.forEach(row=>{
+          const name=row.querySelector('.po-item-name')?.value.trim();
+          const unit=row.querySelector('.po-item-unit')?.value||unitOptions[0];
+          if(name){items.push({name,unit});}
+        });
+        if(!items.length){alert('请至少输入一个项次名称');return;}
+        poItemDefinitions=items;
+        filterOptionSets.items=unique(poItemDefinitions.map(item=>item.name));
+        const latest=poItemDefinitions[poItemDefinitions.length-1];
+        const latestName=latest?latest.name:'';
+        syncPoDetailItemOptions(latestName);
+        setPoDetailItemValue(latestName);
+        poDetailActiveRow=null;
+        if(poDetailPoInfo){poDetailPoInfo.textContent='PO号：--';}
+        buildPoDetailTable(null,latest);
+        setPoItemModalVisible(false);
+        setPoDetailVisible(true);
+      });}
+      setEditMode(false);
+      syncPoDetailItemOptions(poItemDefinitions.length?poItemDefinitions[0].name:'');
+      setPoDetailGranularityMode('year');
+
+      const chartCategories=monthConfig.map(cfg=>cfg.label);
+      const buildChartData=()=>({
+        plan:monthConfig.map(cfg=>budgetRows.reduce((sum,row)=>sum+(row.months[cfg.key]?.plan||0),0)/10000),
+        actual:monthConfig.map(cfg=>budgetRows.reduce((sum,row)=>sum+(row.months[cfg.key]?.actual||0),0)/10000)
+      });
+      const baseChartData=buildChartData();
+      const getBaseChartYear=()=>Number(document.getElementById('budget-year-input')?.value)||new Date().getFullYear();
+      const buildCompareChartData=year=>{
+        const yearNum=Number(year);
+        if(!yearNum){return null;}
+        const baseYear=getBaseChartYear();
+        const delta=yearNum-baseYear;
+        const factor=1+delta*0.04;
+        const format=data=>data.map(value=>Number((value*factor).toFixed(2)));
+        return {
+          plan:format(baseChartData.plan),
+          actual:format(baseChartData.actual.map(v=>v*0.96))
+        };
+      };
+      let budgetChart=null;
+      const getChartSeries=compareYear=>{
+        const baseYear=getBaseChartYear();
+        const series=[
+          {name:`预算计划(${baseYear})`,data:baseChartData.plan,type:'area',zIndex:1,fillOpacity:0.2},
+          {name:`预算实际(${baseYear})`,data:baseChartData.actual,type:'spline',zIndex:2}
+        ];
+        const compareYearNum=Number(compareYear);
+        if(compareYearNum&&compareYearNum!==baseYear){
+          const compareData=buildCompareChartData(compareYearNum);
+          if(compareData){
+            series.push({name:`预算计划(${compareYearNum})`,data:compareData.plan,type:'area',dashStyle:'ShortDash',color:'#94b7ff',fillOpacity:0.15,marker:{enabled:false},zIndex:0});
+            series.push({name:`预算实际(${compareYearNum})`,data:compareData.actual,type:'spline',dashStyle:'ShortDash',color:'#ffa94d',zIndex:1});
+          }
+        }
+        return series;
+      };
+      const renderBudgetChart=compareYear=>{
+        const series=getChartSeries(compareYear);
+        const chartOptions={
+          chart:{backgroundColor:'transparent'},
+          title:{text:''},
+          xAxis:{categories:chartCategories,lineColor:'#cfd8e6',crosshair:{color:'#0a6ed1',width:1,dashStyle:'ShortDash'}},
+          yAxis:{title:{text:'万元'},gridLineColor:'#e0e8f5',crosshair:{color:'#0a6ed1',width:1,dashStyle:'ShortDash'}},
+          colors:['#0a6ed1','#2ebd85'],
+          tooltip:{shared:true,valueSuffix:' 万元',crosshairs:[{color:'#0a6ed1',width:1,dashStyle:'ShortDash'},{color:'#0a6ed1',width:1,dashStyle:'ShortDash'}]},
+          legend:{align:'center'},
+          credits:{enabled:false},
+          accessibility:{enabled:false}
+        };
+        if(!budgetChart){
+          budgetChart=Highcharts.chart('budget-chart-container',{...chartOptions,series});
+        }else{
+          while(budgetChart.series.length){budgetChart.series[0].remove(false);}
+          series.forEach(cfg=>budgetChart.addSeries(cfg,false));
+          budgetChart.redraw();
+        }
+      };
+      const chartCompareYearInput=document.getElementById('budget-chart-compare-year');
+      const chartCompareLabel=document.getElementById('budget-chart-compare-label');
+      const populateChartCompareOptions=()=>{
+        if(!chartCompareYearInput){return;}
+        chartCompareYearInput.innerHTML='';
+        const defaultOption=document.createElement('option');
+        defaultOption.value='';
+        defaultOption.textContent='不对比';
+        chartCompareYearInput.appendChild(defaultOption);
+        for(let year=2035;year>=2018;year--){
+          const option=document.createElement('option');
+          option.value=String(year);
+          option.textContent=`${year}年`;
+          chartCompareYearInput.appendChild(option);
+        }
+      };
+      populateChartCompareOptions();
+      renderBudgetChart();
+      if(chartCompareYearInput){
+        chartCompareYearInput.addEventListener('change',()=>{
+          const value=chartCompareYearInput.value;
+          if(!value){
+            renderBudgetChart();
+            return;
+          }
+          renderBudgetChart(Number(value));
+        });
+      }
+      if(chartCompareLabel){
+        chartCompareLabel.addEventListener('click',()=>{
+          if(chartCompareYearInput){chartCompareYearInput.value='';}
+          renderBudgetChart();
+        });
+      }
+
+      document.getElementById('budget-query-btn').addEventListener('click',()=>{
+        alert('查询条件已应用 (示例)');
+      });
+      document.getElementById('budget-reset-btn').addEventListener('click',()=>{
+        document.getElementById('budget-year-input').value='2025';
+        document.getElementById('budget-owner-input').value='全部预算编号';
+        if(chartCompareYearInput){chartCompareYearInput.value='';}
+        renderBudgetChart();
+      });
+    })();
+  </script>
+</body>
+</html>

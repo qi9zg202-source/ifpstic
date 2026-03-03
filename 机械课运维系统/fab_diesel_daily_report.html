@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="zh-cn" id="html-root">
+<head id="head-root">
+  <meta id="meta-charset" charset="utf-8">
+  <meta id="meta-viewport" name="viewport" content="width=device-width, initial-scale=1">
+  <title id="title-page">柴油日用量分析报表</title>
+  <!-- Google Font (optional) -->
+  <link id="link-font" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <!-- Highcharts & D3 从 CDN 引入 -->
+  <script id="script-d3" src="https://d3js.org/d3.v7.min.js"></script>
+  <script id="script-highcharts" src="https://code.highcharts.com/highcharts.js"></script>
+  <style id="style-main">
+    :root{
+      --sap-bg:#f4f6f8; /* SAP 风格浅灰 */
+      --card-bg:#ffffff;
+      --accent:#0a6ed1; /* 科技蓝 */
+      --muted:#6b7280;
+      --surface:#eef3f8;
+      --radius:8px;
+      --max-width:1200px;
+      --sap-table-border:#d7e1ed;
+      --sap-table-header:#f3f6fb;
+      --sap-row-alt:#fafcff;
+      --sap-row-hover:#eef3fb;
+      --sap-text-strong:#1a2740;
+    }
+    /* 全局布局：纵向排列，禁止横向滚动 */
+    html,body{height:100%;margin:0;padding:0;font-family:Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:var(--sap-bg);overflow-x:hidden;color:#0f1724}
+    #app-container{box-sizing:border-box;max-width:var(--max-width);margin:24px auto;padding:18px;display:flex;flex-direction:column;gap:16px}
+    /* 顶部标题与查询条 */
+    #header-card{background:transparent;display:flex;flex-direction:column;gap:8px}
+    #title-row{display:flex;align-items:center;gap:12px}
+    #page-title{font-size:20px;font-weight:600;color:var(--accent);}
+    #subtitle{font-size:12px;color:var(--muted)}
+
+    /* 查询区卡片 */
+    #query-card{background:var(--card-bg);padding:12px;border-radius:var(--radius);box-shadow:0 1px 2px rgba(15,23,36,0.06);display:flex;align-items:center;gap:12px}
+    #label-month{font-size:13px;color:var(--muted);min-width:84px}
+    #month-select{padding:8px 10px;border-radius:6px;border:1px solid #e6edf5;background:var(--surface);font-size:14px}
+    #btn-load{padding:8px 12px;border-radius:6px;border:0;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
+    #btn-config{padding:8px 14px;border-radius:6px;border:1px solid #d0deef;background:#fff;color:var(--accent);font-weight:600;cursor:pointer}
+
+    /* 图表卡片 */
+    #chart-card{background:var(--card-bg);padding:12px;border-radius:var(--radius);box-shadow:0 1px 2px rgba(15,23,36,0.06);display:flex;flex-direction:column;gap:8px}
+    #chart-title{font-weight:600;color:#102a43}
+    #chart-container{height:360px;min-height:300px}
+
+    /* 表格卡片 */
+    #table-card{background:var(--card-bg);padding:12px;border-radius:var(--radius);box-shadow:0 1px 2px rgba(15,23,36,0.06);display:flex;flex-direction:column;gap:8px}
+    #table-title{font-weight:600;color:#102a43}
+    #table-wrapper{width:100%;border:1px solid var(--sap-table-border);border-radius:8px;background:#fff;box-shadow:inset 0 1px 0 rgba(10,110,209,0.05);overflow:hidden}
+    #data-table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:13px;color:var(--sap-text-strong)}
+    #data-table thead th{position:sticky;top:0;z-index:2;background:var(--sap-table-header);padding:12px 14px;border-bottom:1px solid var(--sap-table-border);border-right:1px solid var(--sap-table-border);text-align:left;font-weight:600;letter-spacing:0.2px;color:var(--sap-text-strong)}
+    #data-table thead th:first-child{border-left:none;border-top-left-radius:8px}
+    #data-table thead th:last-child{border-right:none;border-top-right-radius:8px}
+    #data-table tbody td{padding:12px 14px;border-bottom:1px solid var(--sap-table-border);border-right:1px solid var(--sap-table-border);color:#0f1724;word-wrap:break-word;background:#fff;transition:background-color 0.2s ease,color 0.2s ease}
+    #data-table tbody td:first-child{border-left:none}
+    #data-table tbody tr:last-child td{border-bottom:none}
+    #data-table tbody td:last-child{border-right:none}
+    #data-table tbody tr:last-child td:first-child{border-bottom-left-radius:8px}
+    #data-table tbody tr:last-child td:last-child{border-bottom-right-radius:8px}
+    #data-table tbody tr:nth-child(even):not(.no-data) td{background:var(--sap-row-alt)}
+    #data-table tbody tr:not(.no-data):hover td{background:var(--sap-row-hover)}
+    #data-table tbody tr.no-data td{background:#ecf4ff;color:var(--accent);font-weight:500;border-bottom:1px solid rgba(10,110,209,0.2)}
+    #data-table tbody tr.no-data:hover td{background:#e0edff}
+    #data-table th[col-id-level], #data-table td[col-id-level]{white-space:nowrap}
+    /* 确保无横向滚动：列宽分配合理 */
+    #data-table th:nth-child(1),#data-table td:nth-child(1){width:16%}
+    #data-table th:nth-child(2),#data-table td:nth-child(2){width:18%}
+    #data-table th:nth-child(3),#data-table td:nth-child(3){width:16%}
+    #data-table th:nth-child(4),#data-table td:nth-child(4){width:12%}
+    #data-table th:nth-child(5),#data-table td:nth-child(5){width:12%}
+    #data-table th:nth-child(6),#data-table td:nth-child(6){width:14%}
+
+    /* 配置弹窗 */
+    #config-mask{position:fixed;inset:0;background:rgba(15,23,36,0.35);display:none;align-items:center;justify-content:center;z-index:1200}
+    #config-mask.active{display:flex}
+    #config-dialog{background:#fff;border-radius:12px;padding:22px 26px;width:340px;box-shadow:0 18px 36px rgba(15,23,36,0.2);border:1px solid rgba(10,110,209,0.15);display:flex;flex-direction:column;gap:18px}
+    #config-title{font-size:16px;font-weight:600;color:#102a43;border-bottom:1px solid #d7e1ed;padding-bottom:6px}
+    #config-body{display:flex;flex-direction:column;gap:12px}
+    #config-note{font-size:12px;color:#6b7280;line-height:1.5}
+    #config-field{display:flex;flex-direction:column;gap:6px;background:#f5f9ff;border:1px solid #d7e1ed;border-radius:10px;padding:12px 14px}
+    #config-field label{font-weight:600;color:#102a43;font-size:13px}
+    #input-alarm{padding:8px 10px;border-radius:8px;border:1px solid #c7d6eb;font-size:14px;color:#102a43;background:#fff}
+    #input-alarm:focus{outline:2px solid rgba(10,110,209,0.25);border-color:var(--accent)}
+    #config-actions{display:flex;justify-content:flex-end;gap:12px}
+    #btn-config-cancel{padding:8px 16px;border-radius:8px;border:1px solid #c7d6eb;background:#fff;color:#102a43;font-weight:600;cursor:pointer}
+    #btn-config-save{padding:8px 16px;border-radius:8px;border:0;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(10,110,209,0.2)}
+
+    /* 小屏下自适应 */
+    @media (max-width:720px){#app-container{padding:12px} #chart-container{height:360px}}
+  </style>
+</head>
+<body id="body-root">
+  <div id="app-container">
+    <!-- Header -->
+    <div id="header-card" role="banner">
+      <div id="title-row">
+        <div id="page-title">柴油日用量分析报表</div>
+        <div id="subtitle">设备：地下柴油储罐 — 厂务部门 机械课</div>
+      </div>
+      <!-- 查询组件行 -->
+      <div id="query-card" role="search">
+        <label id="label-month" for="month-input">请选择月份</label>
+        <!-- 使用标准 month 输入控件，最小粒度为月 -->
+        <input id="month-input" name="month-input" type="month" aria-label="请选择月份" style="padding:8px 10px;border-radius:6px;border:1px solid #e6edf5;background:var(--surface);font-size:14px">
+        <button id="btn-load" type="button">查询按钮</button>
+        <!-- 新增导出按钮 -->
+        <button id="btn-export" type="button" style="padding:8px 12px;border-radius:6px;border:1px solid #dbe6f2;background:#fff;color:var(--accent);font-weight:600;cursor:pointer">导出</button>
+        <div id="spacer" style="flex:1"></div>
+        <button id="btn-config" type="button">配置</button>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div id="chart-card" role="region" aria-labelledby="chart-title">
+      <div id="chart-title">每日液位与用量趋势</div>
+      <div id="chart-container"></div>
+    </div>
+
+    <!-- Table -->
+    <div id="table-card" role="region" aria-labelledby="table-title">
+      <div id="table-title">明细数据</div>
+      <div id="table-wrapper">
+        <table id="data-table" role="table" aria-describedby="table-title">
+          <thead id="table-head">
+            <tr id="thead-row">
+              <th id="th-date" scope="col">时间（日期）</th>
+              <th id="th-level" scope="col" col-id-level>地下柴油储罐液位读数 (mm)</th>
+              <th id="th-volume" scope="col">储油体积 (m³)</th>
+              <th id="th-daily" scope="col">日用量 (m³)</th>
+              <th id="th-daily-avg" scope="col">日均值 (m³)</th>
+              <th id="th-month-total" scope="col">月总用量 (m³)</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <!-- 动态行会被 JS 填充，行 id 格式：row-YYYY-MM-DD -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="config-mask" role="presentation" aria-hidden="true">
+    <div id="config-dialog">
+      <div id="config-title">柴油液位告警设置</div>
+      <div id="config-body">
+        <div id="config-note">设置柴油储罐的液位告警阈值，趋势图会显示对应的 Spec 线以辅助监控。</div>
+        <div id="config-field">
+          <label for="input-alarm">柴油告警液位 (mm)</label>
+          <input id="input-alarm" type="number" min="0" step="1" placeholder="例如 600" value="600">
+        </div>
+      </div>
+      <div id="config-actions">
+        <button id="btn-config-cancel" type="button">取消</button>
+        <button id="btn-config-save" type="button">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主脚本：生成示例数据、绘图与表格更新逻辑 -->
+  <script id="script-main">
+    (function(){
+      // 常量
+  const monthInput = document.getElementById('month-input');
+  const btnLoad = document.getElementById('btn-load');
+  const btnExport = document.getElementById('btn-export');
+  const btnConfig = document.getElementById('btn-config');
+  const configMask = document.getElementById('config-mask');
+  const btnConfigCancel = document.getElementById('btn-config-cancel');
+  const btnConfigSave = document.getElementById('btn-config-save');
+  const inputAlarm = document.getElementById('input-alarm');
+      const chartContainerId = 'chart-container';
+      const tableBody = document.getElementById('table-body');
+
+      // 将用户选择默认设为当年十月份，方便模拟固定数据
+      const now = new Date();
+      const defaultYear = now.getFullYear();
+      const defaultOpt = `${defaultYear}-${String(10).padStart(2,'0')}`;
+      monthInput.value = defaultOpt;
+
+      // 辅助：生成当月每天日期数组
+      function daysInMonth(year,month){
+        return new Date(year, month, 0).getDate();
+      }
+      function pad(n){return String(n).padStart(2,'0')}
+
+      // 生成示例数据：液位(mm)->体积(m3) 使用假定断面面积（m²）: 50 m²
+      function generateMonthData(year,month){
+        const days = daysInMonth(year,month);
+        const area = 50; // m^2 假定
+        const data = [];
+        // 初始液位随机
+        let prevVol = (Math.random()*0.5 + 0.5) * (1000/1000) * area; // m3, 使用 mm->m 的粗略映射
+        let cum = 0; // 累计用量
+        let validDays = 0; // 有效天数（用于计算日均）
+
+        for(let d=1; d<=days; d++){
+          const date = `${year}-${pad(month)}-${pad(d)}`;
+
+          // 固定模拟：十月二日未巡检
+          if(month === 10 && d === 2){
+            data.push({
+              date,
+              level_mm: null,
+              volume_m3: null,
+              daily: null,
+              daily_avg: validDays > 0 ? +(cum / validDays).toFixed(3) : null,
+              month_total: cum > 0 ? +cum.toFixed(3) : null,
+              noData: true,
+              message: '此日未巡检抄表'
+            });
+            continue;
+          }
+          
+          // 模拟液位波动(mm)
+          const level_mm = Math.round((200 + Math.random()*600));
+          const volume_m3 = +( (level_mm/1000) * area ).toFixed(3);
+          // 日用量：若体积下降则为正，否则可能为小值
+          let daily = +(Math.max(0, prevVol - volume_m3) + (Math.random()*0.05)).toFixed(3);
+          // 有时会出现补给（负用量），我们把补给量视为 0 日用量并调整 prevVol
+          if(prevVol < volume_m3){ daily = +(0.02 + Math.random()*0.02).toFixed(3) }
+          prevVol = volume_m3;
+          
+          // 更新累计值
+          cum += daily;
+          validDays++;
+          
+          data.push({
+            date,
+            level_mm,
+            volume_m3,
+            daily,
+            daily_avg: +(cum / validDays).toFixed(3),
+            month_total: +cum.toFixed(3),
+            noData: false
+          });
+        }
+        return data;
+      }
+
+      // 转换为 Highcharts 需要的 series 数据
+      function buildSeries(data){
+        const categories = data.map(d=>d.date);
+        const level = data.map(d=>d.level_mm);
+        const daily = data.map(d=>d.daily);
+        const monthTotal = data.map(d=>d.month_total);
+        const dailyAvg = data.map(d=>d.daily_avg);
+        return {categories, series:[
+          {id:'s-level', name:'液位 (mm)', type:'line', data:level, yAxis:0, color:'#0a6ed1'},
+          {id:'s-daily', name:'日用量 (m³)', type:'line', data:daily, yAxis:1, color:'#1f8a6e'},
+          {id:'s-monthTotal', name:'本月累计 (m³)', type:'line', data:monthTotal, yAxis:1, color:'#f2a900'},
+          {id:'s-dailyAvg', name:'本月日均 (m³)', type:'line', data:dailyAvg, yAxis:1, color:'#7b61ff', dashStyle:'ShortDash'}
+        ], categories}
+      }
+
+      // 绘制 Highcharts
+      let chart = null;
+      let dieselAlarmLevel = Number.isFinite(parseFloat(inputAlarm.value)) ? parseFloat(inputAlarm.value) : null;
+      function renderChart(cfg){
+        if(chart && chart.yAxis && chart.yAxis[0]){
+          chart.yAxis[0].removePlotLine('diesel-alarm');
+        }
+        const opt = {
+          chart: {renderTo: chartContainerId, zoomType:'x', backgroundColor:'transparent'},
+          title:{text:null},
+          xAxis:{categories:cfg.categories, crosshair:true},
+          yAxis:[
+            { // 左轴：液位 mm
+              title:{text:'液位 (mm)'},
+              labels:{format:'{value}'},
+              opposite:false,
+              plotLines:[]
+            },
+            { // 右轴：体积/用量 m3
+              title:{text:'体积/用量 (m³)'},
+              labels:{format:'{value}'} ,
+              opposite:true
+            }
+          ],
+          tooltip:{shared:true, valueDecimals:3},
+          legend:{enabled:true, layout:'horizontal', align:'center', verticalAlign:'bottom'},
+          series:cfg.series,
+          credits:{enabled:false}
+        };
+        if(Number.isFinite(dieselAlarmLevel)){
+          opt.yAxis[0].plotLines.push({
+            id:'diesel-alarm',
+            value:dieselAlarmLevel,
+            color:'#ef4444',
+            dashStyle:'ShortDash',
+            width:2,
+            zIndex:5,
+            label:{
+              text:`告警液位 ${dieselAlarmLevel.toFixed(0)} mm`,
+              align:'right',
+              style:{color:'#ef4444', fontWeight:'600'}
+            }
+          });
+        }
+        if(chart){ chart.update(opt, true, true); } else { chart = Highcharts.chart(opt); }
+      }
+
+      // 渲染表格
+      function renderTable(data){
+        tableBody.innerHTML='';
+        const dailyAvgFinal = getLastNumericValue(data,'daily_avg');
+        const monthTotalFinal = getLastNumericValue(data,'month_total');
+        const spanRows = data.length;
+        data.forEach((row, idx)=>{
+          const tr = document.createElement('tr'); tr.id = `row-${row.date}`;
+          if(row.noData){ tr.className = 'no-data'; }
+
+          tr.appendChild(createCell(row.date));
+          tr.appendChild(createCell(row.noData ? '—' : row.level_mm));
+          tr.appendChild(createCell(row.noData ? '—' : row.volume_m3.toFixed(3)));
+          tr.appendChild(createCell(row.noData ? '—' : row.daily.toFixed(3)));
+
+          if(idx === 0){
+            const avgCell = createCell(typeof dailyAvgFinal === 'number' ? dailyAvgFinal.toFixed(3) : '—');
+            avgCell.rowSpan = spanRows;
+            tr.appendChild(avgCell);
+            const monthCell = createCell(typeof monthTotalFinal === 'number' ? monthTotalFinal.toFixed(3) : '—');
+            monthCell.rowSpan = spanRows;
+            tr.appendChild(monthCell);
+          }
+
+          tableBody.appendChild(tr);
+        });
+      }
+
+      function getLastNumericValue(arr,key){
+        for(let i=arr.length-1;i>=0;i--){
+          const v = arr[i][key];
+          if(typeof v === 'number' && !isNaN(v)){ return v; }
+        }
+        return null;
+      }
+
+      function createCell(text){
+        const td = document.createElement('td');
+        td.textContent = text;
+        return td;
+      }
+
+      // 主加载函数：根据选择的月份生成数据并渲染
+      // 存储当前渲染数据，供导出使用
+      let __lastData = [];
+
+      function loadForMonth(monthValue){
+        // monthValue 格式 YYYY-MM
+        const [y,m] = monthValue.split('-').map(v=>parseInt(v,10));
+        const data = generateMonthData(y,m);
+        __lastData = data;
+        const cfg = buildSeries(data);
+        renderChart(cfg);
+        renderTable(data);
+      }
+
+      // 初次加载
+      loadForMonth(monthInput.value);
+
+      // 事件绑定
+      function openConfig(){
+        configMask.classList.add('active');
+        configMask.setAttribute('aria-hidden','false');
+        inputAlarm.focus();
+      }
+
+      function closeConfig(){
+        configMask.classList.remove('active');
+        configMask.setAttribute('aria-hidden','true');
+      }
+
+      function applyAlarm(){
+        const value = parseFloat(inputAlarm.value);
+        if(!Number.isFinite(value)){
+          alert('请输入有效的液位值（数字）。');
+          return;
+        }
+        dieselAlarmLevel = value;
+        closeConfig();
+        if(__lastData.length){
+          const cfg = buildSeries(__lastData);
+          renderChart(cfg);
+        }
+      }
+
+      btnLoad.addEventListener('click', ()=>{ loadForMonth(monthInput.value); });
+
+      // 支持回车在 month 输入上触发（可辅助键盘操作）
+      monthInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ loadForMonth(monthInput.value) } });
+
+      // 导出 CSV 功能（基于 __lastData）
+      function exportCSV(){
+        if(!__lastData || __lastData.length===0){
+          alert('当前无数据可导出，请先查询。');
+          return;
+        }
+        const headers = ['时间(日期)','地下柴油储罐液位读数(mm)','储油体积(m³)','日用量(m³)','日均值(m³)','月总用量(m³)'];
+        const finalAvg = getLastNumericValue(__lastData,'daily_avg');
+        const finalMonth = getLastNumericValue(__lastData,'month_total');
+        const rows = __lastData.map((r,idx)=>[
+          r.date,
+          r.level_mm ?? '',
+          r.volume_m3 != null ? r.volume_m3.toFixed(3) : '',
+          r.daily != null ? r.daily.toFixed(3) : '',
+          idx===0 && finalAvg!=null ? finalAvg.toFixed(3) : '',
+          idx===0 && finalMonth!=null ? finalMonth.toFixed(3) : ''
+        ]);
+        const csvContent = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+        const blob = new Blob([csvContent], {type: 'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `柴油日用量_${monthInput.value}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      btnExport.addEventListener('click', exportCSV);
+      btnConfig.addEventListener('click', openConfig);
+      btnConfigCancel.addEventListener('click', closeConfig);
+      btnConfigSave.addEventListener('click', applyAlarm);
+      configMask.addEventListener('click', (evt)=>{ if(evt.target === configMask){ closeConfig(); } });
+      inputAlarm.addEventListener('keydown', (evt)=>{ if(evt.key === 'Enter'){ applyAlarm(); } });
+
+      // 暴露到 window 以便调试（如果需要）
+      window.__fabDieselReport = { loadForMonth };
+    })();
+  </script>
+</body>
+</html>

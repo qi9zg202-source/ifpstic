@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="zh-cn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>市政蒸汽用量分析报表</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <style>
+    :root{
+      --bg:#f4f6f8;
+      --card:#ffffff;
+      --accent:#0a6ed1;
+      --muted:#6b7280;
+      --border:#d7e1ed;
+      --surface:#eef3f8;
+      --radius:12px;
+      --font:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+      --row-alt:#f9fbff;
+      --row-hover:#ebf2ff;
+      --strong:#1a2740;
+    }
+
+    html,body{
+      margin:0;
+      padding:0;
+      background:var(--bg);
+      font-family:var(--font);
+      color:var(--strong);
+      min-height:100%;
+      overflow-x:hidden;
+    }
+
+    #app{
+      max-width:1200px;
+      margin:28px auto;
+      padding:0 24px 48px;
+      box-sizing:border-box;
+      display:flex;
+      flex-direction:column;
+      gap:18px;
+    }
+
+    #header-card{
+      background:var(--card);
+      border-radius:var(--radius);
+      box-shadow:0 14px 32px rgba(15,23,42,0.1);
+      padding:20px 24px;
+      border:1px solid rgba(15,23,42,0.06);
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    #title-row{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    #page-title{font-size:22px;font-weight:600;color:var(--accent)}
+    #subtitle{font-size:13px;color:var(--muted)}
+
+    #query-bar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      align-items:center;
+      margin-top:4px;
+    }
+    #label-month{font-size:13px;color:var(--muted)}
+    #month-input{
+      padding:9px 12px;
+      border-radius:8px;
+      border:1px solid var(--border);
+      background:var(--surface);
+      font-size:14px;
+      color:var(--strong);
+    }
+    .query-btn{
+      padding:9px 16px;
+      border-radius:8px;
+      border:0;
+      font-weight:600;
+      cursor:pointer;
+    }
+    #btn-query{background:var(--accent);color:#fff;box-shadow:0 6px 16px rgba(10,110,209,0.24)}
+    #btn-export{background:#fff;color:var(--accent);border:1px solid var(--border)}
+    #spacer{flex:1}
+
+    #chart-card, #table-card{
+      background:var(--card);
+      border-radius:var(--radius);
+      border:1px solid rgba(15,23,42,0.06);
+      box-shadow:0 16px 32px rgba(15,23,42,0.12);
+      padding:18px 22px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    #chart-title,#table-title{
+      font-size:16px;
+      font-weight:600;
+      color:var(--strong);
+      letter-spacing:0.2px;
+    }
+
+    #chart-container{min-height:320px;height:380px}
+
+    #table-wrapper{
+      border:1px solid var(--border);
+      border-radius:10px;
+      overflow:auto;
+      background:#fff;
+      max-height:460px;
+    }
+
+    #data-table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      table-layout:fixed;
+      font-size:13px;
+      color:var(--strong);
+    }
+    #data-table thead th{
+      position:sticky;
+      top:0;
+      z-index:1;
+      background:#f3f7fc;
+      padding:12px 14px;
+      border-bottom:1px solid var(--border);
+      border-right:1px solid var(--border);
+      text-align:left;
+      font-weight:600;
+      letter-spacing:0.3px;
+    }
+    #data-table thead th:first-child{border-top-left-radius:10px}
+    #data-table thead th:last-child{border-right:none;border-top-right-radius:10px}
+    #data-table tbody td{
+      padding:12px 14px;
+      border-bottom:1px solid var(--border);
+      border-right:1px solid var(--border);
+      background:#fff;
+      transition:background 0.2s ease;
+      word-break:break-word;
+    }
+    #data-table tbody td:last-child{border-right:none}
+    #data-table tbody tr:last-child td{border-bottom:none}
+    #data-table tbody tr:nth-child(even) td{background:var(--row-alt)}
+    #data-table tbody tr:hover td{background:var(--row-hover)}
+    #data-table tbody tr.missing-row td{background:#deebff!important;color:#0a6ed1;font-weight:600}
+    #data-table th:nth-child(1),#data-table td:nth-child(1){width:15%}
+    #data-table th:nth-child(2),#data-table td:nth-child(2){width:12%}
+    #data-table th:nth-child(3),#data-table td:nth-child(3){width:12%}
+    #data-table th:nth-child(4),#data-table td:nth-child(4){width:12%}
+    #data-table th:nth-child(5),#data-table td:nth-child(5){width:12%}
+    #data-table th:nth-child(6),#data-table td:nth-child(6){width:12%}
+    #data-table th:nth-child(7),#data-table td:nth-child(7){width:12%}
+    #data-table th:nth-child(8),#data-table td:nth-child(8){width:13%}
+
+    #about-btn{
+      position:fixed;
+      right:24px;
+      bottom:24px;
+      padding:10px 16px;
+      border-radius:24px;
+      background:var(--accent);
+      color:#fff;
+      border:none;
+      font-weight:600;
+      box-shadow:0 14px 32px rgba(10,110,209,0.25);
+      cursor:pointer;
+    }
+    #about-btn:hover{background:#095eb7}
+    #about-dialog{
+      position:fixed;
+      right:24px;
+      bottom:84px;
+      min-width:320px;
+      background:#fff;
+      border-radius:12px;
+      border:1px solid rgba(15,23,42,0.08);
+      box-shadow:0 16px 36px rgba(15,23,42,0.24);
+      padding:18px 20px;
+      display:none;
+      flex-direction:column;
+      gap:10px;
+      z-index:1200;
+    }
+    #about-dialog.active{display:flex}
+    #about-title{font-size:15px;font-weight:600;color:var(--strong)}
+    #about-command{background:#0f172a;color:#e2e8f0;padding:12px 14px;border-radius:8px;font-family:Menlo,Consolas,monospace;font-size:12px;overflow:auto;white-space:pre-wrap}
+    #about-close{align-self:flex-end;background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px}
+
+    @media (max-width:860px){
+      #app{padding:0 16px 36px}
+      #query-bar{flex-direction:column;align-items:flex-start}
+      #spacer{display:none}
+      #chart-container{height:320px}
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <section id="header-card">
+      <div id="title-row">
+        <div id="page-title">市政蒸汽用量分析报表</div>
+      <div id="subtitle"></div>
+      </div>
+      <div id="query-bar">
+        <label id="label-month" for="month-input">请选择月份</label>
+        <input id="month-input" type="month" name="month-input" aria-label="请选择月份">
+        <button id="btn-query" class="query-btn" type="button">查询</button>
+        <button id="btn-export" class="query-btn" type="button">导出</button>
+        <div id="spacer"></div>
+        <div id="total-indicator" style="font-size:12px;color:var(--muted)">支持关键字筛选与导出。</div>
+      </div>
+    </section>
+
+    <section id="chart-card">
+      <div id="chart-title">蒸汽用量指标趋势</div>
+      <div id="chart-container"></div>
+    </section>
+
+    <section id="table-card">
+      <div id="table-title">日度数据明细</div>
+      <div id="table-wrapper">
+        <table id="data-table" role="table" aria-labelledby="table-title">
+          <thead>
+            <tr>
+              <th id="col-date" scope="col">时间 (日期)</th>
+              <th id="col-base" scope="col">表底读数 (t)</th>
+              <th id="col-daily-ton" scope="col">日用量 (t)</th>
+              <th id="col-daily-gj" scope="col">日用量 (GJ)</th>
+              <th id="col-avg-ton" scope="col">日均用量 (t)</th>
+              <th id="col-avg-gj" scope="col">日均用量 (GJ)</th>
+              <th id="col-month-ton" scope="col">月总用量 (t)</th>
+              <th id="col-month-gj" scope="col">月总用量 (GJ)</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <button id="about-btn" type="button" aria-controls="about-dialog" aria-expanded="false">关于我们</button>
+  <div id="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
+    <div id="about-title">部署命令</div>
+    <pre id="about-command">scp -r /Users/beckliu/Documents/IFPALLINONE/* root@112.74.32.33:/usr/share/nginx/html/pxifpstic/</pre>
+    <button id="about-close" type="button">关闭</button>
+  </div>
+
+  <script>
+    (function(){
+      const monthInput = document.getElementById('month-input');
+      const btnQuery = document.getElementById('btn-query');
+      const btnExport = document.getElementById('btn-export');
+      const tableBody = document.getElementById('table-body');
+      const chartContainer = 'chart-container';
+      const totalIndicator = document.getElementById('total-indicator');
+
+      const now = new Date();
+      const defaultMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      monthInput.value = defaultMonth;
+
+      const TON_TO_GJ = 2.6; // 假定蒸汽比焓换算系数
+
+      function daysInMonth(year, month){
+        return new Date(year, month, 0).getDate();
+      }
+      function pad(n){return String(n).padStart(2,'0');}
+
+      function generateMonthData(year, month){
+        const days = daysInMonth(year, month);
+        const dataset = [];
+        let prevReading = 500 + Math.random()*50;
+        let monthlyTon = 0;
+        let monthlyGj = 0;
+        let validDays = 0;
+        const today = new Date();
+        const isCurrentMonth = today.getFullYear() === year && (today.getMonth()+1) === month;
+        const currentDay = isCurrentMonth ? today.getDate() : days;
+
+        for(let d=1; d<=days; d++){
+          const date = `${year}-${pad(month)}-${pad(d)}`;
+          const baseReading = +(prevReading + (Math.random()*8 + 6)).toFixed(2);
+          const dailyTon = +(baseReading - prevReading).toFixed(2);
+          const dailyGj = +(dailyTon * TON_TO_GJ).toFixed(2);
+
+          const isFuture = isCurrentMonth && d > currentDay;
+          const isMissing = !isFuture && isCurrentMonth && d <= currentDay && Math.random() < 0.12;
+
+          if(isFuture){
+            dataset.push({
+              date,
+              base:null,
+              dailyTon:null,
+              dailyGj:null,
+              avgTon:null,
+              avgGj:null,
+              monthTon:monthlyTon ? +monthlyTon.toFixed(2) : null,
+              monthGj:monthlyGj ? +monthlyGj.toFixed(2) : null,
+              future:true
+            });
+            prevReading = baseReading;
+            continue;
+          }
+
+          if(isMissing){
+            dataset.push({
+              date,
+              base:null,
+              dailyTon:null,
+              dailyGj:null,
+              avgTon:null,
+              avgGj:null,
+              monthTon:monthlyTon ? +monthlyTon.toFixed(2) : null,
+              monthGj:monthlyGj ? +monthlyGj.toFixed(2) : null,
+              missing:true,
+              note:'当日未录入巡检数据'
+            });
+            prevReading = baseReading;
+            continue;
+          }
+
+          monthlyTon += dailyTon;
+          monthlyGj += dailyGj;
+          validDays++;
+          prevReading = baseReading;
+
+          dataset.push({
+            date,
+            base: baseReading,
+            dailyTon,
+            dailyGj,
+            avgTon: +(monthlyTon/validDays).toFixed(2),
+            avgGj: +(monthlyGj/validDays).toFixed(2),
+            monthTon: +monthlyTon.toFixed(2),
+            monthGj: +monthlyGj.toFixed(2)
+          });
+        }
+        return dataset;
+      }
+
+      function buildSeries(data){
+        const categories = data.map(d=>d.date);
+        return {
+          categories,
+          series:[
+            {id:'s-base', name:'表底读数 (t)', type:'line', data:data.map(d=>d.base), yAxis:0, color:'#0a6ed1'},
+            {id:'s-daily-ton', name:'日用量 (t)', type:'line', data:data.map(d=>d.dailyTon), yAxis:1, color:'#1f8a6e'},
+            {id:'s-daily-gj', name:'日用量 (GJ)', type:'line', data:data.map(d=>d.dailyGj), yAxis:1, color:'#f59e0b', dashStyle:'ShortDot'},
+            {id:'s-avg-ton', name:'日均用量 (t)', type:'line', data:data.map(d=>d.avgTon), yAxis:1, color:'#7b61ff', dashStyle:'ShortDash'},
+            {id:'s-avg-gj', name:'日均用量 (GJ)', type:'line', data:data.map(d=>d.avgGj), yAxis:1, color:'#2dd4bf', dashStyle:'ShortDashDot'},
+            {id:'s-month-ton', name:'月总用量 (t)', type:'line', data:data.map(d=>d.monthTon), yAxis:1, color:'#ef4444'},
+            {id:'s-month-gj', name:'月总用量 (GJ)', type:'line', data:data.map(d=>d.monthGj), yAxis:1, color:'#9333ea', dashStyle:'Dash'}
+          ]
+        };
+      }
+
+      let chart = null;
+      let currentData = [];
+      function renderChart(cfg){
+        const options = {
+          chart:{renderTo:chartContainer, backgroundColor:'transparent', zoomType:'x'},
+          title:{text:null},
+          xAxis:{categories:cfg.categories, crosshair:true},
+          yAxis:[
+            {title:{text:'表底读数 (t)'}, labels:{format:'{value}'}, opposite:false, gridLineColor:'rgba(15,23,42,0.08)'},
+            {title:{text:'用量 (t / GJ)'}, labels:{format:'{value}'}, opposite:true, gridLineColor:'rgba(15,23,42,0.08)'}
+          ],
+          legend:{layout:'horizontal', align:'center', verticalAlign:'bottom'},
+          tooltip:{shared:true, valueDecimals:2},
+          plotOptions:{series:{marker:{enabled:false}}},
+          series:[
+            cfg.series[0],
+            ...cfg.series.slice(1)
+          ],
+          credits:{enabled:false}
+        };
+        if(chart){ chart.update(options, true, true); }
+        else { chart = Highcharts.chart(options); }
+      }
+
+      function renderTable(data){
+        tableBody.innerHTML = '';
+        const spanRows = data.length;
+        const avgTonVal = getLatestNumericValue(data, 'avgTon');
+        const avgGjVal = getLatestNumericValue(data, 'avgGj');
+        data.forEach((row, index)=>{
+          const tr = document.createElement('tr');
+          if(row.missing){ tr.classList.add('missing-row'); }
+          tr.appendChild(createTextCell(row.date));
+          tr.appendChild(createValueCell(row.base));
+          tr.appendChild(createValueCell(row.dailyTon));
+          tr.appendChild(createValueCell(row.dailyGj));
+          if(index === 0){
+            tr.appendChild(createValueCell(avgTonVal, {rowspan:spanRows}));
+            tr.appendChild(createValueCell(avgGjVal, {rowspan:spanRows}));
+          }
+          tr.appendChild(createValueCell(row.monthTon));
+          tr.appendChild(createValueCell(row.monthGj));
+          tableBody.appendChild(tr);
+        });
+        totalIndicator.textContent = `共 ${data.length} 条记录`;
+      }
+
+      function createTextCell(text){
+        const td = document.createElement('td');
+        td.textContent = text || '—';
+        return td;
+      }
+
+      function createValueCell(value, options={}){
+        const td = document.createElement('td');
+        if(typeof value === 'number' && Number.isFinite(value)){
+          td.textContent = value.toFixed(2);
+        }else{
+          td.textContent = '—';
+        }
+        if(options.rowspan){ td.rowSpan = options.rowspan; }
+        return td;
+      }
+
+      function getLatestNumericValue(arr, key){
+        for(let i=arr.length-1;i>=0;i--){
+          const val = arr[i][key];
+          if(typeof val === 'number' && Number.isFinite(val)){
+            return val;
+          }
+        }
+        return null;
+      }
+
+      function loadMonth(monthValue){
+        const [y,m] = monthValue.split('-').map(v=>parseInt(v,10));
+        const data = generateMonthData(y,m);
+        currentData = data;
+        renderChart(buildSeries(data));
+        renderTable(data);
+      }
+
+      function exportCSV(){
+        if(!currentData.length){
+          alert('暂无数据，请先查询。');
+          return;
+        }
+        const headers = ['时间 (日期)','表底读数 (t)','日用量 (t)','日用量 (GJ)','日均用量 (t)','日均用量 (GJ)','月总用量 (t)','月总用量 (GJ)'];
+        const formatCsv = val => (typeof val === 'number' && Number.isFinite(val)) ? val.toFixed(2) : '';
+        const rows = currentData.map(r=>[
+          r.date,
+          formatCsv(r.base),
+          formatCsv(r.dailyTon),
+          formatCsv(r.dailyGj),
+          formatCsv(r.avgTon),
+          formatCsv(r.avgGj),
+          formatCsv(r.monthTon),
+          formatCsv(r.monthGj)
+        ]);
+        const csv = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+        const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `市政蒸汽用量_${monthInput.value}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      loadMonth(monthInput.value);
+      btnQuery.addEventListener('click', ()=>loadMonth(monthInput.value));
+      monthInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ loadMonth(monthInput.value); } });
+      btnExport.addEventListener('click', exportCSV);
+
+      const aboutBtn = document.getElementById('about-btn');
+      const aboutDialog = document.getElementById('about-dialog');
+      const aboutClose = document.getElementById('about-close');
+      function toggleAbout(show){
+        if(show){
+          aboutDialog.classList.add('active');
+          aboutBtn.setAttribute('aria-expanded','true');
+        }else{
+          aboutDialog.classList.remove('active');
+          aboutBtn.setAttribute('aria-expanded','false');
+        }
+      }
+      aboutBtn.addEventListener('click', ()=>{
+        const open = aboutDialog.classList.contains('active');
+        toggleAbout(!open);
+      });
+      aboutClose.addEventListener('click', ()=>toggleAbout(false));
+      document.addEventListener('click', evt=>{
+        if(!aboutDialog.contains(evt.target) && evt.target !== aboutBtn){
+          toggleAbout(false);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

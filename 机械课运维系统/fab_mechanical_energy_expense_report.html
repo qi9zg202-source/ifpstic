@@ -1,0 +1,2005 @@
+<!doctype html>
+<html lang="zh-cn" id="energy-html-root">
+
+<head id="energy-head-root">
+  <meta id="energy-meta-charset" charset="utf-8">
+  <meta id="energy-meta-viewport" name="viewport" content="width=device-width, initial-scale=1">
+  <title id="energy-title-tag">机械课能源费用报表</title>
+  <link id="energy-font-inter" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap"
+    rel="stylesheet">
+  <script id="energy-script-d3" src="https://d3js.org/d3.v7.min.js"></script>
+  <script id="energy-script-highcharts" src="https://code.highcharts.com/highcharts.js"></script>
+  <style id="energy-style-block">
+    :root {
+      --sap-bg: #f4f7fb;
+      --sap-surface: #ffffff;
+      --sap-border: #d5dde8;
+      --sap-accent: #0a6ed1;
+      --sap-accent-fade: #cfe2ff;
+      --sap-text: #102238;
+      --sap-muted: #7d8aa3;
+      --sap-soft: #f0f4fb;
+      --sap-warning: #dc2626;
+      --energy-width-index: 60px;
+      --energy-width-code: 130px;
+      --energy-width-object: 150px;
+      --energy-width-project: 110px;
+      --energy-width-budget: 110px;
+      --energy-width-actual: 110px;
+      --energy-width-variance: 120px;
+      --energy-width-percent: 110px;
+      --energy-width-month: 150px;
+      --energy-width-remark: 220px;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--sap-bg);
+      color: var(--sap-text);
+      overflow-x: hidden
+    }
+
+    #energy-page-shell {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 16px
+    }
+
+    #energy-header {
+      display: flex;
+      flex-direction: column;
+      gap: 12px
+    }
+
+    #energy-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px
+    }
+
+    #energy-title-text {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--sap-text)
+    }
+
+    #energy-control-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      background: var(--sap-surface);
+      border: 1px solid var(--sap-border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      box-shadow: 0 2px 6px rgba(16, 34, 56, 0.06)
+    }
+
+    #energy-plant-label,
+    #energy-year-label {
+      font-size: 13px;
+      color: var(--sap-muted)
+    }
+
+    #energy-plant-select,
+    #energy-year-range {
+      border: 1px solid var(--sap-border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      background: #fff;
+      color: var(--sap-text)
+    }
+
+    #energy-year-range {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+      flex: 1;
+      min-width: 320px
+    }
+
+    #energy-start-year {
+      border: 1px solid var(--sap-border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      width: 110px
+    }
+
+    #energy-primary-buttons {
+      display: flex;
+      gap: 8px;
+      margin-left: 12px
+    }
+
+    #energy-primary-buttons button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: box-shadow 0.2s ease, transform 0.2s ease
+    }
+
+    #energy-primary-buttons button:first-child {
+      background: var(--sap-accent);
+      color: #fff
+    }
+
+    #energy-primary-buttons button:first-child:hover {
+      box-shadow: 0 6px 18px rgba(10, 110, 209, 0.2);
+      transform: translateY(-1px)
+    }
+
+    #energy-primary-buttons button:last-child {
+      background: #fff;
+      color: var(--sap-accent);
+      border: 1px solid var(--sap-accent-fade)
+    }
+
+    #energy-primary-buttons button:last-child:hover {
+      box-shadow: 0 6px 18px rgba(16, 34, 56, 0.08);
+      transform: translateY(-1px)
+    }
+
+    #energy-control-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-left: auto;
+      flex-wrap: nowrap;
+      white-space: nowrap
+    }
+
+    #energy-snapshot-button {
+      background: #fff;
+      color: #0a6ed1;
+      border: 1px solid var(--sap-accent)
+    }
+
+    #energy-snapshot-button:hover,
+    #energy-snapshot-history-button:hover {
+      box-shadow: 0 6px 18px rgba(16, 34, 56, 0.1);
+      transform: translateY(-1px)
+    }
+
+    #energy-snapshot-history-button {
+      background: #fff;
+      color: #102a43;
+      border: 1px solid var(--sap-border)
+    }
+
+    #energy-chart-card,
+    #energy-table-card {
+      background: var(--sap-surface);
+      border: 1px solid var(--sap-border);
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 8px 24px rgba(16, 34, 56, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 12px
+    }
+
+    #energy-chart-heading-row,
+    #energy-table-heading-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end
+    }
+
+    #energy-chart-title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap
+    }
+
+    #energy-chart-heading,
+    #energy-table-heading {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600
+    }
+
+    #energy-year-comparison-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: linear-gradient(135deg, #0a6ed1, #458ff6);
+      color: #fff;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(10, 110, 209, 0.2)
+    }
+
+    #energy-year-comparison-control span {
+      pointer-events: none
+    }
+
+    #energy-year-comparison-input {
+      width: 72px;
+      border: none;
+      border-radius: 6px;
+      padding: 4px 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      color: var(--sap-text);
+      background: #fff;
+      box-shadow: inset 0 0 0 1px rgba(10, 110, 209, 0.2)
+    }
+
+    #energy-year-comparison-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(10, 110, 209, 0.4)
+    }
+
+    #energy-chart-subtitle,
+    #energy-table-subtitle {
+      font-size: 12px;
+      color: var(--sap-muted)
+    }
+
+    #energy-chart-container {
+      width: 100%;
+      height: 320px
+    }
+
+    .energy-chart-tooltip {
+      min-width: 180px;
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--sap-text)
+    }
+
+    .energy-chart-tooltip strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+      color: var(--sap-accent)
+    }
+
+    #energy-table-wrapper {
+      border-radius: 10px;
+      border: 1px solid var(--sap-border);
+      overflow: auto;
+      background: var(--sap-soft)
+    }
+
+    #energy-data-table {
+      width: 100%;
+      min-width: 3200px;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 12px;
+      color: var(--sap-text);
+      table-layout: fixed;
+      position: relative
+    }
+
+    #energy-data-table thead th {
+      background: #edf3ff;
+      color: var(--sap-text);
+      padding: 10px;
+      border-right: 1px solid var(--sap-border);
+      border-bottom: 1px solid var(--sap-border);
+      text-align: center;
+      font-weight: 600
+    }
+
+    #energy-data-table thead th[rowspan="2"] {
+      background: linear-gradient(135deg, #0a6ed1, #6ec1e4);
+      color: #fff
+    }
+
+    #energy-data-table tbody td {
+      padding: 10px;
+      border-right: 1px solid var(--sap-border);
+      border-bottom: 1px solid var(--sap-border);
+      text-align: center;
+      background: var(--sap-surface)
+    }
+
+    #energy-data-table tbody td.section-cell,
+    #energy-data-table tbody td.item-cell {
+      text-align: left;
+      font-weight: 600
+    }
+
+    #energy-data-table tbody tr:nth-child(even) td {
+      background: #fbfdff
+    }
+
+    #energy-data-table tbody td.value-negative {
+      color: var(--sap-warning);
+      font-weight: 600
+    }
+
+    #energy-data-table tbody tr:last-child td {
+      border-bottom: none
+    }
+
+    #energy-data-table tbody td:last-child,
+    #energy-data-table thead th:last-child {
+      border-right: none
+    }
+
+    #energy-data-table tbody tr.energy-total-row td {
+      background: #eef5ff;
+      font-weight: 700
+    }
+
+    #energy-data-table tbody tr.energy-total-row td.energy-sticky-col {
+      background: #e5f0ff
+    }
+
+    #energy-data-table tbody tr.energy-period-row td {
+      background: #f8fbff;
+      font-weight: 600
+    }
+
+    #energy-data-table tbody tr.energy-period-row td.energy-sticky-col {
+      background: #eef4ff
+    }
+
+    #energy-data-table tbody td.energy-na-cell {
+      background: #555;
+      color: #fff;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: 0.5px
+    }
+
+    .energy-month-col {
+      min-width: var(--energy-width-month);
+      max-width: var(--energy-width-month)
+    }
+
+    .energy-sticky-col {
+      position: sticky;
+      left: 0;
+      background: var(--sap-surface);
+      z-index: 4;
+      box-shadow: 1px 0 0 rgba(16, 34, 56, 0.08)
+    }
+
+    #energy-data-table thead .energy-sticky-col {
+      z-index: 6
+    }
+
+    .energy-width-index {
+      min-width: var(--energy-width-index);
+      max-width: var(--energy-width-index)
+    }
+
+    .energy-width-code {
+      min-width: var(--energy-width-code);
+      max-width: var(--energy-width-code)
+    }
+
+    .energy-width-object {
+      min-width: var(--energy-width-object);
+      max-width: var(--energy-width-object)
+    }
+
+    .energy-width-project {
+      min-width: var(--energy-width-project);
+      max-width: var(--energy-width-project)
+    }
+
+    .energy-width-budget {
+      min-width: var(--energy-width-budget);
+      max-width: var(--energy-width-budget)
+    }
+
+    .energy-width-actual {
+      min-width: var(--energy-width-actual);
+      max-width: var(--energy-width-actual)
+    }
+
+    .energy-width-variance {
+      min-width: var(--energy-width-variance);
+      max-width: var(--energy-width-variance)
+    }
+
+    .energy-width-percent {
+      min-width: var(--energy-width-percent);
+      max-width: var(--energy-width-percent)
+    }
+
+    #energy-footnote {
+      font-size: 12px;
+      color: var(--sap-muted);
+      margin: 4px 0 0 2px
+    }
+
+    .energy-edit-input {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--sap-border);
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-size: 12px;
+      text-align: right;
+      background: #fff;
+      color: var(--sap-text);
+      flex: 1;
+      min-width: 0
+    }
+
+    .energy-edit-input:focus {
+      outline: 1px solid var(--sap-accent);
+      box-shadow: 0 0 0 1px var(--sap-accent-fade)
+    }
+
+    .energy-edit-text {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--sap-border);
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-size: 12px;
+      text-align: left;
+      background: #fff;
+      color: var(--sap-text)
+    }
+
+    .energy-edit-text:focus {
+      outline: 1px solid var(--sap-accent);
+      box-shadow: 0 0 0 1px var(--sap-accent-fade)
+    }
+
+    .energy-cell-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 4px
+    }
+
+    .energy-cell-actions {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      flex-shrink: 0
+    }
+
+    .energy-history-trigger {
+      display: none;
+      margin-left: 4px;
+      border: none;
+      background: none;
+      color: var(--sap-accent);
+      cursor: pointer;
+      font-size: 14px;
+      vertical-align: middle;
+      padding: 2px
+    }
+
+    .energy-history-trigger.visible {
+      display: inline-flex;
+      align-items: center
+    }
+
+    .energy-history-trigger:hover {
+      color: #084d99
+    }
+
+    .energy-history-trigger-icon {
+      pointer-events: none
+    }
+
+    .energy-action-btn {
+      display: none;
+      border: 1px solid var(--sap-border);
+      background: #fff;
+      border-radius: 6px;
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--sap-text);
+      transition: box-shadow 0.15s ease, transform 0.15s ease;
+      line-height: 1
+    }
+
+    .energy-action-btn.visible {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center
+    }
+
+    .energy-action-btn:hover {
+      box-shadow: 0 4px 10px rgba(16, 34, 56, 0.12);
+      transform: translateY(-1px)
+    }
+
+    #energy-history-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(16, 34, 56, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 40
+    }
+
+    #energy-history-modal.visible {
+      display: flex
+    }
+
+    #energy-history-dialog {
+      background: var(--sap-surface);
+      border-radius: 12px;
+      padding: 16px;
+      width: 420px;
+      box-shadow: 0 12px 32px rgba(16, 34, 56, 0.4);
+      border: 1px solid var(--sap-border)
+    }
+
+    #energy-history-dialog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px
+    }
+
+    #energy-history-dialog-title {
+      margin: 0;
+      font-size: 16px;
+      color: var(--sap-text)
+    }
+
+    #energy-history-dialog-close {
+      border: none;
+      background: none;
+      font-size: 18px;
+      color: var(--sap-muted);
+      cursor: pointer
+    }
+
+    #energy-history-dialog-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      color: var(--sap-text)
+    }
+
+    #energy-history-dialog-table th,
+    #energy-history-dialog-table td {
+      border: 1px solid var(--sap-border);
+      padding: 6px;
+      text-align: center
+    }
+
+    #energy-snapshot-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(16, 34, 56, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 40
+    }
+
+    #energy-snapshot-modal.visible {
+      display: flex
+    }
+
+    #energy-snapshot-dialog {
+      background: var(--sap-surface);
+      border-radius: 12px;
+      padding: 16px;
+      width: 420px;
+      box-shadow: 0 12px 32px rgba(16, 34, 56, 0.4);
+      border: 1px solid var(--sap-border);
+      display: flex;
+      flex-direction: column;
+      gap: 12px
+    }
+
+    #energy-snapshot-dialog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center
+    }
+
+    #energy-snapshot-dialog-title {
+      margin: 0;
+      font-size: 16px;
+      color: var(--sap-text)
+    }
+
+    #energy-snapshot-dialog-close {
+      border: none;
+      background: none;
+      font-size: 18px;
+      color: var(--sap-muted);
+      cursor: pointer
+    }
+
+    .energy-snapshot-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--sap-text)
+    }
+
+    .energy-snapshot-field input,
+    .energy-snapshot-field textarea {
+      border: 1px solid var(--sap-border);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 13px;
+      font-family: inherit
+    }
+
+    #energy-snapshot-dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px
+    }
+
+    #energy-snapshot-cancel,
+    #energy-snapshot-save {
+      border: none;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: box-shadow 0.2s ease, transform 0.2s ease
+    }
+
+    #energy-snapshot-cancel {
+      background: #fff;
+      color: var(--sap-accent);
+      border: 1px solid var(--sap-accent)
+    }
+
+    #energy-snapshot-cancel:hover {
+      box-shadow: 0 6px 18px rgba(16, 34, 56, 0.1);
+      transform: translateY(-1px)
+    }
+
+    #energy-snapshot-save {
+      background: var(--sap-accent);
+      color: #fff
+    }
+
+    #energy-snapshot-save:hover {
+      box-shadow: 0 6px 18px rgba(10, 110, 209, 0.2);
+      transform: translateY(-1px)
+    }
+
+    #energy-snapshot-history-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(16, 34, 56, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 40
+    }
+
+    #energy-snapshot-history-modal.visible {
+      display: flex
+    }
+
+    #energy-snapshot-history-dialog {
+      background: var(--sap-surface);
+      border-radius: 12px;
+      padding: 16px;
+      width: 760px;
+      box-shadow: 0 12px 32px rgba(16, 34, 56, 0.4);
+      border: 1px solid var(--sap-border);
+      display: flex;
+      flex-direction: column;
+      gap: 12px
+    }
+
+    #energy-snapshot-history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center
+    }
+
+    #energy-snapshot-history-title {
+      margin: 0;
+      font-size: 16px;
+      color: var(--sap-text)
+    }
+
+    #energy-snapshot-history-close {
+      border: none;
+      background: none;
+      font-size: 18px;
+      color: var(--sap-muted);
+      cursor: pointer
+    }
+
+    #energy-snapshot-history-back {
+      border: none;
+      background: none;
+      font-size: 13px;
+      color: var(--sap-accent);
+      cursor: pointer;
+      visibility: hidden
+    }
+
+    #energy-snapshot-history-content {
+      max-height: 70vh;
+      overflow: auto;
+      font-size: 12px;
+      color: var(--sap-text)
+    }
+
+    .energy-snapshot-history-table {
+      width: 100%;
+      border-collapse: collapse
+    }
+
+    .energy-snapshot-history-table th,
+    .energy-snapshot-history-table td {
+      border: 1px solid var(--sap-border);
+      padding: 6px;
+      text-align: center;
+      cursor: pointer
+    }
+
+    .energy-snapshot-history-table tr:hover td {
+      background: #f0f6ff
+    }
+
+    .energy-snapshot-empty {
+      padding: 18px;
+      text-align: center;
+      color: var(--sap-muted);
+      border: 1px dashed var(--sap-border);
+      border-radius: 10px;
+      background: var(--sap-soft)
+    }
+
+    .energy-snapshot-detail-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: var(--sap-muted)
+    }
+
+    .energy-snapshot-detail-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-bottom: 8px
+    }
+
+    .energy-snapshot-detail-actions button {
+      border: none;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #fff;
+      background: var(--sap-accent);
+      cursor: pointer;
+      transition: box-shadow 0.2s ease, transform 0.2s ease
+    }
+
+    .energy-snapshot-detail-actions button:hover {
+      box-shadow: 0 6px 18px rgba(10, 110, 209, 0.2);
+      transform: translateY(-1px)
+    }
+
+    .energy-snapshot-detail-wrapper {
+      overflow: auto;
+      border: 1px solid var(--sap-border);
+      border-radius: 10px;
+      background: #fff
+    }
+
+    .energy-snapshot-detail-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 12px;
+      color: var(--sap-text)
+    }
+
+    .energy-snapshot-detail-table th {
+      background: #edf3ff;
+      padding: 6px;
+      border: 1px solid var(--sap-border)
+    }
+
+    .energy-snapshot-detail-table td {
+      padding: 6px;
+      border: 1px solid var(--sap-border)
+    }
+
+    .energy-snapshot-cell-value {
+      display: inline-block;
+      width: 100%;
+      text-align: right
+    }
+
+    #energy-submit-button {
+      border: none;
+      border-radius: 6px;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #2ea664;
+      color: #fff;
+      transition: all 0.2s ease;
+      margin-left: 16px
+    }
+
+    #energy-submit-button:hover {
+      box-shadow: 0 6px 12px rgba(46, 166, 100, 0.25);
+      transform: translateY(-1px);
+      background: #258e55
+    }
+  </style>
+</head>
+
+<body id="energy-body-root">
+  <div id="energy-page-shell">
+    <header id="energy-header">
+      <div id="energy-title-block">
+        <h1 id="energy-title-text">机械课能源费用报表</h1>
+      </div>
+      <div id="energy-control-strip">
+        <select id="energy-plant-select">
+          <option id="energy-plant-phase1" value="phase1" selected>创新中心一期</option>
+          <option id="energy-plant-phase2" value="phase2">创新中心二期</option>
+        </select>
+        <label id="energy-year-label" for="energy-start-year">预算年度</label>
+        <div id="energy-year-range">
+          <input id="energy-start-year" type="number" min="2020" max="2035" value="2025" aria-label="预算年度">
+          <div id="energy-primary-buttons">
+            <button id="energy-search-button" type="button">查询</button>
+            <button id="energy-reset-button" type="button">重置</button>
+          </div>
+        </div>
+        <div id="energy-control-actions">
+          <button id="energy-snapshot-button" type="button">快照</button>
+          <button id="energy-snapshot-history-button" type="button">快照历史</button>
+        </div>
+      </div>
+    </header>
+    <section id="energy-visual-section">
+      <article id="energy-chart-card">
+        <div id="energy-chart-heading-row">
+          <div id="energy-chart-title-group">
+            <h2 id="energy-chart-heading">月度预算对比</h2>
+            <label id="energy-year-comparison-control" for="energy-year-comparison-input">
+              <span>年对比设置</span>
+              <input id="energy-year-comparison-input" type="number" min="2020" max="2035" step="1" placeholder="选择年度"
+                aria-label="年对比设置年度">
+            </label>
+          </div>
+          <span id="energy-chart-subtitle">单位：万元（含税）</span>
+        </div>
+        <div id="energy-chart-container"></div>
+      </article>
+      <article id="energy-table-card">
+        <div id="energy-table-heading-row">
+          <div style="display:flex;align-items:center">
+            <h2 id="energy-table-heading">能源费用预算执行明细</h2>
+            <button id="energy-submit-button" type="button">批量提交</button>
+          </div>
+          <button id="energy-export-button" type="button">导出</button>
+        </div>
+        <div id="energy-table-wrapper">
+          <table id="energy-data-table">
+            <colgroup id="energy-colgroup">
+              <col id="energy-col-index" style="width:var(--energy-width-index)">
+              <col id="energy-col-code" style="width:var(--energy-width-code)">
+              <col id="energy-col-object" style="width:var(--energy-width-object)">
+              <col id="energy-col-project" style="width:var(--energy-width-project)">
+              <col id="energy-col-budget" style="width:var(--energy-width-budget)">
+              <col id="energy-col-actual" style="width:var(--energy-width-actual)">
+              <col id="energy-col-variance" style="width:var(--energy-width-variance)">
+              <col id="energy-col-percent" style="width:var(--energy-width-percent)">
+              <col id="energy-col-january" class="energy-month-col" style="width:var(--energy-width-month)">
+              <col id="energy-col-february" class="energy-month-col" style="width:var(--energy-width-month)">
+              <col id="energy-col-march" class="energy-month-col" style="width:var(--energy-width-month)">
+              <col id="energy-col-april" class="energy-month-col" style="width:var(--energy-width-month)">
+              <col id="energy-col-may" class="energy-month-col" style="width:var(--energy-width-month)">
+              <col id="energy-col-june" class="energy-month-col" style="width:var(--energy-width-month)">
+              <col id="energy-col-july" class="energy-month-col" style="width:var(--energy-width-month)">
+              <col id="energy-col-august" class="energy-month-col" style="width:var(--energy-width-month)">
+              <col id="energy-col-september" class="energy-month-col" style="width:var(--energy-width-month)">
+              <col id="energy-col-october" class="energy-month-col" style="width:var(--energy-width-month)">
+              <col id="energy-col-november" class="energy-month-col" style="width:var(--energy-width-month)">
+              <col id="energy-col-december" class="energy-month-col" style="width:var(--energy-width-month)">
+            </colgroup>
+            <thead id="energy-table-head">
+              <tr id="energy-head-primary">
+                <th id="energy-head-index" rowspan="2" class="energy-sticky-col energy-width-index"
+                  data-sticky-key="index">序号</th>
+                <th id="energy-head-budget-code" rowspan="2" class="energy-sticky-col energy-width-code"
+                  data-sticky-key="code">预算编码</th>
+                <th id="energy-head-object" rowspan="2" class="energy-sticky-col energy-width-object"
+                  data-sticky-key="object">能源对象</th>
+                <th id="energy-head-project" rowspan="2" class="energy-sticky-col energy-width-project"
+                  data-sticky-key="project">项目代码</th>
+                <th id="energy-head-budget" rowspan="2" class="energy-sticky-col energy-width-budget"
+                  data-sticky-key="budget">预算费用</th>
+                <th id="energy-head-actual" rowspan="2" class="energy-sticky-col energy-width-actual"
+                  data-sticky-key="actual">实际费用</th>
+                <th id="energy-head-variance" rowspan="2" class="energy-sticky-col energy-width-variance"
+                  data-sticky-key="variance">预算差额</th>
+                <th id="energy-head-percent" rowspan="2" class="energy-sticky-col energy-width-percent"
+                  data-sticky-key="percent">预算执行率</th>
+                <th id="energy-head-january" colspan="2">一月</th>
+                <th id="energy-head-february" colspan="2">二月</th>
+                <th id="energy-head-march" colspan="2">三月</th>
+                <th id="energy-head-april" colspan="2">四月</th>
+                <th id="energy-head-may" colspan="2">五月</th>
+                <th id="energy-head-june" colspan="2">六月</th>
+                <th id="energy-head-july" colspan="2">七月</th>
+                <th id="energy-head-august" colspan="2">八月</th>
+                <th id="energy-head-september" colspan="2">九月</th>
+                <th id="energy-head-october" colspan="2">十月</th>
+                <th id="energy-head-november" colspan="2">十一月</th>
+                <th id="energy-head-december" colspan="2">十二月</th>
+              </tr>
+              <tr id="energy-head-secondary">
+                <th id="energy-head-january-budget">预算费用</th>
+                <th id="energy-head-january-actual">实际费用</th>
+                <th id="energy-head-february-budget">预算费用</th>
+                <th id="energy-head-february-actual">实际费用</th>
+                <th id="energy-head-march-budget">预算费用</th>
+                <th id="energy-head-march-actual">实际费用</th>
+                <th id="energy-head-april-budget">预算费用</th>
+                <th id="energy-head-april-actual">实际费用</th>
+                <th id="energy-head-may-budget">预算费用</th>
+                <th id="energy-head-may-actual">实际费用</th>
+                <th id="energy-head-june-budget">预算费用</th>
+                <th id="energy-head-june-actual">实际费用</th>
+                <th id="energy-head-july-budget">预算费用</th>
+                <th id="energy-head-july-actual">实际费用</th>
+                <th id="energy-head-august-budget">预算费用</th>
+                <th id="energy-head-august-actual">实际费用</th>
+                <th id="energy-head-september-budget">预算费用</th>
+                <th id="energy-head-september-actual">实际费用</th>
+                <th id="energy-head-october-budget">预算费用</th>
+                <th id="energy-head-october-actual">实际费用</th>
+                <th id="energy-head-november-budget">预算费用</th>
+                <th id="energy-head-november-actual">实际费用</th>
+                <th id="energy-head-december-budget">预算费用</th>
+                <th id="energy-head-december-actual">实际费用</th>
+              </tr>
+            </thead>
+            <tbody id="energy-table-body"></tbody>
+          </table>
+        </div>
+        <p id="energy-footnote">提示：预算差额为预算费用-实际费用，预算执行率按实际/预算计算。</p>
+      </article>
+    </section>
+  </div>
+  <div id="energy-history-modal">
+    <div id="energy-history-dialog">
+      <div id="energy-history-dialog-header">
+        <h3 id="energy-history-dialog-title">更改历史</h3>
+        <button id="energy-history-dialog-close" type="button">×</button>
+      </div>
+      <table id="energy-history-dialog-table">
+        <thead>
+          <tr>
+            <th>序号</th>
+            <th>修改时间</th>
+            <th>修改数值</th>
+          </tr>
+        </thead>
+        <tbody id="energy-history-dialog-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="energy-snapshot-history-modal">
+    <div id="energy-snapshot-history-dialog">
+      <div id="energy-snapshot-history-header">
+        <button id="energy-snapshot-history-back" type="button">← 返回</button>
+        <h3 id="energy-snapshot-history-title">快照历史</h3>
+        <button id="energy-snapshot-history-close" type="button">×</button>
+      </div>
+      <div id="energy-snapshot-history-content"></div>
+    </div>
+  </div>
+  <div id="energy-snapshot-modal">
+    <div id="energy-snapshot-dialog">
+      <div id="energy-snapshot-dialog-header">
+        <h3 id="energy-snapshot-dialog-title">保存快照</h3>
+        <button id="energy-snapshot-dialog-close" type="button">×</button>
+      </div>
+      <div class="energy-snapshot-field">
+        <label for="energy-snapshot-name">快照名称</label>
+        <input id="energy-snapshot-name" type="text" placeholder="请输入快照名称">
+      </div>
+      <div class="energy-snapshot-field">
+        <label for="energy-snapshot-year">关联年度</label>
+        <input id="energy-snapshot-year" type="text" readonly>
+      </div>
+      <div class="energy-snapshot-field">
+        <label for="energy-snapshot-desc">描述</label>
+        <textarea id="energy-snapshot-desc" rows="3" placeholder="可填写备注信息"></textarea>
+      </div>
+      <div id="energy-snapshot-dialog-actions">
+        <button type="button" id="energy-snapshot-cancel">取消</button>
+        <button type="button" id="energy-snapshot-save">保存</button>
+      </div>
+    </div>
+  </div>
+  <script id="energy-script-block">
+    (function () {
+      const monthConfig = [
+        { id: 'jan', label: '一月' },
+        { id: 'feb', label: '二月' },
+        { id: 'mar', label: '三月' },
+        { id: 'apr', label: '四月' },
+        { id: 'may', label: '五月' },
+        { id: 'jun', label: '六月' },
+        { id: 'jul', label: '七月' },
+        { id: 'aug', label: '八月' },
+        { id: 'sep', label: '九月' },
+        { id: 'oct', label: '十月' },
+        { id: 'nov', label: '十一月' },
+        { id: 'dec', label: '十二月' }
+      ];
+
+      const buildMonths = (budget, actual) => {
+        const baseBudget = budget / 12;
+        return monthConfig.map((config, idx) => ({
+          id: config.id,
+          label: config.label,
+          budget: baseBudget,
+          actual: idx < 2 ? actual / 2 : 0
+        }));
+      };
+
+      const loadPersistedValues = () => {
+        try {
+          const raw = localStorage.getItem('energy-persisted-values');
+          return raw ? JSON.parse(raw) : {};
+        } catch (err) {
+          console.warn('加载持久化数据失败', err);
+          return {};
+        }
+      };
+
+      const persistedStore = loadPersistedValues();
+
+      const energyRows = [
+        { id: 'row-1', index: 1, code: 'FZ280050E125', object: '市政热水费用', project: 'C00939', remarks: '市政热水，季度调整', months: buildMonths(465728, 232864) },
+        { id: 'row-2', index: 2, code: 'FZ280050E125', object: '市政水冷费用', project: 'C00939', remarks: '水冷费用维保', months: buildMonths(465728, 232864) },
+        { id: 'row-3', index: 3, code: 'FZ280050E125', object: '市政污水费用', project: 'C00939', remarks: '污水处理费', months: buildMonths(465728, 232864) },
+        { id: 'row-4', index: 4, code: 'FZ280050E125', object: '市政冷冻费用', project: 'C00939', remarks: '冷冻系统电费', months: buildMonths(465728, 232864) },
+        { id: 'row-5', index: 5, code: 'FZ280050E125', object: '市政冷却费用', project: 'C00939', remarks: '冷却塔维保', months: buildMonths(465728, 232864) }
+      ];
+
+      const computeRowTotals = row => {
+        let totalBudget = 0;
+        let totalActual = 0;
+        row.months.forEach(month => {
+          totalBudget += Number(month.budget) || 0;
+          totalActual += Number(month.actual) || 0;
+        });
+        row.budget = totalBudget;
+        row.actual = totalActual;
+        row.variance = row.budget - row.actual;
+        row.percent = row.budget ? row.actual / row.budget : null;
+        return row;
+      };
+
+      const updateRowAggregateCells = row => {
+        computeRowTotals(row);
+        const budgetCell = document.getElementById(`energy-row-${row.id}-budget`);
+        const actualCell = document.getElementById(`energy-row-${row.id}-actual`);
+        const varianceCell = document.getElementById(`energy-row-${row.id}-variance`);
+        const percentCell = document.getElementById(`energy-row-${row.id}-percent`);
+        if (budgetCell) { budgetCell.textContent = formatCurrency(row.budget); }
+        if (actualCell) { actualCell.textContent = formatCurrency(row.actual); }
+        if (varianceCell) {
+          varianceCell.textContent = formatCurrency(row.variance);
+          varianceCell.classList.toggle('value-negative', row.variance < 0);
+        }
+        if (percentCell) {
+          percentCell.textContent = row.percent === null ? '--' : (row.percent * 100).toFixed(2) + '%';
+        }
+      };
+
+      const buildTotals = () => {
+        const totals = { budget: 0, actual: 0, variance: 0, percent: null, months: {} };
+        monthConfig.forEach(cfg => {
+          totals.months[cfg.id] = { budget: 0, actual: 0 };
+        });
+        energyRows.forEach(row => {
+          computeRowTotals(row);
+          totals.budget += row.budget || 0;
+          totals.actual += row.actual || 0;
+          monthConfig.forEach(cfg => {
+            const month = row.months.find(item => item.id === cfg.id) || { budget: 0, actual: 0 };
+            totals.months[cfg.id].budget += Number(month.budget) || 0;
+            totals.months[cfg.id].actual += Number(month.actual) || 0;
+          });
+        });
+        totals.variance = totals.budget - totals.actual;
+        totals.percent = totals.budget ? totals.actual / totals.budget : null;
+        return totals;
+      };
+
+      const periodDefs = [
+        { id: 'h1', label: '上半年统计', months: ['jan', 'feb', 'mar', 'apr', 'may', 'jun'] },
+        { id: 'h2', label: '下半年统计', months: ['jul', 'aug', 'sep', 'oct', 'nov', 'dec'] },
+        { id: 'q1', label: '一季度统计', months: ['jan', 'feb', 'mar'] },
+        { id: 'q2', label: '二季度统计', months: ['apr', 'may', 'jun'] },
+        { id: 'q3', label: '三季度统计', months: ['jul', 'aug', 'sep'] },
+        { id: 'q4', label: '四季度统计', months: ['oct', 'nov', 'dec'] }
+      ];
+
+      const computePeriodStats = period => {
+        const stats = { budget: 0, actual: 0, variance: 0, percent: null };
+        energyRows.forEach(row => {
+          computeRowTotals(row);
+          period.months.forEach(monthId => {
+            const month = row.months.find(item => item.id === monthId);
+            if (month) {
+              stats.budget += Number(month.budget) || 0;
+              stats.actual += Number(month.actual) || 0;
+            }
+          });
+        });
+        stats.variance = stats.budget - stats.actual;
+        stats.percent = stats.budget ? stats.actual / stats.budget : null;
+        return stats;
+      };
+
+      const renderPeriodRows = () => {
+        document.querySelectorAll('.energy-period-row').forEach(node => node.remove());
+        const reference = document.getElementById('energy-total-row');
+        const parent = tableBody.node();
+        const insertAfter = reference ? reference.nextSibling : null;
+        const mergedWidth = computeMergedStickyWidth(['index', 'code', 'object', 'project']);
+        periodDefs.forEach(period => {
+          const stats = computePeriodStats(period);
+          const row = document.createElement('tr');
+          row.id = `energy-period-${period.id}`;
+          row.className = 'energy-period-row';
+          const cells = [
+            { id: 'merged-label', value: period.label, sticky: 'index', isMerged: true, colspan: 4, mergedWidth },
+            { id: 'budget', value: formatCurrency(stats.budget), sticky: 'budget', widthClass: 'energy-width-budget' },
+            { id: 'actual', value: formatCurrency(stats.actual), sticky: 'actual', widthClass: 'energy-width-actual' },
+            { id: 'variance', value: formatCurrency(stats.variance), sticky: 'variance', widthClass: 'energy-width-variance', isVariance: true },
+            { id: 'percent', value: stats.percent === null ? '--' : (stats.percent * 100).toFixed(2) + '%', sticky: 'percent', widthClass: 'energy-width-percent', isPercent: true },
+            { id: 'months-placeholder', value: 'NA', colspan: 24, isNa: true }
+          ];
+          cells.forEach(meta => {
+            const cell = document.createElement('td');
+            cell.id = `energy-period-${period.id}-${meta.id}`;
+            cell.textContent = meta.value || 'NA';
+            if (meta.colspan) { cell.colSpan = meta.colspan; }
+            if (meta.sticky) {
+              cell.classList.add('energy-sticky-col', meta.widthClass);
+              cell.setAttribute('data-sticky-key', meta.sticky);
+              if (meta.isMerged) {
+                cell.classList.remove('energy-width-index', 'energy-width-code', 'energy-width-object', 'energy-width-project');
+                cell.style.width = `${mergedWidth}px`;
+                cell.style.left = '0px';
+                cell.style.zIndex = '5';
+              }
+            }
+            if (meta.isNa) {
+              cell.classList.add('energy-na-cell');
+            }
+            if (meta.isVariance) {
+              cell.classList.toggle('value-negative', stats.variance < 0);
+            }
+            row.appendChild(cell);
+          });
+          if (insertAfter) {
+            parent.insertBefore(row, insertAfter);
+          } else {
+            parent.appendChild(row);
+          }
+        });
+        applyStickyPositions();
+      };
+
+      function renderTotalsRow() {
+        const totals = buildTotals();
+        const summaryRowId = 'energy-total-row';
+        let row = document.getElementById(summaryRowId);
+        if (!row) {
+          row = document.createElement('tr');
+          row.id = summaryRowId;
+          row.className = 'energy-total-row';
+          tableBody.node().appendChild(row);
+        } else {
+          row.innerHTML = '';
+        }
+        const varianceText = formatCurrency(totals.variance);
+        const percentText = totals.percent === null ? '--' : (totals.percent * 100).toFixed(2) + '%';
+        const mergedStickyWidth = computeMergedStickyWidth(['index', 'code', 'object', 'project']);
+        const summaryColumns = [
+          { id: 'merged-label', value: '总计', sticky: 'index', isMerged: true, colspan: 4 },
+          { id: 'budget', value: formatCurrency(totals.budget), sticky: 'budget', widthClass: 'energy-width-budget' },
+          { id: 'actual', value: formatCurrency(totals.actual), sticky: 'actual', widthClass: 'energy-width-actual' },
+          { id: 'variance', value: varianceText, sticky: 'variance', widthClass: 'energy-width-variance', isVariance: true },
+          { id: 'percent', value: percentText, sticky: 'percent', widthClass: 'energy-width-percent', isPercent: true }
+        ];
+        monthConfig.forEach(cfg => {
+          const month = totals.months[cfg.id] || { budget: 0, actual: 0 };
+          summaryColumns.push({ id: `${cfg.id}-budget`, value: formatCurrency(month.budget) });
+          summaryColumns.push({ id: `${cfg.id}-actual`, value: formatCurrency(month.actual) });
+        });
+        summaryColumns.forEach(meta => {
+          const cell = document.createElement('td');
+          cell.id = `${summaryRowId}-${meta.id}`;
+          cell.textContent = meta.value;
+          if (meta.colspan) { cell.colSpan = meta.colspan; }
+          if (meta.sticky) {
+            cell.classList.add('energy-sticky-col', meta.widthClass);
+            cell.setAttribute('data-sticky-key', meta.sticky);
+            if (meta.isMerged) {
+              cell.classList.remove('energy-width-index', 'energy-width-code', 'energy-width-object', 'energy-width-project');
+              cell.style.width = `${mergedStickyWidth}px`;
+              cell.style.left = '0px';
+              cell.style.zIndex = '5';
+            }
+          }
+          if (meta.isVariance) {
+            cell.classList.toggle('value-negative', totals.variance < 0);
+          }
+          row.appendChild(cell);
+        });
+        if (typeof applyStickyPositions === 'function') {
+          applyStickyPositions();
+        }
+        renderPeriodRows();
+      }
+
+      energyRows.forEach(row => computeRowTotals(row));
+      const rowMap = {};
+      energyRows.forEach(row => { rowMap[row.id] = row; });
+
+      const cellHistories = {};
+      const fieldLabelMap = { budget: '预算费用', actual: '实际费用' };
+      const historyModal = document.getElementById('energy-history-modal');
+      const historyTitle = document.getElementById('energy-history-dialog-title');
+      const historyBody = document.getElementById('energy-history-dialog-body');
+      const historyClose = document.getElementById('energy-history-dialog-close');
+      const snapshotModal = document.getElementById('energy-snapshot-modal');
+      const snapshotClose = document.getElementById('energy-snapshot-dialog-close');
+      const snapshotNameInput = document.getElementById('energy-snapshot-name');
+      const snapshotYearInput = document.getElementById('energy-snapshot-year');
+      const snapshotDescInput = document.getElementById('energy-snapshot-desc');
+      const snapshotCancel = document.getElementById('energy-snapshot-cancel');
+      const snapshotSave = document.getElementById('energy-snapshot-save');
+      const snapshotHistoryModal = document.getElementById('energy-snapshot-history-modal');
+      const snapshotHistoryContent = document.getElementById('energy-snapshot-history-content');
+      const snapshotHistoryTitle = document.getElementById('energy-snapshot-history-title');
+      const snapshotHistoryClose = document.getElementById('energy-snapshot-history-close');
+      const snapshotHistoryBack = document.getElementById('energy-snapshot-history-back');
+      const snapshots = [];
+      let snapshotIdCounter = 1;
+
+      const formatCurrency = value => `¥${(value / 10000).toFixed(2).replace(/\\.00$/, '')}万`;
+      const formatVariance = value => {
+        const formatted = formatCurrency(Math.abs(value));
+        return value >= 0 ? formatted : `(¥${(Math.abs(value) / 10000).toFixed(2)}万)`;
+      };
+
+      const tableBody = d3.select('#energy-table-body');
+      const tableRows = tableBody.selectAll('tr')
+        .data(energyRows)
+        .enter()
+        .append('tr')
+        .attr('id', d => `energy-row-${d.id}`);
+
+      tableRows.each(function (row) {
+        const currentRow = d3.select(this);
+        const variance = row.variance;
+        const percent = row.percent === null ? '--' : (row.percent * 100).toFixed(2) + '%';
+        const monthLookup = row.months.reduce((acc, item) => { acc[item.id] = item; return acc; }, {});
+
+        const baseColumns = [
+          { id: 'index', value: row.index, sticky: 'index', widthClass: 'energy-width-index' },
+          { id: 'code', value: row.code, sticky: 'code', widthClass: 'energy-width-code', type: 'text', field: 'code' },
+          { id: 'object', value: row.object, sticky: 'object', widthClass: 'energy-width-object', type: 'text', field: 'object' },
+          { id: 'project', value: row.project, sticky: 'project', widthClass: 'energy-width-project', type: 'text', field: 'project' },
+          { id: 'budget', value: formatCurrency(row.budget), sticky: 'budget', widthClass: 'energy-width-budget' },
+          { id: 'actual', value: formatCurrency(row.actual), sticky: 'actual', widthClass: 'energy-width-actual' },
+          { id: 'variance', value: formatCurrency(variance), sticky: 'variance', widthClass: 'energy-width-variance', isVariance: true },
+          { id: 'percent', value: percent, sticky: 'percent', widthClass: 'energy-width-percent', isPercent: true }
+        ];
+
+        const columnMeta = [...baseColumns];
+        monthConfig.forEach(cfg => {
+          const monthData = monthLookup[cfg.id] || { id: cfg.id, label: cfg.label, budget: 0, actual: 0 };
+          columnMeta.push({ id: `${cfg.id}-budget`, type: 'input', monthId: cfg.id, monthLabel: cfg.label, field: 'budget', value: monthData.budget });
+          columnMeta.push({ id: `${cfg.id}-actual`, type: 'input', monthId: cfg.id, monthLabel: cfg.label, field: 'actual', value: monthData.actual });
+        });
+
+        columnMeta.forEach(meta => {
+          const cell = currentRow.append('td')
+            .attr('id', `energy-row-${row.id}-${meta.id}`);
+          if (meta.sticky) {
+            cell.classed('energy-sticky-col', true);
+            cell.classed(meta.widthClass, true);
+            cell.attr('data-sticky-key', meta.sticky);
+          }
+          if (meta.type === 'input') {
+            createEditableInput(cell, row, meta.monthId, meta.field, meta.value, meta.monthLabel);
+          } else if (meta.type === 'text') {
+            createEditableText(cell, row, meta.field, meta.value);
+          } else {
+            cell.text(meta.value);
+          }
+          if (meta.isVariance) {
+            cell.classed('value-negative', variance < 0);
+          }
+          if (meta.isPercent) {
+            cell.attr('data-percent-cell', 'true');
+          }
+        });
+      });
+
+      function createEditableText(cell, row, field, value) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'energy-edit-text';
+        input.value = value || '';
+        input.dataset.rowId = row.id;
+        input.dataset.field = field;
+        input.addEventListener('input', event => {
+          const targetRow = rowMap[event.target.dataset.rowId];
+          if (!targetRow) { return; }
+          targetRow[field] = event.target.value;
+        });
+        cell.node().appendChild(input);
+      }
+
+      function createEditableInput(cell, row, monthId, field, value, monthLabel) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'energy-cell-wrapper';
+        const actions = document.createElement('div');
+        actions.className = 'energy-cell-actions';
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.step = '0.01';
+        input.className = 'energy-edit-input';
+        const persistedValue = Number.isFinite(parseFloat(persistedStore?.[row.id]?.[monthId]?.[field])) ? parseFloat(persistedStore[row.id][monthId][field]) : null;
+        const finalValue = Number.isFinite(persistedValue) ? persistedValue : Number(value || 0);
+        input.value = Number(finalValue || 0).toString();
+        input.dataset.rowId = row.id;
+        input.dataset.monthId = monthId;
+        input.dataset.field = field;
+        input.dataset.monthLabel = monthLabel;
+        const cellKey = `${row.id}-${monthId}-${field}`;
+        input.dataset.historyKey = cellKey;
+        input.dataset.initialValue = input.value;
+        input.addEventListener('change', handleMonthInput);
+        const icon = document.createElement('button');
+        icon.type = 'button';
+        icon.className = 'energy-history-trigger';
+        icon.setAttribute('data-history-role', 'trigger');
+        icon.innerHTML = '<span class="energy-history-trigger-icon">⏱</span>';
+        icon.dataset.historyKey = cellKey;
+        icon.dataset.historyTitle = `${row.object} ${monthLabel}${fieldLabelMap[field]}`;
+        icon.addEventListener('click', handleHistoryIconClick);
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'energy-action-btn energy-save-btn';
+        saveBtn.innerHTML = '💾';
+        saveBtn.dataset.rowId = row.id;
+        saveBtn.dataset.monthId = monthId;
+        saveBtn.dataset.field = field;
+        saveBtn.dataset.historyKey = cellKey;
+        saveBtn.addEventListener('click', handlePersistClick);
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'energy-action-btn energy-cancel-btn';
+        cancelBtn.innerHTML = '✖';
+        cancelBtn.dataset.rowId = row.id;
+        cancelBtn.dataset.monthId = monthId;
+        cancelBtn.dataset.field = field;
+        cancelBtn.addEventListener('click', handleCancelClick);
+        actions.appendChild(icon);
+        actions.appendChild(saveBtn);
+        actions.appendChild(cancelBtn);
+        wrapper.appendChild(input);
+        wrapper.appendChild(actions);
+        cell.node().appendChild(wrapper);
+      }
+
+      function handleMonthInput(event) {
+        const { rowId, monthId, field, monthLabel, historyKey } = event.target.dataset;
+        const value = parseFloat(event.target.value);
+        const row = rowMap[rowId];
+        if (!row) { return; }
+        let month = row.months.find(item => item.id === monthId);
+        if (!month) {
+          month = { id: monthId, label: monthLabel || monthId, budget: 0, actual: 0 };
+          row.months.push(month);
+        }
+        const safeValue = Number.isFinite(value) ? value : 0;
+        month[field] = safeValue;
+        updateRowAggregateCells(row);
+        const label = fieldLabelMap[field] || field;
+        recordCellHistory(historyKey, row.object, month.label || monthLabel || monthId, label, safeValue);
+        renderTotalsRow();
+        toggleActionVisibility(rowId, monthId, field, safeValue);
+      }
+
+      function recordCellHistory(key, subject, monthLabel, fieldLabel, value) {
+        if (!cellHistories[key]) { cellHistories[key] = []; }
+        const timestamp = new Date().toLocaleString('zh-CN', { hour12: false });
+        cellHistories[key].unshift({ time: timestamp, value });
+        if (cellHistories[key].length > 20) { cellHistories[key].pop(); }
+        const icon = document.querySelector(`button[data-history-role="trigger"][data-history-key="${key}"]`);
+        if (icon) {
+          icon.classList.add('visible');
+          icon.setAttribute('data-history-title', `${subject} ${monthLabel}${fieldLabel}`);
+        }
+      }
+
+      function handleHistoryIconClick(event) {
+        event.stopPropagation();
+        const key = event.currentTarget.dataset.historyKey;
+        const title = event.currentTarget.dataset.historyTitle || '更改历史';
+        const entries = cellHistories[key] || [];
+        openHistoryModal(title, entries);
+      }
+
+      const stickyHeaders = [
+        { key: 'index', id: 'energy-head-index' },
+        { key: 'code', id: 'energy-head-budget-code' },
+        { key: 'object', id: 'energy-head-object' },
+        { key: 'project', id: 'energy-head-project' },
+        { key: 'budget', id: 'energy-head-budget' },
+        { key: 'actual', id: 'energy-head-actual' },
+        { key: 'variance', id: 'energy-head-variance' },
+        { key: 'percent', id: 'energy-head-percent' }
+      ];
+
+      const computeMergedStickyWidth = keys => {
+        return keys.reduce((sum, key) => {
+          const headerCfg = stickyHeaders.find(item => item.key === key);
+          if (!headerCfg) { return sum; }
+          const el = document.getElementById(headerCfg.id);
+          return sum + (el ? el.getBoundingClientRect().width : 0);
+        }, 0);
+      };
+
+      function applyStickyPositions() {
+        let currentLeft = 0;
+        stickyHeaders.forEach(cfg => {
+          const header = document.getElementById(cfg.id);
+          if (!header) { return; }
+          header.style.left = `${currentLeft}px`;
+          const width = header.getBoundingClientRect().width;
+          const cells = document.querySelectorAll(`[data-sticky-key="${cfg.key}"]`);
+          cells.forEach(cell => {
+            cell.style.left = `${currentLeft}px`;
+          });
+          currentLeft += width;
+        });
+      }
+
+      renderTotalsRow();
+
+      window.addEventListener('load', applyStickyPositions);
+      window.addEventListener('resize', applyStickyPositions);
+      applyStickyPositions();
+
+      historyClose.addEventListener('click', closeHistoryModal);
+      historyModal.addEventListener('click', event => {
+        if (event.target === historyModal) { closeHistoryModal(); }
+      });
+
+      function openHistoryModal(title, entries) {
+        historyTitle.textContent = title;
+        historyBody.innerHTML = '';
+        if (!entries.length) {
+          const row = document.createElement('tr');
+          const cell = document.createElement('td');
+          cell.colSpan = 3;
+          cell.textContent = '暂无更改';
+          row.appendChild(cell);
+          historyBody.appendChild(row);
+        } else {
+          entries.forEach((entry, index) => {
+            const row = document.createElement('tr');
+            const indexCell = document.createElement('td');
+            indexCell.textContent = index + 1;
+            const timeCell = document.createElement('td');
+            timeCell.textContent = entry.time;
+            const valueCell = document.createElement('td');
+            valueCell.textContent = entry.value;
+            row.appendChild(indexCell);
+            row.appendChild(timeCell);
+            row.appendChild(valueCell);
+            historyBody.appendChild(row);
+          });
+        }
+        historyModal.classList.add('visible');
+      }
+
+      function closeHistoryModal() {
+        historyModal.classList.remove('visible');
+      }
+
+      const openSnapshotModal = () => {
+        snapshotNameInput.value = '';
+        snapshotYearInput.value = `${startYearInput.value} 年度`;
+        snapshotDescInput.value = '';
+        snapshotModal.classList.add('visible');
+      };
+
+      const closeSnapshotModal = () => {
+        snapshotModal.classList.remove('visible');
+      };
+
+      const formatTimestamp = date => {
+        if (!(date instanceof Date)) { return ''; }
+        return date.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+      };
+
+      const captureTableMarkup = () => {
+        const table = document.getElementById('energy-data-table');
+        if (!table) { return ''; }
+        const clone = table.cloneNode(true);
+        clone.removeAttribute('id');
+        clone.classList.add('energy-snapshot-detail-table');
+        clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+        clone.querySelectorAll('input').forEach(input => {
+          const span = document.createElement('span');
+          span.className = 'energy-snapshot-cell-value';
+          span.textContent = input.value;
+          input.replaceWith(span);
+        });
+        clone.querySelectorAll('button').forEach(btn => btn.remove());
+        return clone.outerHTML;
+      };
+
+      const renderSnapshotHistoryList = () => {
+        snapshotHistoryBack.style.visibility = 'hidden';
+        snapshotHistoryTitle.textContent = '快照历史';
+        snapshotHistoryContent.innerHTML = '';
+        if (!snapshots.length) {
+          const empty = document.createElement('div');
+          empty.className = 'energy-snapshot-empty';
+          empty.textContent = '暂无快照，请点击“快照”按钮进行保存。';
+          snapshotHistoryContent.appendChild(empty);
+          return;
+        }
+        const table = document.createElement('table');
+        table.className = 'energy-snapshot-history-table';
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        ['序号', '快照名称', '关联年度', '快照时间'].forEach(label => {
+          const th = document.createElement('th');
+          th.textContent = label;
+          headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        const tbody = document.createElement('tbody');
+        snapshots.forEach((snapshot, index) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>${index + 1}</td><td>${snapshot.name}</td><td>${snapshot.year}</td><td>${formatTimestamp(snapshot.createdAt)}</td>`;
+          row.addEventListener('click', () => showSnapshotDetail(snapshot));
+          tbody.appendChild(row);
+        });
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        snapshotHistoryContent.appendChild(table);
+      };
+
+      const showSnapshotDetail = snapshot => {
+        if (!snapshot) { return; }
+        snapshotHistoryBack.style.visibility = 'visible';
+        snapshotHistoryTitle.textContent = '快照详情';
+        snapshotHistoryContent.innerHTML = '';
+        const meta = document.createElement('div');
+        meta.className = 'energy-snapshot-detail-meta';
+        const metaItems = [
+          `快照名称：${snapshot.name}`,
+          `关联年度：${snapshot.year}`,
+          `快照时间：${formatTimestamp(snapshot.createdAt)}`
+        ];
+        if (snapshot.description) {
+          metaItems.push(`备注：${snapshot.description}`);
+        }
+        meta.innerHTML = metaItems.map(item => `<span>${item}</span>`).join('');
+        const actions = document.createElement('div');
+        actions.className = 'energy-snapshot-detail-actions';
+        const exportBtn = document.createElement('button');
+        exportBtn.type = 'button';
+        exportBtn.textContent = '导出Excel';
+        exportBtn.addEventListener('click', () => exportSnapshotDetail(snapshot));
+        actions.appendChild(exportBtn);
+        const wrapper = document.createElement('div');
+        wrapper.className = 'energy-snapshot-detail-wrapper';
+        wrapper.innerHTML = snapshot.tableMarkup || '<div class="energy-snapshot-empty">暂无数据</div>';
+        snapshotHistoryContent.appendChild(meta);
+        snapshotHistoryContent.appendChild(actions);
+        snapshotHistoryContent.appendChild(wrapper);
+      };
+
+      const openSnapshotHistoryModal = () => {
+        renderSnapshotHistoryList();
+        snapshotHistoryModal.classList.add('visible');
+      };
+
+      const closeSnapshotHistoryModal = () => {
+        snapshotHistoryModal.classList.remove('visible');
+      };
+
+      const toCsvValue = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+
+      const exportSnapshotDetail = snapshot => {
+        if (!snapshot || !snapshot.tableMarkup) { return; }
+        const temp = document.createElement('div');
+        temp.innerHTML = snapshot.tableMarkup;
+        const table = temp.querySelector('table');
+        if (!table) { return; }
+        const rows = Array.from(table.querySelectorAll('tr'));
+        if (!rows.length) { return; }
+        const csvRows = rows.map(row => {
+          const cells = row.querySelectorAll('th,td');
+          return Array.from(cells).map(cell => toCsvValue((cell.textContent || '').trim())).join(',');
+        });
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${(snapshot.name || 'snapshot')}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+      };
+
+      const exportTable = () => {
+        const header = ['序号', '预算编码', '能源对象', '项目代码', '预算费用', '实际费用', '预算差额', '预算执行率'];
+        monthConfig.forEach(cfg => {
+          header.push(`${cfg.label}预算费用`);
+          header.push(`${cfg.label}实际费用`);
+        });
+        const csvRows = [header.map(toCsvValue).join(',')];
+        energyRows.forEach(baseRow => {
+          const row = rowMap[baseRow.id] || baseRow;
+          const variance = row.budget - row.actual;
+          const percent = row.budget ? ((row.actual / row.budget) * 100).toFixed(2) + '%' : '--';
+          const rowValues = [
+            row.index,
+            row.code,
+            row.object,
+            row.project,
+            formatCurrency(row.budget),
+            formatCurrency(row.actual),
+            formatCurrency(variance),
+            percent
+          ];
+          const monthLookup = row.months.reduce((acc, item) => { acc[item.id] = item; return acc; }, {});
+          monthConfig.forEach(cfg => {
+            const month = monthLookup[cfg.id] || { budget: 0, actual: 0 };
+            rowValues.push(formatCurrency(month.budget));
+            rowValues.push(formatCurrency(month.actual));
+          });
+          csvRows.push(rowValues.map(toCsvValue).join(','));
+        });
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'energy_expense_report.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      };
+
+      const chartYearSeries = {
+        '2023': { budget: [105, 130, 125, 132, 138, 140, 142, 145, 143, 147, 150, 155], actual: [100, 125, 120, 128, 130, 133, 135, 138, 136, 139, 142, 145] },
+        '2024': { budget: [110, 140, 132, 138, 146, 150, 152, 150, 148, 150, 153, 157], actual: [106, 135, 126, 134, 140, 146, 148, 146, 142, 145, 149, 151] },
+        '2025': { budget: [120, 150, 130, 140, 150, 160, 155, 150, 145, 148, 152, 158], actual: [110, 140, 120, 138, 142, 155, 150, 146, 140, 145, 149, 152] }
+      };
+      const defaultChartYear = '2025';
+      const chartState = { base: null, comparison: null };
+
+      const generateMockSeries = year => {
+        const baseYear = parseInt(year, 10) || parseInt(defaultChartYear, 10);
+        const offset = (baseYear - 2020) * 3;
+        const budget = [];
+        const actual = [];
+        for (let i = 0; i < 12; i++) {
+          const seasonal = Math.sin((i / 12) * Math.PI * 2) * 8;
+          const trend = i * 1.5;
+          const baseValue = 135 + offset + seasonal + trend;
+          const budgetValue = baseValue + 10;
+          const actualValue = baseValue + Math.cos((baseYear + i) * 0.7) * 3 - 2;
+          budget.push(Number(budgetValue.toFixed(1)));
+          actual.push(Number(actualValue.toFixed(1)));
+        }
+        return { budget, actual };
+      };
+
+      const ensureChartSeries = year => {
+        if (!year) { return null; }
+        if (!chartYearSeries[year]) {
+          chartYearSeries[year] = generateMockSeries(year);
+        }
+        return chartYearSeries[year];
+      };
+
+      const resolveChartYear = year => ensureChartSeries(year) || chartYearSeries[defaultChartYear];
+
+      const energyChart = Highcharts.chart('energy-chart-container', {
+        chart: { type: 'area', backgroundColor: 'transparent' },
+        title: { text: '' },
+        xAxis: { categories: monthConfig.map(item => item.label), lineColor: '#d0dae7', tickColor: '#d0dae7', crosshair: { width: 1, color: '#0a6ed1', dashStyle: 'ShortDot' } },
+        yAxis: { title: { text: '万元' }, gridLineColor: '#e1e8f2', crosshair: { width: 1, color: '#94a3b8', dashStyle: 'ShortDot' } },
+        colors: ['#0a6ed1', '#34c38f', '#f6c343', '#ff9800'],
+        tooltip: {
+          shared: true,
+          useHTML: true,
+          formatter: function () {
+            const idx = this.points[0].point.index;
+            const baseYear = chartState.base || defaultChartYear;
+            const baseData = resolveChartYear(baseYear);
+            const comparisonYear = chartState.comparison;
+            const comparisonData = comparisonYear ? resolveChartYear(comparisonYear) : null;
+            const baseBudget = baseData.budget[idx];
+            const baseActual = baseData.actual[idx];
+            const comparisonBudget = comparisonData ? comparisonData.budget[idx] : null;
+            const comparisonActual = comparisonData ? comparisonData.actual[idx] : null;
+            const rows = [
+              `<div>${baseYear}预算：${baseBudget.toFixed(1)} 万元</div>`,
+              `<div>${baseYear}实际：${baseActual.toFixed(1)} 万元</div>`
+            ];
+            if (comparisonYear && comparisonData) {
+              rows.push(`<div>${comparisonYear}预算：${comparisonBudget.toFixed(1)} 万元</div>`);
+              rows.push(`<div>${comparisonYear}实际：${comparisonActual.toFixed(1)} 万元</div>`);
+            }
+            return [
+              '<div class="energy-chart-tooltip">',
+              `<strong>${this.x}</strong>`,
+              ...rows,
+              '</div>'
+            ].join('');
+          }
+        },
+        legend: { align: 'right', verticalAlign: 'top' },
+        credits: { enabled: false },
+        series: []
+      });
+
+      const updateChartSeries = () => {
+        const baseYear = (startYearInput.value || defaultChartYear).toString();
+        const comparisonCandidate = yearComparisonInput && yearComparisonInput.value ? yearComparisonInput.value.toString() : '';
+        const comparisonYear = comparisonCandidate && comparisonCandidate !== baseYear ? comparisonCandidate : null;
+        const baseData = resolveChartYear(baseYear);
+        const seriesConfig = [
+          { name: `${baseYear}预算`, data: baseData.budget, type: 'area', color: '#0a6ed1', fillOpacity: 0.15 },
+          { name: `${baseYear}实际`, data: baseData.actual, type: 'line', color: '#34c38f', lineWidth: 3 }
+        ];
+        if (comparisonYear) {
+          const comparisonData = resolveChartYear(comparisonYear);
+          if (comparisonData) {
+            seriesConfig.push({ name: `${comparisonYear}预算`, data: comparisonData.budget, type: 'line', dashStyle: 'ShortDash', color: '#f6c343', lineWidth: 2 });
+            seriesConfig.push({ name: `${comparisonYear}实际`, data: comparisonData.actual, type: 'line', dashStyle: 'ShortDot', color: '#ff9800', lineWidth: 2 });
+          }
+        }
+        chartState.base = baseYear;
+        chartState.comparison = comparisonYear;
+        energyChart.update({ series: seriesConfig }, false, true, false);
+        energyChart.redraw();
+      };
+
+      const resetButton = document.getElementById("energy-reset-button");
+      const startYearInput = document.getElementById("energy-start-year");
+      const yearComparisonInput = document.getElementById("energy-year-comparison-input");
+      const yearComparisonControl = document.getElementById("energy-year-comparison-control");
+      const exportButton = document.getElementById("energy-export-button");
+      const snapshotButton = document.getElementById("energy-snapshot-button");
+      const snapshotHistoryButton = document.getElementById("energy-snapshot-history-button");
+      const syncComparisonYear = () => {
+        if (!yearComparisonInput) { return; }
+        if (yearComparisonInput.value && yearComparisonInput.value === startYearInput.value) {
+          yearComparisonInput.value = '';
+        }
+      };
+
+      startYearInput.addEventListener('change', () => {
+        syncComparisonYear();
+        updateChartSeries();
+      });
+
+      resetButton.addEventListener("click", () => {
+        startYearInput.value = "2025";
+        clearPeriodGroup('half');
+        clearPeriodGroup('quarter');
+        if (yearComparisonInput) { yearComparisonInput.value = ''; }
+        applyPeriodFilter();
+        syncComparisonYear();
+        updateChartSeries();
+      });
+      if (yearComparisonInput) {
+        yearComparisonInput.addEventListener('change', () => {
+          const targetYear = yearComparisonInput.value || startYearInput.value;
+          if (yearComparisonInput.value === startYearInput.value) {
+            yearComparisonInput.value = '';
+          }
+          console.log('年对比设置更新', targetYear);
+          updateChartSeries();
+        });
+      }
+      if (yearComparisonControl) {
+        yearComparisonControl.addEventListener('click', event => {
+          if (event.target === yearComparisonInput) { return; }
+          if (yearComparisonInput && yearComparisonInput.value) {
+            yearComparisonInput.value = '';
+            console.log('年对比设置已重置');
+            updateChartSeries();
+          }
+        });
+      }
+      syncComparisonYear();
+      updateChartSeries();
+      exportButton.addEventListener("click", exportTable);
+      snapshotButton.addEventListener("click", openSnapshotModal);
+      snapshotHistoryButton.addEventListener("click", openSnapshotHistoryModal);
+      snapshotClose.addEventListener('click', closeSnapshotModal);
+      snapshotCancel.addEventListener('click', closeSnapshotModal);
+      snapshotModal.addEventListener('click', event => {
+        if (event.target === snapshotModal) { closeSnapshotModal(); }
+      });
+      snapshotHistoryClose.addEventListener('click', closeSnapshotHistoryModal);
+      snapshotHistoryBack.addEventListener('click', renderSnapshotHistoryList);
+      snapshotHistoryModal.addEventListener('click', event => {
+        if (event.target === snapshotHistoryModal) { closeSnapshotHistoryModal(); }
+      });
+      snapshotSave.addEventListener('click', () => {
+        const rawName = (snapshotNameInput.value || '').trim();
+        const recordId = snapshotIdCounter++;
+        const record = {
+          id: recordId,
+          name: rawName || `快照${String(recordId).padStart(2, '0')}`,
+          year: snapshotYearInput.value || `${startYearInput.value} 年度`,
+          description: (snapshotDescInput.value || '').trim(),
+          createdAt: new Date(),
+          tableMarkup: captureTableMarkup()
+        };
+        snapshots.unshift(record);
+        closeSnapshotModal();
+        renderSnapshotHistoryList();
+      });
+
+      function persistCellValue(rowId, monthId, field, value) {
+        if (!persistedStore[rowId]) { persistedStore[rowId] = {}; }
+        if (!persistedStore[rowId][monthId]) { persistedStore[rowId][monthId] = {}; }
+        persistedStore[rowId][monthId][field] = value;
+        try {
+          localStorage.setItem('energy-persisted-values', JSON.stringify(persistedStore));
+        } catch (err) {
+          console.warn('保存持久化数据失败', err);
+        }
+      }
+
+      function toggleActionVisibility(rowId, monthId, field, currentValue) {
+        const input = document.querySelector(`input.energy-edit-input[data-row-id="${rowId}"][data-month-id="${monthId}"][data-field="${field}"]`);
+        const saveBtn = document.querySelector(`.energy-save-btn[data-row-id="${rowId}"][data-month-id="${monthId}"][data-field="${field}"]`);
+        const cancelBtn = document.querySelector(`.energy-cancel-btn[data-row-id="${rowId}"][data-month-id="${monthId}"][data-field="${field}"]`);
+        if (!input || !saveBtn || !cancelBtn) { return; }
+        const initial = parseFloat(input.dataset.initialValue);
+        const initialSafe = Number.isFinite(initial) ? initial : 0;
+        const isChanged = (Number.isFinite(currentValue) ? currentValue : 0) !== initialSafe;
+        saveBtn.classList.toggle('visible', isChanged);
+        cancelBtn.classList.toggle('visible', isChanged);
+      }
+
+      function handlePersistClick(event) {
+        const btn = event.currentTarget;
+        const { rowId, monthId, field } = btn.dataset;
+        const input = document.querySelector(`input.energy-edit-input[data-row-id="${rowId}"][data-month-id="${monthId}"][data-field="${field}"]`);
+        if (!input) { return; }
+        const value = parseFloat(input.value);
+        const safeValue = Number.isFinite(value) ? value : 0;
+        const row = rowMap[rowId];
+        if (row) {
+          const month = row.months.find(m => m.id === monthId);
+          if (month) { month[field] = safeValue; }
+          updateRowAggregateCells(row);
+          renderTotalsRow();
+        }
+        persistCellValue(rowId, monthId, field, safeValue);
+        input.dataset.initialValue = safeValue;
+        toggleActionVisibility(rowId, monthId, field, safeValue);
+      }
+
+      const submitButton = document.getElementById('energy-submit-button');
+      if (submitButton) {
+        submitButton.addEventListener('click', () => {
+          const submissionData = [];
+
+          energyRows.forEach(baseRow => {
+            const row = rowMap[baseRow.id] || baseRow;
+            // Construct row object for submission
+            const rowData = {
+              index: row.index,
+              code: row.code,
+              object: row.object,
+              project: row.project,
+              budget: row.budget,
+              actual: row.actual,
+              variance: row.budget - row.actual,
+              percent: row.budget ? (row.actual / row.budget) : 0,
+              months: []
+            };
+
+            monthConfig.forEach(cfg => {
+              const month = row.months.find(m => m.id === cfg.id) || { id: cfg.id, budget: 0, actual: 0 };
+              rowData.months.push({
+                id: cfg.id,
+                label: cfg.label,
+                budget: month.budget || 0,
+                actual: month.actual || 0
+              });
+            });
+
+            submissionData.push(rowData);
+          });
+
+          // Auto-save all modified cells (trigger individual save buttons)
+          const pendingSaves = document.querySelectorAll('.energy-save-btn.visible');
+          pendingSaves.forEach(btn => btn.click());
+
+          console.log('提交的数据:', submissionData);
+          alert(`批量提交成功！\n已自动保存 ${pendingSaves.length} 个修改项。\n数据已在控制台输出 (F12 -> Console)`);
+        });
+      }
+
+      function handleCancelClick(event) {
+        const btn = event.currentTarget;
+        const { rowId, monthId, field } = btn.dataset;
+        const input = document.querySelector(`input.energy-edit-input[data-row-id="${rowId}"][data-month-id="${monthId}"][data-field="${field}"]`);
+        if (!input) { return; }
+        const initial = parseFloat(input.dataset.initialValue);
+        const revertValue = Number.isFinite(initial) ? initial : 0;
+        input.value = revertValue;
+        const row = rowMap[rowId];
+        if (row) {
+          const month = row.months.find(m => m.id === monthId);
+          if (month) { month[field] = revertValue; }
+          updateRowAggregateCells(row);
+          renderTotalsRow();
+        }
+        toggleActionVisibility(rowId, monthId, field, revertValue);
+      }
+    })();
+  </script>
+</body>
+
+</html>

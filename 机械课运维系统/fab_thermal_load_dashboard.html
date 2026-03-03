@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高效制冷机房 - 冷热负荷监控</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px 30px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .header h1 {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 16px;
+        }
+        
+        .main-container {
+            padding: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .control-panel {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .control-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 15px 25px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .temp-switch {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 15px 25px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .time-query {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 15px 25px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .time-unit-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .time-unit-selector label {
+            font-size: 12px;
+            color: #666;
+            font-weight: normal;
+        }
+        
+        .time-unit-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .unit-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            background: white;
+            color: #666;
+            transition: all 0.2s ease;
+        }
+        
+        .unit-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .unit-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+        
+        .unit-btn.active:hover {
+            color: white;
+        }
+        
+        .data-type-switch {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 15px 25px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .temp-switch label,
+        .time-query label,
+        .data-type-switch label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            white-space: nowrap;
+        }
+        
+        .switch-container {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .switch-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .switch-btn.active {
+            background: #667eea;
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .switch-btn:not(.active) {
+            background: #f0f0f0;
+            color: #666;
+        }
+        
+        .switch-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+        }
+        
+        .time-input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #333;
+            background: white;
+            min-width: 180px;
+        }
+        
+        .time-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+        
+        .query-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            min-width: 80px;
+        }
+        
+        .query-btn.primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .query-btn.primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .query-btn.secondary {
+            background: #f0f0f0;
+            color: #666;
+        }
+        
+        .query-btn.secondary:hover {
+            background: #e0e0e0;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .time-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .time-group label {
+            font-size: 12px;
+            color: #666;
+            font-weight: normal;
+        }
+        
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        
+        .chart-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .chart-wrapper {
+            height: 500px;
+            width: 100%;
+        }
+        
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .stat-unit {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .legend-custom {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 10px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+        
+        .data-timestamp {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-top: 15px;
+        }
+        
+        @media (max-width: 768px) {
+            .control-panel {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .temp-switch,
+            .time-query,
+            .data-type-switch {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .time-input {
+                min-width: 150px;
+            }
+            
+            .chart-wrapper {
+                height: 350px;
+            }
+            
+            .stats-panel {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>高效制冷机房 - 冷热负荷监控</h1>
+        <p>High-Efficiency Cooling Plant - Thermal Load Monitoring</p>
+    </div>
+    
+    <div class="main-container">
+        <div class="control-panel">
+            <div class="temp-switch">
+                <label>热水系统温度选择:</label>
+                <div class="switch-container">
+                    <button class="switch-btn active" onclick="switchTemperature('90')">90℃热水</button>
+                    <button class="switch-btn" onclick="switchTemperature('38')">38℃热水</button>
+                </div>
+            </div>
+            
+            <div class="data-type-switch">
+                <label>负荷数据类型:</label>
+                <div class="switch-container">
+                    <button class="switch-btn active" onclick="switchDataType('actual')">实际负荷</button>
+                    <button class="switch-btn" onclick="switchDataType('combined')">实际+预测</button>
+                </div>
+            </div>
+            
+            <div class="time-query">
+                <label>时间查询:</label>
+                <div class="time-unit-selector">
+                    <label>时间精度</label>
+                    <div class="time-unit-buttons">
+                        <button class="unit-btn active" onclick="switchTimeUnit('hour')">小时</button>
+                        <button class="unit-btn" onclick="switchTimeUnit('day')">天</button>
+                    </div>
+                </div>
+                <div class="time-group">
+                    <label>开始时间</label>
+                    <input type="datetime-local" class="time-input" id="start-time">
+                </div>
+                <div class="time-group">
+                    <label>结束时间</label>
+                    <input type="datetime-local" class="time-input" id="end-time">
+                </div>
+                <button class="query-btn primary" onclick="queryTimeRange()">查询</button>
+                <button class="query-btn secondary" onclick="resetTimeRange()">重置</button>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title" id="chart-title">90℃热水系统 - 子系统热负荷分布</div>
+            <div class="chart-wrapper" id="thermal-load-chart"></div>
+            <div class="data-timestamp" id="data-timestamp">
+                数据更新时间: 2024-07-09 14:30:00
+            </div>
+        </div>
+        
+        <div class="stats-panel">
+            <div class="stat-card">
+                <h3>总热负荷</h3>
+                <div class="stat-value" id="total-load">2,856</div>
+                <div class="stat-unit">kW</div>
+            </div>
+            <div class="stat-card">
+                <h3>峰值负荷</h3>
+                <div class="stat-value" id="peak-load">3,124</div>
+                <div class="stat-unit">kW</div>
+            </div>
+            <div class="stat-card">
+                <h3>平均负荷</h3>
+                <div class="stat-value" id="avg-load">2,456</div>
+                <div class="stat-unit">kW</div>
+            </div>
+            <div class="stat-card">
+                <h3>负荷率</h3>
+                <div class="stat-value" id="load-rate">78.5</div>
+                <div class="stat-unit">%</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTemperature = '90';
+        let currentDataType = 'actual'; // 'actual' 或 'combined'
+        let currentTimeUnit = 'hour'; // 'hour' 或 'day'
+        let chart = null;
+        let currentTimeRange = null; // null表示使用默认24小时范围
+        
+        // 90℃热水系统数据配置
+        const hotWater90Config = {
+            title: '90℃热水系统 - 子系统热负荷分布',
+            systems: [
+                {
+                    name: 'FAB一般空调系统（NMAU、AHU）',
+                    color: '#FF6B6B',
+                    baseLoad: 850,
+                    variation: 150
+                },
+                {
+                    name: 'HPM/SGS一般空调系统（NMAU、AHU、FCU）',
+                    color: '#4ECDC4',
+                    baseLoad: 720,
+                    variation: 120
+                },
+                {
+                    name: 'MAU系统',
+                    color: '#45B7D1',
+                    baseLoad: 520,
+                    variation: 80
+                },
+                {
+                    name: 'UPW2B再生+SBP再生',
+                    color: '#96CEB4',
+                    baseLoad: 380,
+                    variation: 60
+                },
+                {
+                    name: 'CUB LSR2B再生',
+                    color: '#FFEAA7',
+                    baseLoad: 290,
+                    variation: 45
+                },
+                {
+                    name: '氨氮系统',
+                    color: '#DDA0DD',
+                    baseLoad: 180,
+                    variation: 30
+                },
+                {
+                    name: '热水（38℃）系统',
+                    color: '#F8A5C2',
+                    baseLoad: 160,
+                    variation: 25
+                }
+            ]
+        };
+        
+        // 38℃热水系统数据配置
+        const hotWater38Config = {
+            title: '38℃热水系统 - 子系统热负荷分布',
+            systems: [
+                {
+                    name: 'MAU系统38℃水消耗',
+                    color: '#FF9F43',
+                    baseLoad: 650,
+                    variation: 100
+                }
+            ]
+        };
+        
+        // 智能计算数据粒度（结合用户选择的时间单位）
+        function getOptimalGranularity(startTime, endTime) {
+            const totalHours = (endTime - startTime) / (1000 * 60 * 60);
+            const totalDays = totalHours / 24;
+            
+            // 如果用户强制选择了"天"单位，优先使用日聚合
+            if (currentTimeUnit === 'day') {
+                if (totalDays <= 1) {
+                    // 1天：24小时聚合
+                    return { 
+                        interval: 24, 
+                        type: 'day',
+                        label: '日聚合 (用户指定)', 
+                        maxPoints: 1,
+                        aggregation: 'comprehensive',
+                        userForced: true
+                    };
+                } else if (totalDays <= 30) {
+                    // 30天以内：日聚合
+                    return { 
+                        interval: 24, 
+                        type: 'day',
+                        label: '日聚合 (用户指定)', 
+                        maxPoints: 30,
+                        aggregation: 'comprehensive',
+                        userForced: true
+                    };
+                } else if (totalDays <= 90) {
+                    // 90天以内：3日聚合
+                    return { 
+                        interval: 72, 
+                        type: 'day',
+                        label: '3日聚合', 
+                        maxPoints: 30,
+                        aggregation: 'comprehensive'
+                    };
+                } else {
+                    // 超过90天：周聚合
+                    return { 
+                        interval: 168, 
+                        type: 'week',
+                        label: '周聚合', 
+                        maxPoints: 52,
+                        aggregation: 'comprehensive'
+                    };
+                }
+            }
+            
+            // 如果用户选择了"小时"单位，优先使用小时粒度
+            if (currentTimeUnit === 'hour') {
+                if (totalHours <= 48) {
+                    // 2天以内：1小时粒度
+                    return { 
+                        interval: 1, 
+                        type: 'hour',
+                        label: '1小时 (用户指定)', 
+                        maxPoints: 48,
+                        aggregation: 'none',
+                        userForced: true
+                    };
+                } else if (totalHours <= 168) {
+                    // 7天以内：2小时粒度
+                    return { 
+                        interval: 2, 
+                        type: 'hour',
+                        label: '2小时 (用户指定)', 
+                        maxPoints: 84,
+                        aggregation: 'average',
+                        userForced: true
+                    };
+                } else if (totalHours <= 720) {
+                    // 30天以内：6小时粒度（为保持性能）
+                    return { 
+                        interval: 6, 
+                        type: 'hour',
+                        label: '6小时 (性能优化)', 
+                        maxPoints: 120,
+                        aggregation: 'average'
+                    };
+                } else {
+                    // 超过30天：自动切换到日聚合（性能考虑）
+                    return { 
+                        interval: 24, 
+                        type: 'day',
+                        label: '日聚合 (自动优化)', 
+                        maxPoints: Math.ceil(totalDays),
+                        aggregation: 'comprehensive'
+                    };
+                }
+            }
+            
+            // 默认智能选择（旧逻辑作为后备）
+            if (totalHours <= 48) {
+                return { 
+                    interval: 1, 
+                    type: 'hour',
+                    label: '1小时', 
+                    maxPoints: 48,
+                    aggregation: 'none'
+                };
+            } else if (totalHours <= 168) {
+                return { 
+                    interval: 2, 
+                    type: 'hour',
+                    label: '2小时', 
+                    maxPoints: 84,
+                    aggregation: 'average'
+                };
+            } else if (totalDays <= 30) {
+                return { 
+                    interval: 24, 
+                    type: 'day',
+                    label: '日聚合', 
+                    maxPoints: 30,
+                    aggregation: 'comprehensive'
+                };
+            } else {
+                return { 
+                    interval: 168, 
+                    type: 'week',
+                    label: '周聚合', 
+                    maxPoints: 52,
+                    aggregation: 'comprehensive'
+                };
+            }
+        }
+        
+        // 专业负荷数据聚合函数
+        function aggregateLoadData(hourlyData, system) {
+            if (hourlyData.length === 0) return null;
+            
+            // 基础统计值
+            const values = hourlyData.map(data => data[system.name]);
+            const sum = values.reduce((a, b) => a + b, 0);
+            const avg = sum / values.length;
+            const max = Math.max(...values);
+            const min = Math.min(...values);
+            
+            // 负荷率计算
+            const loadFactor = avg / max;
+            
+            // 峰谷差
+            const peakValleyDiff = max - min;
+            const peakValleyRatio = peakValleyDiff / max;
+            
+            // 工业负荷特征分析
+            const businessHours = hourlyData.filter(data => {
+                const hour = new Date(data.time).getHours();
+                return hour >= 8 && hour <= 18;
+            });
+            const businessAvg = businessHours.length > 0 ? 
+                businessHours.reduce((sum, data) => sum + data[system.name], 0) / businessHours.length : avg;
+            
+            const nightHours = hourlyData.filter(data => {
+                const hour = new Date(data.time).getHours();
+                return hour >= 22 || hour <= 6;
+            });
+            const nightAvg = nightHours.length > 0 ? 
+                nightHours.reduce((sum, data) => sum + data[system.name], 0) / nightHours.length : avg;
+            
+            return {
+                // 基础值（用于图表显示）
+                average: Math.round(avg),
+                peak: max,
+                valley: min,
+                total: Math.round(sum), // 总能耗
+                
+                // 专业指标
+                loadFactor: Math.round(loadFactor * 100) / 100, // 负荷率
+                peakValleyDiff: Math.round(peakValleyDiff),
+                peakValleyRatio: Math.round(peakValleyRatio * 100) / 100,
+                businessAvg: Math.round(businessAvg),
+                nightAvg: Math.round(nightAvg),
+                businessNightRatio: Math.round((businessAvg / nightAvg) * 100) / 100
+            };
+        }
+        
+        // 生成小时级基础数据
+        function generateHourlyBaseData(startTime, endTime, config) {
+            const hourlyData = [];
+            const now = new Date();
+            const isPredictionMode = currentDataType === 'combined';
+            
+            // 生成小时级基础数据
+            for (let timestamp = new Date(startTime); timestamp <= endTime; timestamp.setTime(timestamp.getTime() + 60 * 60 * 1000)) {
+                const currentTime = new Date(timestamp);
+                const isActualData = currentTime <= now;
+                const isPredictedData = isPredictionMode && currentTime > now;
+                
+                // 跳过非预测模式下的未来数据
+                if (!isPredictionMode && currentTime > now) {
+                    continue;
+                }
+                
+                const dataPoint = {
+                    time: currentTime.getTime(),
+                    isActual: isActualData,
+                    isPredicted: isPredictedData
+                };
+                
+                config.systems.forEach(system => {
+                    let load;
+                    
+                    if (isActualData) {
+                        // 实际数据：基于历史模式
+                        const hourOfDay = currentTime.getHours();
+                        const dailyCycle = Math.sin((hourOfDay - 6) * Math.PI / 12) * 0.3 + 0.7;
+                        const randomVariation = (Math.random() - 0.5) * 0.2;
+                        load = system.baseLoad * (dailyCycle + randomVariation);
+                    } else if (isPredictedData) {
+                        // 预测数据：基于AI模型（模拟）
+                        const hourOfDay = currentTime.getHours();
+                        const dayOfWeek = currentTime.getDay();
+                        
+                        // 工作日 vs 周末的负荷差异
+                        const weekendFactor = (dayOfWeek === 0 || dayOfWeek === 6) ? 0.8 : 1.0;
+                        
+                        // 预测的日周期（相对平滑）
+                        const predictedCycle = Math.sin((hourOfDay - 6) * Math.PI / 12) * 0.25 + 0.75;
+                        
+                        // AI预测的不确定性（较小的随机变化）
+                        const uncertaintyFactor = (Math.random() - 0.5) * 0.1;
+                        
+                        load = system.baseLoad * predictedCycle * weekendFactor * (1 + uncertaintyFactor);
+                    }
+                    
+                    dataPoint[system.name] = Math.max(0, load); // 保留精确值用于积分
+                });
+                
+                hourlyData.push(dataPoint);
+            }
+            
+            return hourlyData;
+        }
+        
+        // 基于积分值的专业聚合函数
+        function integrateLoadData(hourlyData, aggregationHours) {
+            const aggregatedData = [];
+            
+            // 按聚合周期分组
+            for (let i = 0; i < hourlyData.length; i += aggregationHours) {
+                const groupData = hourlyData.slice(i, i + aggregationHours);
+                if (groupData.length === 0) continue;
+                
+                // 使用第一个数据点的时间作为聚合时间点
+                const aggregatedPoint = {
+                    time: groupData[0].time,
+                    timeStr: new Date(groupData[0].time).toLocaleDateString('zh-CN'),
+                    isActual: groupData[0].isActual,
+                    isPredicted: groupData[0].isPredicted,
+                    aggregationType: aggregationHours === 24 ? 'daily' : aggregationHours === 168 ? 'weekly' : 'custom'
+                };
+                
+                let totalCumulative = 0;
+                
+                // 对每个系统进行积分计算
+                config.systems.forEach(system => {
+                    // 梯形积分法计算总能耗 (kWh)
+                    let energyIntegral = 0;
+                    for (let j = 0; j < groupData.length - 1; j++) {
+                        const P1 = groupData[j][system.name];
+                        const P2 = groupData[j + 1][system.name];
+                        const dt = 1; // 1小时
+                        
+                        // 梯形积分：E = (P1 + P2) * dt / 2
+                        energyIntegral += (P1 + P2) * dt / 2;
+                    }
+                    
+                    // 如果只有一个数据点，使用矩形积分
+                    if (groupData.length === 1) {
+                        energyIntegral = groupData[0][system.name] * 1; // 1小时
+                    }
+                    
+                    // 存储积分值（总能耗），单位kWh
+                    aggregatedPoint[system.name] = Math.round(energyIntegral);
+                    totalCumulative += aggregatedPoint[system.name];
+                    
+                    // 存储统计信息用于分析
+                    const values = groupData.map(d => d[system.name]);
+                    aggregatedPoint[`${system.name}_peak`] = Math.max(...values);
+                    aggregatedPoint[`${system.name}_valley`] = Math.min(...values);
+                    aggregatedPoint[`${system.name}_avg`] = values.reduce((a, b) => a + b, 0) / values.length;
+                });
+                
+                aggregatedPoint.total = totalCumulative;
+                aggregatedData.push(aggregatedPoint);
+            }
+            
+            return aggregatedData;
+        }
+        
+        // 生成时间序列数据（主函数）
+        function generateTimeSeriesData(config) {
+            let startTime, endTime;
+            
+            if (currentTimeRange) {
+                startTime = new Date(currentTimeRange.start);
+                endTime = new Date(currentTimeRange.end);
+            } else {
+                // 默认24小时范围
+                endTime = new Date();
+                startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+            }
+            
+            // 获取智能粒度
+            const granularity = getOptimalGranularity(startTime, endTime);
+            
+            // 生成小时级基础数据
+            const hourlyData = generateHourlyBaseData(startTime, endTime, config);
+            
+            // 根据粒度类型决定是否需要聚合
+            if (granularity.type === 'day' || granularity.type === 'week') {
+                // 使用积分值进行专业聚合
+                return integrateLoadData(hourlyData, granularity.interval);
+            } else {
+                // 小时级数据直接返回（可能需要简单聚合）
+                if (granularity.interval > 1) {
+                    // 简单平均聚合（2小时粒度等）
+                    return integrateLoadData(hourlyData, granularity.interval);
+                } else {
+                    // 1小时粒度，直接返回
+                    return hourlyData.map(point => ({
+                        ...point,
+                        timeStr: new Date(point.time).toLocaleString('zh-CN', { 
+                            month: '2-digit', 
+                            day: '2-digit', 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        })
+                    }));
+                }
+            }
+        }
+        
+        // 创建面积图
+        function createThermalLoadChart(config) {
+            const data = generateTimeSeriesData(config);
+            
+            // 分离实际数据和预测数据
+            const actualData = data.filter(point => point.isActual);
+            const predictedData = data.filter(point => point.isPredicted);
+            
+            // 准备Highcharts数据格式
+            const series = [];
+            
+            // 实际数据系列
+            config.systems.forEach(system => {
+                series.push({
+                    name: system.name,
+                    data: actualData.map(point => [point.time, point[system.name]]),
+                    color: system.color,
+                    fillOpacity: 0.7,
+                    zIndex: 2
+                });
+            });
+            
+            // 预测数据系列（如果有）
+            if (predictedData.length > 0 && currentDataType === 'combined') {
+                config.systems.forEach(system => {
+                    series.push({
+                        name: system.name + ' (预测)',
+                        data: predictedData.map(point => [point.time, point[system.name]]),
+                        color: system.color,
+                        fillOpacity: 0.3,
+                        dashStyle: 'dash',
+                        zIndex: 1,
+                        linkedTo: ':previous' // 链接到前一个系列（不在图例中显示）
+                    });
+                });
+            }
+            
+            // 销毁现有图表
+            if (chart) {
+                chart.destroy();
+            }
+            
+            // 创建新图表
+            chart = Highcharts.chart('thermal-load-chart', {
+                chart: {
+                    type: 'area',
+                    backgroundColor: 'transparent',
+                    plotBackgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    style: {
+                        fontFamily: 'Microsoft YaHei, Arial, sans-serif'
+                    }
+                },
+                title: {
+                    text: null
+                },
+                subtitle: {
+                    text: (() => {
+                        const granularity = getOptimalGranularity(
+                            actualData.length > 0 ? new Date(actualData[0].time) : new Date(),
+                            actualData.length > 0 ? new Date(actualData[actualData.length - 1].time) : new Date()
+                        );
+                        
+                        let unitText = 'kW';
+                        let methodText = '';
+                        
+                        if (granularity.type === 'day' || granularity.type === 'week') {
+                            unitText = 'kWh';
+                            methodText = ' (梯形积分法)';
+                        }
+                        
+                        const dataTypeText = currentDataType === 'combined' ? '实际数据 + AI预测' : '实际数据';
+                        
+                        return `数据粒度: ${granularity.label}${methodText} | 单位: ${unitText} | ${dataTypeText}`;
+                    })(),
+                    style: {
+                        color: '#666',
+                        fontSize: '12px'
+                    }
+                },
+                xAxis: {
+                    type: 'datetime',
+                    title: {
+                        text: '时间',
+                        style: {
+                            color: '#333',
+                            fontWeight: 'bold'
+                        }
+                    },
+                    labels: {
+                        style: {
+                            color: '#666'
+                        }
+                    },
+                    gridLineColor: '#e6e6e6'
+                },
+                yAxis: {
+                    title: {
+                        text: (() => {
+                            const granularity = getOptimalGranularity(
+                                actualData.length > 0 ? new Date(actualData[0].time) : new Date(),
+                                actualData.length > 0 ? new Date(actualData[actualData.length - 1].time) : new Date()
+                            );
+                            
+                            if (granularity.type === 'day' || granularity.type === 'week') {
+                                return '能耗 (kWh)';
+                            } else {
+                                return '热负荷 (kW)';
+                            }
+                        })(),
+                        style: {
+                            color: '#333',
+                            fontWeight: 'bold'
+                        }
+                    },
+                    labels: {
+                        style: {
+                            color: '#666'
+                        }
+                    },
+                    gridLineColor: '#e6e6e6',
+                    min: 0
+                },
+                tooltip: {
+                    shared: true,
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    borderColor: '#ccc',
+                    shadow: true,
+                    style: {
+                        fontSize: '12px'
+                    },
+                    formatter: function() {
+                        const now = new Date();
+                        const pointTime = new Date(this.x);
+                        const isPredicted = pointTime > now && currentDataType === 'combined';
+                        
+                        // 检查是否为聚合数据
+                        const isAggregated = this.points.length > 0 && 
+                            this.points[0].point.aggregationType && 
+                            (this.points[0].point.aggregationType === 'daily' || this.points[0].point.aggregationType === 'weekly');
+                        
+                        let tooltip = '<b>' + (isAggregated ? 
+                            Highcharts.dateFormat('%Y-%m-%d', this.x) : 
+                            Highcharts.dateFormat('%m-%d %H:%M', this.x)) + '</b>';
+                        
+                        if (isPredicted) {
+                            tooltip += ' <span style="color: #ff9500; font-weight: bold;">[AI预测]</span>';
+                        }
+                        
+                        if (isAggregated) {
+                            tooltip += ' <span style="color: #0066cc; font-weight: bold;">[积分聚合]</span>';
+                        }
+                        
+                        tooltip += '<br/>';
+                        
+                        let total = 0;
+                        const unit = isAggregated ? 'kWh' : 'kW';
+                        
+                        this.points.forEach(point => {
+                            if (!point.series.name.includes('预测') || isPredicted) {
+                                tooltip += '<span style="color:' + point.series.color + '">' + 
+                                          point.series.name.replace(' (预测)', '') + '</span>: <b>' + 
+                                          point.y.toLocaleString() + ' ' + unit + '</b><br/>';
+                                total += point.y;
+                            }
+                        });
+                        
+                        tooltip += '<hr style="margin: 5px 0;"/>';
+                        tooltip += '<b>总计: ' + total.toLocaleString() + ' ' + unit + '</b>';
+                        
+                        if (isAggregated) {
+                            tooltip += '<br/><small style="color: #666;">使用梯形积分法计算总能耗</small>';
+                        }
+                        
+                        if (isPredicted) {
+                            tooltip += '<br/><small style="color: #999;">基于AI模型预测，仅供参考</small>';
+                        }
+                        
+                        return tooltip;
+                    }
+                },
+                plotOptions: {
+                    area: {
+                        stacking: 'normal',
+                        lineColor: '#666666',
+                        lineWidth: 1,
+                        marker: {
+                            enabled: false,
+                            states: {
+                                hover: {
+                                    enabled: true,
+                                    radius: 5
+                                }
+                            }
+                        }
+                    }
+                },
+                series: series,
+                legend: {
+                    align: 'center',
+                    verticalAlign: 'bottom',
+                    layout: 'horizontal',
+                    itemStyle: {
+                        fontSize: '12px',
+                        fontWeight: 'normal'
+                    },
+                    itemHoverStyle: {
+                        color: '#333'
+                    },
+                    maxHeight: 100
+                },
+                credits: {
+                    enabled: false
+                },
+                exporting: {
+                    enabled: true,
+                    buttons: {
+                        contextButton: {
+                            menuItems: [
+                                'viewFullscreen',
+                                'printChart',
+                                'separator',
+                                'downloadPNG',
+                                'downloadJPEG',
+                                'downloadPDF',
+                                'downloadSVG',
+                                'separator',
+                                'downloadCSV',
+                                'downloadXLS'
+                            ]
+                        }
+                    }
+                }
+            });
+            
+            // 更新统计数据
+            updateStatistics(data, config);
+        }
+        
+        // 更新统计数据
+        function updateStatistics(data, config) {
+            const latestData = data[data.length - 1];
+            const totalLoad = latestData.total;
+            
+            // 计算峰值负荷
+            const peakLoad = Math.max(...data.map(d => d.total));
+            
+            // 计算平均负荷
+            const avgLoad = data.reduce((sum, d) => sum + d.total, 0) / data.length;
+            
+            // 计算负荷率（假设额定总负荷为4000kW）
+            const ratedLoad = config.systems.reduce((sum, system) => sum + system.baseLoad, 0) * 1.2;
+            const loadRate = (avgLoad / ratedLoad) * 100;
+            
+            // 更新显示
+            document.getElementById('total-load').textContent = Math.round(totalLoad).toLocaleString();
+            document.getElementById('peak-load').textContent = Math.round(peakLoad).toLocaleString();
+            document.getElementById('avg-load').textContent = Math.round(avgLoad).toLocaleString();
+            document.getElementById('load-rate').textContent = loadRate.toFixed(1);
+            
+            // 更新时间戳
+            document.getElementById('data-timestamp').textContent = 
+                '数据更新时间: ' + new Date().toLocaleString('zh-CN');
+        }
+        
+        // 切换温度系统
+        function switchTemperature(temp) {
+            currentTemperature = temp;
+            
+            // 更新按钮状态
+            document.querySelectorAll('.switch-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 更新图表
+            const config = temp === '90' ? hotWater90Config : hotWater38Config;
+            document.getElementById('chart-title').textContent = config.title;
+            
+            createThermalLoadChart(config);
+        }
+        
+        // 切换数据类型
+        function switchDataType(dataType) {
+            currentDataType = dataType;
+            
+            // 更新按钮状态
+            document.querySelectorAll('.data-type-switch .switch-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 重新生成图表
+            const config = currentTemperature === '90' ? hotWater90Config : hotWater38Config;
+            createThermalLoadChart(config);
+        }
+        
+        // 切换时间单位
+        function switchTimeUnit(unit) {
+            currentTimeUnit = unit;
+            
+            // 更新按钮状态
+            document.querySelectorAll('.unit-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 更新时间输入框的最小单位
+            updateTimeInputPrecision();
+            
+            // 如果已有时间范围，重新生成图表
+            if (currentTimeRange) {
+                const config = currentTemperature === '90' ? hotWater90Config : hotWater38Config;
+                createThermalLoadChart(config);
+            }
+        }
+        
+        // 更新时间输入框精度
+        function updateTimeInputPrecision() {
+            const startTimeInput = document.getElementById('start-time');
+            const endTimeInput = document.getElementById('end-time');
+            
+            if (currentTimeUnit === 'day') {
+                // 天精度：只显示日期
+                startTimeInput.type = 'date';
+                endTimeInput.type = 'date';
+                
+                // 如果当前有datetime-local值，转换为date格式
+                if (startTimeInput.value && startTimeInput.value.includes('T')) {
+                    startTimeInput.value = startTimeInput.value.split('T')[0];
+                }
+                if (endTimeInput.value && endTimeInput.value.includes('T')) {
+                    endTimeInput.value = endTimeInput.value.split('T')[0];
+                }
+            } else {
+                // 小时精度：显示日期和时间
+                startTimeInput.type = 'datetime-local';
+                endTimeInput.type = 'datetime-local';
+                
+                // 如果当前是date格式，添加默认时间
+                if (startTimeInput.value && !startTimeInput.value.includes('T')) {
+                    startTimeInput.value = startTimeInput.value + 'T00:00';
+                }
+                if (endTimeInput.value && !endTimeInput.value.includes('T')) {
+                    endTimeInput.value = endTimeInput.value + 'T23:59';
+                }
+            }
+        }
+        
+        // 时间范围查询
+        function queryTimeRange() {
+            const startTimeValue = document.getElementById('start-time').value;
+            const endTimeValue = document.getElementById('end-time').value;
+            
+            if (!startTimeValue || !endTimeValue) {
+                alert('请选择开始时间和结束时间');
+                return;
+            }
+            
+            let start, end;
+            
+            if (currentTimeUnit === 'day') {
+                // 天精度：date类型，需要设置具体时间
+                start = new Date(startTimeValue + 'T00:00:00');
+                end = new Date(endTimeValue + 'T23:59:59');
+            } else {
+                // 小时精度：datetime-local类型
+                start = new Date(startTimeValue);
+                end = new Date(endTimeValue);
+            }
+            
+            const now = new Date();
+            
+            if (start >= end) {
+                alert('开始时间必须早于结束时间');
+                return;
+            }
+            
+            // 智能时间范围验证
+            const daysDiff = (end - start) / (1000 * 60 * 60 * 24);
+            const hoursDiff = (end - start) / (1000 * 60 * 60);
+            
+            // 检查预测数据限制
+            if (currentDataType === 'combined') {
+                const futureDays = (end - now) / (1000 * 60 * 60 * 24);
+                if (futureDays > 15) {
+                    alert('AI预测最多支持未来15天的数据');
+                    return;
+                }
+            }
+            
+            // 根据时间单位和范围给出智能建议
+            if (currentTimeUnit === 'day') {
+                // 用户选择天精度
+                if (daysDiff <= 30) {
+                    console.log(`时间范围：${Math.round(daysDiff)}天，使用日积分聚合`);
+                } else if (daysDiff <= 90) {
+                    console.log(`时间范围：${Math.round(daysDiff)}天，使用3日聚合`);
+                    if (daysDiff > 60) {
+                        if (!confirm('时间范围较大，将使用3日聚合显示。是否继续？')) {
+                            return;
+                        }
+                    }
+                } else {
+                    if (!confirm(`时间范围为${Math.round(daysDiff)}天，将使用周聚合显示。建议缩短查询范围以获得更精细的数据。是否继续？`)) {
+                        return;
+                    }
+                }
+            } else {
+                // 用户选择小时精度
+                if (hoursDiff <= 48) {
+                    console.log('时间范围：2天以内，1小时粒度');
+                } else if (hoursDiff <= 168) {
+                    console.log('时间范围：7天以内，2小时粒度');
+                } else if (hoursDiff <= 720) {
+                    console.log('时间范围：30天以内，6小时粒度');
+                    if (daysDiff > 14) {
+                        if (!confirm('时间范围较大，将使用6小时粒度显示。是否继续？')) {
+                            return;
+                        }
+                    }
+                } else {
+                    if (!confirm(`时间范围为${Math.round(daysDiff)}天，将自动切换到日聚合以保证性能。建议缩短查询范围或选择"天"精度。是否继续？`)) {
+                        return;
+                    }
+                }
+            }
+            
+            currentTimeRange = {
+                start: start.getTime(),
+                end: end.getTime()
+            };
+            
+            // 重新生成图表
+            const config = currentTemperature === '90' ? hotWater90Config : hotWater38Config;
+            createThermalLoadChart(config);
+        }
+        
+        // 重置时间范围
+        function resetTimeRange() {
+            currentTimeRange = null;
+            
+            // 清空输入框
+            document.getElementById('start-time').value = '';
+            document.getElementById('end-time').value = '';
+            
+            // 重新生成图表（使用默认24小时范围）
+            const config = currentTemperature === '90' ? hotWater90Config : hotWater38Config;
+            createThermalLoadChart(config);
+        }
+        
+        // 格式化日期时间为本地输入格式
+        function formatDateTimeLocal(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+        
+        // 设置默认时间范围
+        function setDefaultTimeRange() {
+            const now = new Date();
+            const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            
+            if (currentTimeUnit === 'hour') {
+                document.getElementById('start-time').value = formatDateTimeLocal(yesterday);
+                document.getElementById('end-time').value = formatDateTimeLocal(now);
+            } else {
+                // 天精度：设置为最近7天
+                const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                document.getElementById('start-time').value = formatDateLocal(weekAgo);
+                document.getElementById('end-time').value = formatDateLocal(now);
+            }
+        }
+        
+        // 格式化日期为本地日期格式
+        function formatDateLocal(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置初始时间输入框类型
+            updateTimeInputPrecision();
+            
+            // 设置默认时间范围
+            setDefaultTimeRange();
+            
+            createThermalLoadChart(hotWater90Config);
+            
+            // 每5分钟自动刷新数据（仅在未使用自定义时间范围时）
+            setInterval(() => {
+                if (!currentTimeRange) {
+                    const config = currentTemperature === '90' ? hotWater90Config : hotWater38Config;
+                    createThermalLoadChart(config);
+                }
+            }, 300000);
+        });
+    </script>
+</body>
+</html>

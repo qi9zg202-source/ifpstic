@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAB ME PCW系统监控</title>
+    <!-- 引入 ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        .container {
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .content-wrapper {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .chart-container {
+            flex: 2;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .pump-status {
+            flex: 1;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-width: 300px;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        #pcwChart {
+            width: 100%;
+            height: 400px;
+        }
+
+        .pump-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .pump-table td {
+            padding: 12px 8px;
+            border-bottom: 1px solid #eee;
+            vertical-align: middle;
+        }
+
+        .pump-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            width: 80px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .status-on {
+            background-color: #4CAF50;
+            box-shadow: 0 0 10px #4CAF50;
+        }
+
+        .status-off {
+            background-color: #f44336;
+            box-shadow: 0 0 10px #f44336;
+        }
+
+        .frequency-value {
+            font-size: 16px;
+            color: #333;
+            font-family: monospace;
+            text-align: right;
+            width: 100px;
+        }
+
+        .status-text {
+            font-size: 14px;
+            color: #666;
+            margin-left: 4px;
+        }
+
+        /* 添加新的容器样式 */
+        .monitors-container {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .monitor-section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        /* 添加新的样式 */
+        .monitoring-panel {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .system-group {
+            margin-bottom: 30px;
+        }
+
+        .group-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .metric-group {
+            margin-bottom: 20px;
+        }
+
+        .subgroup-title {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .metrics-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .metric-card {
+            position: relative;
+            background-color: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            min-width: 180px;
+        }
+
+        .metric-name {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .metric-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .unit {
+            font-size: 14px;
+            color: #666;
+            margin-left: 4px;
+        }
+
+        .warning {
+            color: #ff4444;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .trend-indicator {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+        }
+
+        .trend-up {
+            border-bottom: 8px solid #4CAF50;
+        }
+
+        .trend-down {
+            border-top: 8px solid #f44336;
+        }
+
+        .trend-stable {
+            border-top: 4px solid #888;
+            border-bottom: 4px solid #888;
+        }
+
+        /* 响应式布局调整 */
+        @media (max-width: 768px) {
+            .metric-card {
+                min-width: calc(50% - 15px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">FAB ME PCW系统监控</div>
+        <div class="monitors-container">
+            <!-- PCW系统监控部分 -->
+            <div class="monitor-section">
+                <div class="section-title">PCW水泵系统</div>
+                <div class="content-wrapper">
+                    <div class="chart-container">
+                        <div id="pcwChart"></div>
+                    </div>
+                    <div class="pump-status">
+                        <table class="pump-table">
+                            <tbody id="pcwPumpStatus">
+                                <!-- 泵状态将通过 JavaScript 动态填充 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PV系统监控部分 -->
+            <div class="monitor-section">
+                <div class="section-title">PV泵系统</div>
+                <div class="content-wrapper">
+                    <div class="chart-container">
+                        <div id="pvChart" style="width: 100%; height: 400px;"></div>
+                    </div>
+                    <div class="pump-status">
+                        <table class="pump-table">
+                            <tbody id="pvPumpStatus">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 在 monitors-container 的最后添加新的监控面板 -->
+            <div class="monitor-section">
+                <div class="section-title">气化供应系统监控</div>
+                <div class="monitoring-panel">
+                    <!-- 气化运行部分 -->
+                    <div class="system-group">
+                        <h3 class="group-title">气化运行</h3>
+                        <div class="metrics-grid">
+                            <!-- 大宗气系统 -->
+                            <div class="metric-group">
+                                <h4 class="subgroup-title">大宗气系统</h4>
+                                <div class="metrics-row">
+                                    <div class="metric-card">
+                                        <div class="metric-name">CDA压力</div>
+                                        <div class="metric-value">8.8<span class="unit">Pa</span></div>
+                                    </div>
+                                    <div class="metric-card">
+                                        <div class="metric-name">CDA品质</div>
+                                        <div class="metric-value">--<span class="unit">ppm</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 化学系统 -->
+                            <div class="metric-group">
+                                <h4 class="subgroup-title">化学系统</h4>
+                                <div class="metrics-row">
+                                    <div class="metric-card">
+                                        <div class="metric-name">HF100:1浓度</div>
+                                        <div class="metric-value">--<span class="unit">mg/m³</span></div>
+                                    </div>
+                                    <div class="metric-card">
+                                        <div class="metric-name">DEV2.37%浓度</div>
+                                        <div class="metric-value">--<span class="unit">mg/m³</span></div>
+                                    </div>
+                                    <div class="metric-card">
+                                        <div class="metric-name">WCP-200浓度</div>
+                                        <div class="metric-value">--<span class="unit">mg/m³</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 水循环部分 -->
+                    <div class="system-group">
+                        <h3 class="group-title">水循环运行</h3>
+                        <!-- UPW系统 -->
+                        <div class="metric-group">
+                            <h4 class="subgroup-title">UPW系统</h4>
+                            <div class="metrics-row">
+                                <div class="metric-card">
+                                    <div class="metric-name">RO供水压力</div>
+                                    <div class="metric-value">0.5<span class="unit">MPa</span></div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-name">RO供水流量</div>
+                                    <div class="metric-value">2.5<span class="unit">m³/h</span></div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-name">中温冷水流量</div>
+                                    <div class="metric-value">111.5<span class="unit">m³/h</span></div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-name">中温热水流量</div>
+                                    <div class="metric-value">22.5<span class="unit">m³/h</span></div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-name">高温热水流量</div>
+                                    <div class="metric-value warning">19.2<span class="unit">m³/h</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- WWT系统 -->
+                        <div class="metric-group">
+                            <h4 class="subgroup-title">WWT系统</h4>
+                            <div class="metrics-row">
+                                <div class="metric-card">
+                                    <div class="metric-name">冷却塔排水流量</div>
+                                    <div class="metric-value">--<span class="unit">m³/h</span></div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-name">MAU供水流量</div>
+                                    <div class="metric-value">--<span class="unit">m³/h</span></div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-name">MAU排水流量</div>
+                                    <div class="metric-value">--<span class="unit">m³/h</span></div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-name">洗涤塔排水流量</div>
+                                    <div class="metric-value">--<span class="unit">m³/h</span></div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-name">冷却塔补水流量</div>
+                                    <div class="metric-value">--<span class="unit">m³/h</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化图表变量
+        let pcwChart = null;
+        let pvChart = null;
+
+        // 生成PCW系统模拟数据
+        function generatePCWData(count = 100) {
+            const now = new Date();
+            const data = {
+                times: [],
+                flow: [],
+                pumps: {
+                    PMP01: { status: false, frequency: 0 },
+                    PMP02: { status: false, frequency: 0 },
+                    PMP03: { status: false, frequency: 0 },
+                    PMP04: { status: false, frequency: 0 },
+                    PMP05: { status: false, frequency: 0 }
+                }
+            };
+
+            for (let i = count; i >= 0; i--) {
+                const time = new Date(now - i * 1000);
+                data.times.push(time.toLocaleTimeString('zh-CN'));
+                data.flow.push(Math.random() * 100 + 200); // 生成200-300范围内的流量数据
+            }
+
+            // 生成泵状态数据
+            Object.keys(data.pumps).forEach(pump => {
+                data.pumps[pump] = {
+                    status: Math.random() > 0.2, // 80%概率运行
+                    frequency: Math.floor(Math.random() * 10 + 45) // 45-55 Hz
+                };
+            });
+
+            return data;
+        }
+
+        // 生成PV系统模拟数据
+        function generatePVData(count = 100) {
+            const now = new Date();
+            const data = {
+                times: [],
+                pressures: {
+                    PMP01: [],
+                    PMP02: [],
+                    PMP03: [],
+                    PMP04: []
+                },
+                pumps: {
+                    PMP01: { status: false, frequency: 0 },
+                    PMP02: { status: false, frequency: 0 },
+                    PMP03: { status: false, frequency: 0 },
+                    PMP04: { status: false, frequency: 0 }
+                }
+            };
+
+            for (let i = count; i >= 0; i--) {
+                const time = new Date(now - i * 1000);
+                data.times.push(time.toLocaleTimeString('zh-CN'));
+                
+                // 为每个泵生成压力数据
+                Object.keys(data.pressures).forEach(pump => {
+                    const baseValue = {
+                        PMP01: -80,
+                        PMP02: -85,
+                        PMP03: -82,
+                        PMP04: -87
+                    }[pump];
+                    data.pressures[pump].push(baseValue + Math.random() * 10 - 5);
+                });
+            }
+
+            // 生成泵状态数据
+            Object.keys(data.pumps).forEach(pump => {
+                data.pumps[pump] = {
+                    status: Math.random() > 0.2,
+                    frequency: Math.floor(Math.random() * 10 + 45)
+                };
+            });
+
+            return data;
+        }
+
+        // 更新泵状态显示
+        function updatePumpStatus(pumps, elementId) {
+            const pumpStatus = document.getElementById(elementId);
+            if (!pumpStatus) return;
+
+            pumpStatus.innerHTML = Object.entries(pumps).map(([name, data]) => `
+                <tr>
+                    <td class="pump-name">${name}</td>
+                    <td>
+                        <div class="status-indicator ${data.status ? 'status-on' : 'status-off'}"></div>
+                        <span class="status-text">${data.status ? '运行' : '停止'}</span>
+                    </td>
+                    <td class="frequency-value">
+                        ${data.status ? data.frequency.toFixed(1) + ' Hz' : '--'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 创建PCW图表配置
+        function createPCWOption() {
+            return {
+                title: {
+                    text: 'PCW系统总流量',
+                    left: 'center'
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: function(params) {
+                        return `${params[0].axisValue}<br/>
+                                总流量: ${params[0].value.toFixed(2)} m³/h`;
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: []
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '流量 (m³/h)',
+                    min: 0,
+                    max: 400
+                },
+                series: [{
+                    name: '总流量',
+                    type: 'line',
+                    data: [],
+                    smooth: true,
+                    lineStyle: {
+                        width: 3,
+                        color: '#1976D2'
+                    },
+                    areaStyle: {
+                        color: {
+                            type: 'linear',
+                            x: 0,
+                            y: 0,
+                            x2: 0,
+                            y2: 1,
+                            colorStops: [{
+                                offset: 0,
+                                color: 'rgba(25,118,210,0.3)'
+                            }, {
+                                offset: 1,
+                                color: 'rgba(25,118,210,0.1)'
+                            }]
+                        }
+                    }
+                }]
+            };
+        }
+
+        // 创建PV图表配置
+        function createPVOption() {
+            return {
+                title: {
+                    text: '制程真空压力',
+                    left: 'center'
+                },
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data: ['PMP01', 'PMP02', 'PMP03', 'PMP04'],
+                    top: 25
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    top: '15%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: []
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '真空压力 (kPa)',
+                    min: -120,
+                    max: -40,
+                    inverse: true
+                },
+                series: [
+                    {
+                        name: 'PMP01',
+                        type: 'line',
+                        data: [],
+                        smooth: true
+                    },
+                    {
+                        name: 'PMP02',
+                        type: 'line',
+                        data: [],
+                        smooth: true
+                    },
+                    {
+                        name: 'PMP03',
+                        type: 'line',
+                        data: [],
+                        smooth: true
+                    },
+                    {
+                        name: 'PMP04',
+                        type: 'line',
+                        data: [],
+                        smooth: true
+                    }
+                ]
+            };
+        }
+
+        // 更新所有数据
+        function updateData() {
+            try {
+                // 更新PCW系统数据
+                const pcwData = generatePCWData();
+                const pcwOption = {
+                    xAxis: { data: pcwData.times },
+                    series: [{ data: pcwData.flow }]
+                };
+                pcwChart.setOption(pcwOption);
+                updatePumpStatus(pcwData.pumps, 'pcwPumpStatus');
+
+                // 更新PV系统数据
+                const pvData = generatePVData();
+                const pvOption = {
+                    xAxis: { data: pvData.times },
+                    series: Object.keys(pvData.pressures).map((pump, index) => ({
+                        data: pvData.pressures[pump]
+                    }))
+                };
+                pvChart.setOption(pvOption);
+                updatePumpStatus(pvData.pumps, 'pvPumpStatus');
+            } catch (error) {
+                console.error('更新数据时出错:', error);
+            }
+        }
+
+        // 初始化图表和数据更新
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                // 初始化PCW图表
+                const pcwChartDom = document.getElementById('pcwChart');
+                pcwChart = echarts.init(pcwChartDom);
+                pcwChart.setOption(createPCWOption());
+
+                // 初始化PV图表
+                const pvChartDom = document.getElementById('pvChart');
+                pvChart = echarts.init(pvChartDom);
+                pvChart.setOption(createPVOption());
+
+                // 开始定时更新数据
+                updateData(); // 立即更新一次
+                setInterval(updateData, 1000); // 每秒更新一次
+
+                // 响应窗口大小变化
+                window.addEventListener('resize', function() {
+                    pcwChart.resize();
+                    pvChart.resize();
+                });
+            } catch (error) {
+                console.error('初始化图表时出错:', error);
+            }
+        });
+    </script>
+</body>
+</html> 

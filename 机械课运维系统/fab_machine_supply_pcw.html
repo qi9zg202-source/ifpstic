@@ -1,0 +1,1153 @@
+<!doctype html>
+<html lang="zh-cn">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>机台供应管理 - PCW</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #fff;
+      --border: #d9e2ef;
+      --primary: #0a66d1;
+      --muted: #6a7590;
+      --danger: #ef476f;
+      --text: #0f1b2d;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text)
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh
+    }
+
+    #filter-bar {
+      padding: 10px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05)
+    }
+
+    .tabs {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      margin-right: 12px
+    }
+
+    .tab-btn {
+      border: none;
+      background: none;
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+      position: relative;
+      padding: 6px 4px
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+      font-weight: 600
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 2px;
+      background: var(--primary);
+      border-radius: 2px
+    }
+
+    .segment {
+      display: flex;
+      gap: 6px
+    }
+
+    .segment button {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer
+    }
+
+    .segment button.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary)
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    .filter-group input,
+    .filter-group select {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 12px;
+      background: #fff
+    }
+
+    .primary-btn {
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 12px;
+      cursor: pointer
+    }
+
+    .ghost-btn {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--muted);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 12px;
+      cursor: pointer
+    }
+
+    #table-card,
+    #chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+      margin: 12px 16px 0;
+      padding: 12px
+    }
+
+    #table-card {
+      min-height: 260px
+    }
+
+    #pcw-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px
+    }
+
+    #pcw-table th,
+    #pcw-table td {
+      border: 1px solid var(--border);
+      padding: 8px;
+      text-align: center
+    }
+
+    #pcw-table th {
+      background: #eef3fb;
+      font-weight: 600
+    }
+
+    #pcw-table td.bad {
+      color: var(--danger);
+      font-weight: 700
+    }
+
+    #pcw-table th.clickable-col,
+    #pcw-table td.clickable-col {
+      cursor: pointer
+    }
+
+    #pcw-table th.clickable-col:hover,
+    #pcw-table td.clickable-col:hover {
+      background-color: #dbeafe;
+      transition: background-color 0.2s
+    }
+
+    #pcw-table .col-selected {
+      background: #e8f4ff !important
+    }
+
+    #charts-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      grid-auto-rows: auto;
+      gap: 10px;
+      margin: 0 16px 8px;
+      align-items: start
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      height: 100%
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .panel-header.clickable {
+      cursor: pointer
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600
+    }
+
+    #pcw-line {
+      width: 100%;
+      min-height: 220px;
+      flex: 1
+    }
+
+    .chart-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text);
+      margin-bottom: 6px
+    }
+
+    .chart-stats span {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px 6px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04)
+    }
+
+    .heatmap-block {
+      background: #f7f9fc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px
+    }
+
+    .heatmap-title {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text)
+    }
+
+    .heatmap-canvas {
+      width: 100%;
+      height: 180px
+    }
+
+    .spc-summary {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+      flex-wrap: wrap
+    }
+
+    .spc-chip {
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #f7f9fc
+    }
+
+    .spc-chip.oow {
+      color: #f39c12;
+      border-color: #f39c12
+    }
+
+    .spc-chip.ooc {
+      color: #ef476f;
+      border-color: #ef476f
+    }
+
+    .spc-chip.oos {
+      color: #d32f2f;
+      border-color: #d32f2f
+    }
+
+    #agent-button {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      box-shadow: 0 12px 30px rgba(10, 102, 209, 0.3);
+      cursor: pointer;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: agent-bounce 1.8s ease-in-out infinite;
+      z-index: 50
+    }
+
+    #agent-panel {
+      position: fixed;
+      right: 22px;
+      top: 12px;
+      bottom: 12px;
+      width: 340px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: all 0.2s ease;
+      z-index: 49
+    }
+
+    #agent-panel.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0)
+    }
+
+    #agent-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      background: #f7f9fc;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text)
+    }
+
+    #agent-chat-body {
+      flex: 1;
+      overflow: auto;
+      padding: 10px;
+      background: #fafbff;
+      font-size: 12px;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      gap: 8px
+    }
+
+    .agent-msg {
+      padding: 8px 10px;
+      border-radius: 10px;
+      max-width: 85%;
+      line-height: 1.4
+    }
+
+    .agent-msg.bot {
+      background: #e9f1ff;
+      align-self: flex-start
+    }
+
+    .agent-msg.user {
+      background: #f1f5f9;
+      align-self: flex-end
+    }
+
+    #agent-chat-input {
+      display: flex;
+      gap: 8px;
+      padding: 10px;
+      border-top: 1px solid var(--border);
+      background: #fff
+    }
+
+    #agent-chat-input input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px
+    }
+
+    #agent-chat-input button {
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      cursor: pointer
+    }
+
+    .agent-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 6px
+    }
+
+    .agent-table th,
+    .agent-table td {
+      border: 1px solid var(--border);
+      padding: 6px;
+      text-align: left;
+      vertical-align: top
+    }
+
+    .agent-table th {
+      background: #eef3fb;
+      font-weight: 600
+    }
+
+    .agent-check {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer
+    }
+
+    .agent-validate {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer
+    }
+
+    .agent-check.done {
+      background: #2ecc71;
+      color: #fff;
+      border-color: #2ecc71
+    }
+
+    .agent-status-ok {
+      color: #2e7d32;
+      font-weight: 700;
+      background: #e8f5e9;
+      padding: 2px 6px;
+      border-radius: 6px;
+      display: inline-block
+    }
+
+    .agent-status-fail {
+      color: #d32f2f;
+      font-weight: 700;
+      background: #fdecea;
+      padding: 2px 6px;
+      border-radius: 6px;
+      display: inline-block
+    }
+
+    @keyframes agent-bounce {
+
+      0%,
+      100% {
+        transform: translateY(0)
+      }
+
+      50% {
+        transform: translateY(-4px)
+      }
+    }
+
+    #heat-tooltip {
+      position: fixed;
+      pointer-events: none;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--text);
+      display: none;
+      z-index: 99;
+      min-width: 160px
+    }
+
+    .agent-table {
+      width: 100%;
+      font-size: 12px;
+      margin-top: 6px
+    }
+
+    .agent-table th,
+    .agent-table td {
+      border: 1px solid var(--border);
+      padding: 6px;
+      text-align: left;
+      vertical-align: top
+    }
+
+    .agent-table th {
+      background: #eef3fb;
+      font-weight: 600
+    }
+
+    .agent-check {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer
+    }
+
+    .agent-check.done {
+      background: #2ecc71;
+      color: #fff;
+      border-color: #2ecc71
+    }
+
+    .heat-tabs {
+      display: flex;
+      gap: 8px
+    }
+
+    .heat-tabs button {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer
+    }
+
+    .heat-tabs button.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary)
+    }
+
+    /* Toggle Switch */
+    .toggle-wrapper {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 600
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: #e2e8f0;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.3s
+    }
+
+    .toggle-switch.active {
+      background: #10b981
+    }
+
+    .toggle-handle {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2)
+    }
+
+    .toggle-switch.active .toggle-handle {
+      transform: translateX(20px)
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <div id="filter-bar">
+      <div class="tabs">
+        <button class="tab-btn active" data-top="PCW">PCW</button>
+        <button class="tab-btn" data-top="PV">PV</button>
+      </div>
+      <div class="segment" id="range-segment">
+        <button data-range="minute">分钟</button>
+        <button data-range="hour" class="active">小时</button>
+        <button data-range="day">天</button>
+        <button data-range="week">周</button>
+        <button data-range="month">月</button>
+      </div>
+      <div class="filter-group">
+        <span>日期</span>
+        <input type="datetime-local" id="start-time">
+        <span> - </span>
+        <input type="datetime-local" id="end-time">
+      </div>
+      <div class="filter-group">
+        <span>厂区</span>
+        <select id="plant">
+          <option>创新中心一期</option>
+          <option>创新中心二期</option>
+        </select>
+      </div>
+      <div class="toggle-wrapper">
+        <span>监控模式</span>
+        <div class="toggle-switch active" id="monitor-toggle" role="switch" aria-checked="true">
+          <div class="toggle-handle"></div>
+        </div>
+      </div>
+      <button class="primary-btn" id="query-btn">查询</button>
+      <button class="ghost-btn" id="reset-btn">重置</button>
+    </div>
+
+    <div id="table-card">
+      <table id="pcw-table">
+        <thead>
+          <tr id="pcw-head-row">
+            <th>点位</th>
+            <th>submain1</th>
+            <th>submain2</th>
+            <th>submain3</th>
+            <th>submain4</th>
+            <th>submain5</th>
+            <th>submain6</th>
+            <th>submain7</th>
+            <th>submain8</th>
+            <th>submain9</th>
+            <th>submain10</th>
+            <th>submain11</th>
+            <th>time</th>
+          </tr>
+        </thead>
+        <tbody id="pcw-body"></tbody>
+      </table>
+    </div>
+
+    <div id="charts-grid">
+      <div class="panel">
+        <div class="panel-header clickable" id="spc-panel">
+          <h3 class="panel-title">SPC分析</h3>
+          <div class="spc-summary">
+            <span class="spc-chip oow">OOW(<span id="spc-oow">0</span>)</span>
+            <span class="spc-chip ooc">OOC(<span id="spc-ooc">0</span>)</span>
+            <span class="spc-chip oos">OOS(<span id="spc-oos">0</span>)</span>
+          </div>
+        </div>
+        <div class="chart-stats" id="chart-stats"></div>
+        <div id="pcw-line"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header" style="justify-content:space-between">
+          <h3 class="panel-title">热力图分析</h3>
+        </div>
+        <div class="heatmap-block">
+          <p class="heatmap-title">PCW_Q</p>
+          <div id="pcw-heatmap-q" class="heatmap-canvas"></div>
+        </div>
+        <div class="heatmap-block">
+          <p class="heatmap-title">PCW_PA</p>
+          <div id="pcw-heatmap-pa" class="heatmap-canvas"></div>
+        </div>
+        <div class="heatmap-block">
+          <p class="heatmap-title">PCW_T</p>
+          <div id="pcw-heatmap-t" class="heatmap-canvas"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <button id="agent-button" title="AGENT">AGENT</button>
+  <div id="agent-panel">
+    <div id="agent-panel-header">
+      <span>AGENT 助手</span>
+      <button id="agent-close"
+        style="border:none;background:none;font-size:16px;color:var(--muted);cursor:pointer">×</button>
+    </div>
+    <div id="agent-chat-body">
+      <div class="agent-msg bot">您好，我是 AGENT，可为您提供切机建议。请填写下方表单。</div>
+      <div class="agent-msg bot" style="max-width:100%">
+        <div style="font-weight:600;margin-bottom:4px">切机信息填写</div>
+        <div id="agent-form">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="font-size:12px;color:#333">行1: 从泵A <input id="form-from" type="text"
+                placeholder="如 PCW-PUMP-01" value="PCW-PUMP-01"
+                style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px"></label>
+            <label style="font-size:12px;color:#333">行2: 到泵B <input id="form-to" type="text" placeholder="如 PCW-PUMP-02"
+                value="PCW-PUMP-02"
+                style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px"></label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <label style="font-size:12px;color:#333;flex:1;min-width:140px">行3: 泵A目标 <input id="form-target-a"
+                  type="text" placeholder="+15 Pa 或 50 Hz" value="50 Hz / +15 Pa"
+                  style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px"></label>
+              <label style="font-size:12px;color:#333;flex:1;min-width:140px">泵B目标 <input id="form-target-b" type="text"
+                  placeholder="+15 Pa 或 0 Hz" value="0 Hz / +15 Pa"
+                  style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px"></label>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <label style="font-size:12px;color:#333;flex:1;min-width:140px">行4: 步长 <input id="form-step" type="text"
+                  placeholder="2 Hz" value="2 Hz"
+                  style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px"></label>
+              <label style="font-size:12px;color:#333;flex:1;min-width:140px">允许压差波动 <input id="form-band" type="text"
+                  placeholder="±3 Pa" value="±3 Pa"
+                  style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px"></label>
+              <label style="font-size:12px;color:#333;flex:1;min-width:140px">允许温差波动 <input id="form-temp-band"
+                  type="text" placeholder="±1 ℃" value="±1 ℃"
+                  style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px"></label>
+            </div>
+            <button id="form-submit"
+              style="align-self:flex-start;border:none;background:var(--primary);color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px">提交</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="agent-chat-input">
+      <input id="agent-input" type="text" placeholder="输入问题..." value="我要切机">
+      <button id="agent-send">发送</button>
+    </div>
+  </div>
+
+  <script>
+    const pointNames = ['PCW_Q', 'PCW_PA', 'PCW_T'];
+    const submains = ['submain1', 'submain2', 'submain3', 'submain4', 'submain5', 'submain6', 'submain7', 'submain8', 'submain9', 'submain10', 'submain11'];
+    const timestamps = ['2025-03-29 12:00:00', '2025-03-29 12:00:00', '2025-03-29 12:00:00'];
+
+    const randomValue = (base = 140) => Number((base + Math.random() * 60 - 30).toFixed(2));
+    const heatTooltip = (() => { let el = document.getElementById('heat-tooltip'); if (!el) { el = document.createElement('div'); el.id = 'heat-tooltip'; document.body.appendChild(el); } return d3.select(el); })();
+    const buildTableData = () => {
+      return pointNames.map((name, idx) => ({
+        point: name,
+        values: submains.map(() => randomValue(150 - idx * 10)),
+        time: timestamps[idx]
+      }));
+    };
+    let tableData = buildTableData();
+
+    const renderTable = () => {
+      const tbody = d3.select('#pcw-body');
+      tbody.selectAll('tr').remove();
+      tableData.forEach(row => {
+        const tr = tbody.append('tr');
+        tr.append('td').text(row.point);
+        row.values.forEach((v, idx) => {
+          tr.append('td')
+            .text(v.toFixed(2))
+            .classed('bad', v > 130)
+            .classed('clickable-col', true)
+            .attr('data-submain', submains[idx]);
+        });
+        tr.append('td').text(row.time);
+      });
+      // add clickable headers
+      const headRow = document.getElementById('pcw-head-row');
+      if (headRow) {
+        Array.from(headRow.children).forEach((th, idx) => {
+          if (idx === 0 || idx === headRow.children.length - 1) { return; }
+          th.classList.add('clickable-col');
+          th.setAttribute('data-submain', submains[idx - 1]);
+        });
+      }
+    };
+    renderTable();
+
+    const timeLabels = ['00:00', '02:00', '04:00', '06:00', '08:00', '10:00', '12:00'];
+    const specLines = [
+      { value: 110, color: '#d32f2f', dashStyle: 'ShortDash', width: 1, label: { text: 'OOS 110', style: { color: '#d32f2f', fontSize: '10px' } } },
+      { value: 170, color: '#d32f2f', dashStyle: 'ShortDash', width: 1, label: { text: 'OOS 170', style: { color: '#d32f2f', fontSize: '10px' } } },
+      { value: 120, color: '#ef476f', dashStyle: 'ShortDot', width: 1, label: { text: 'OOC 120', style: { color: '#ef476f', fontSize: '10px' } } },
+      { value: 160, color: '#ef476f', dashStyle: 'ShortDot', width: 1, label: { text: 'OOC 160', style: { color: '#ef476f', fontSize: '10px' } } },
+      { value: 130, color: '#f39c12', dashStyle: 'ShortDot', width: 1, label: { text: 'OOW 130', style: { color: '#f39c12', fontSize: '10px' } } },
+      { value: 150, color: '#f39c12', dashStyle: 'ShortDot', width: 1, label: { text: 'OOW 150', style: { color: '#f39c12', fontSize: '10px' } } }
+    ];
+
+    const lineChart = Highcharts.chart('pcw-line', {
+      chart: { type: 'line', backgroundColor: 'transparent' },
+      title: { text: '' },
+      xAxis: { categories: timeLabels, crosshair: { width: 1, color: '#94a3b8', dashStyle: 'ShortDot' } },
+      yAxis: [
+        { title: { text: '压力/流量' }, plotLines: specLines, crosshair: { width: 1, color: '#94a3b8', dashStyle: 'ShortDot' } },
+        { title: { text: '温度' }, opposite: true, crosshair: { width: 1, color: '#94a3b8', dashStyle: 'ShortDot' } }
+      ],
+      tooltip: { shared: true },
+      legend: { enabled: true },
+      accessibility: { enabled: false },
+      credits: { enabled: false },
+      series: [
+        { name: 'PCW_Q', data: timeLabels.map(() => randomValue(140)), yAxis: 0, color: '#0a66d1' },
+        { name: 'PCW_PA', data: timeLabels.map(() => randomValue(150)), yAxis: 0, color: '#f39c12' },
+        { name: 'PCW_T', data: timeLabels.map(() => randomValue(130)), yAxis: 1, color: '#ef476f' }
+      ]
+    });
+
+    const renderHeatmap = (metric = 'PCW_Q', targetId = 'pcw-heatmap-q') => {
+      d3.select(`#${targetId}`).selectAll('*').remove();
+      const heatmapData = [];
+      submains.forEach((s, row) => {
+        timeLabels.forEach((t, col) => {
+          heatmapData.push({ x: col, y: row, value: Math.round(randomValue(140)), time: t, sub: s });
+        });
+      });
+      const width = document.getElementById(targetId).clientWidth || 400;
+      const height = 180;
+      const margin = { top: 10, right: 10, bottom: 30, left: 60 };
+      const innerW = width - margin.left - margin.right;
+      const innerH = height - margin.top - margin.bottom;
+      const xScale = d3.scaleBand().domain(timeLabels).range([0, innerW]).padding(0.05);
+      const yScale = d3.scaleBand().domain(submains).range([0, innerH]).padding(0.05);
+      const colorScale = d3.scaleSequential(d3.interpolateRdPu).domain([100, 200]);
+      const svg = d3.select(`#${targetId}`).append('svg').attr('width', width).attr('height', height);
+      const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+      g.selectAll('rect')
+        .data(heatmapData)
+        .enter()
+        .append('rect')
+        .attr('x', d => xScale(d.time))
+        .attr('y', d => yScale(d.sub))
+        .attr('width', xScale.bandwidth())
+        .attr('height', yScale.bandwidth())
+        .attr('rx', 3)
+        .attr('fill', d => colorScale(d.value))
+        .on('mousemove', (event, d) => {
+          heatTooltip
+            .style('display', 'block')
+            .style('left', (event.pageX + 12) + 'px')
+            .style('top', (event.pageY + 12) + 'px')
+            .html([
+              `<div style="font-weight:600;margin-bottom:4px">${metric}</div>`,
+              `<div>时间：${d.time}</div>`,
+              `<div>点位：${d.sub}</div>`,
+              `<div>数值：${d.value}</div>`
+            ].join(''));
+        })
+        .on('mouseleave', () => heatTooltip.style('display', 'none'));
+      g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(xScale));
+      g.append('g').call(d3.axisLeft(yScale));
+    };
+    const updateSpcCounts = data => {
+      let oow = 0, ooc = 0, oos = 0;
+      data.forEach(v => {
+        if (v < 110 || v > 170) { oos++; return; }
+        if (v < 120 || v > 160) { ooc++; return; }
+        if (v < 130 || v > 150) { oow++; return; }
+      });
+      document.getElementById('spc-oow').textContent = oow;
+      document.getElementById('spc-ooc').textContent = ooc;
+      document.getElementById('spc-oos').textContent = oos;
+    };
+
+    const updateStats = (data) => {
+      if (!data || !data.length) { return; }
+      const sorted = [...data].sort((a, b) => a - b);
+      const min = sorted[0];
+      const max = sorted[sorted.length - 1];
+      const mean = data.reduce((s, v) => s + v, 0) / data.length;
+      const mid = Math.floor(sorted.length / 2);
+      const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+      const slope = (data[data.length - 1] - data[0]) / (data.length - 1 || 1);
+      const statsEl = document.getElementById('chart-stats');
+      if (statsEl) {
+        statsEl.innerHTML = `<span>最小值 ${min.toFixed(2)}</span><span>最大值 ${max.toFixed(2)}</span><span>中位数 ${median.toFixed(2)}</span><span>均值 ${mean.toFixed(2)}</span><span>斜率 ${slope.toFixed(2)}/点</span>`;
+      }
+    };
+
+    renderHeatmap('PCW_Q', 'pcw-heatmap-q');
+    renderHeatmap('PCW_PA', 'pcw-heatmap-pa');
+    renderHeatmap('PCW_T', 'pcw-heatmap-t');
+    updateStats(lineChart.series[0].data.map(p => p.y));
+
+    const refreshSeries = (submain = 'submain1') => {
+      tableData = buildTableData();
+      renderTable();
+      const idx = submains.indexOf(submain);
+      const offset = idx >= 0 ? idx * 5 : 0;
+      const qData = timeLabels.map(() => randomValue(150 + offset));
+      const paData = timeLabels.map(() => randomValue(150 + offset / 2));
+      const tData = timeLabels.map(() => randomValue(130 + offset / 3));
+      lineChart.series[0].setData(qData, false);
+      lineChart.series[1].setData(paData, false);
+      lineChart.series[2].setData(tData, false);
+      lineChart.redraw();
+      updateSpcCounts(qData);
+      updateStats(qData);
+      highlightColumn(submain);
+
+      // Auto-Agent Anomaly Check
+      const anomaly = checkDataAnomalies(qData, submain);
+      if (anomaly.hasIssue) {
+        triggerAgentAlarm(anomaly);
+      }
+    };
+
+    const checkDataAnomalies = (data, submain) => {
+      let severeIssues = [];
+      const oosLower = 110;
+      const oosUpper = 170;
+      let oosCount = 0;
+      data.forEach((val) => {
+        if (val < oosLower || val > oosUpper) {
+          oosCount++;
+        }
+      });
+      if (oosCount > 0) {
+        severeIssues.push(`${oosCount} 个点超出 SPEC 规格 (${oosLower}-${oosUpper})`);
+      }
+
+      const slopeThreshold = 40; // High threshold for random data
+      let maxSlope = 0;
+      for (let i = 1; i < data.length; i++) {
+        const diff = Math.abs(data[i] - data[i - 1]);
+        if (diff > maxSlope) maxSlope = diff;
+      }
+      if (maxSlope > slopeThreshold) {
+        severeIssues.push(`检测到异常波动 (最大斜率 ${maxSlope.toFixed(1)} > ${slopeThreshold})`);
+      }
+
+      return { hasIssue: severeIssues.length > 0, issues: severeIssues, submain };
+    };
+
+    const triggerAgentAlarm = (anomaly) => {
+      const lastTrigger = triggerAgentAlarm.lastTrigger || {};
+      // Debounce: same submain within 15s or just too frequent
+      if (lastTrigger.sub === anomaly.submain && (Date.now() - lastTrigger.time < 15000)) {
+        return;
+      }
+      triggerAgentAlarm.lastTrigger = { sub: anomaly.submain, time: Date.now() };
+
+      if (!document.getElementById('agent-panel').classList.contains('visible')) {
+        toggleAgent();
+      }
+
+      const now = new Date().toLocaleString('zh-CN', { hour12: false });
+      const html = `
+        <div style="color:#d32f2f;font-weight:700;margin-bottom:6px">⚠️ 警告：检测到 ${anomaly.submain} 数据异常</div>
+        <div style="margin-bottom:8px;line-height:1.5;font-size:12px;color:#333">
+          ${anomaly.issues.map(i => `• ${i}`).join('<br>')}
+        </div>
+        <div style="font-size:12px;color:#666;margin-bottom:8px">时间：${now}</div>
+        <button class="agent-check" style="background:#fff;border:1px solid #d32f2f;color:#d32f2f" onclick="const p=this.parentNode;p.innerHTML='<div style=\\'color:#0a66d1\\'>🔄 正在调用 AI 模型分析根因...</div>';setTimeout(()=>{p.innerHTML='<div style=\\'background:#f0f9ff;padding:8px;border-radius:6px;border:1px solid #bae6fd\\'><div style=\\'font-weight:bold;color:#0369a1;margin-bottom:4px\\'>🤖 AI 分析报告</div><div>• 根因：PCW 供水泵频率抖动</div><div>• 建议：检查变频器反馈信号</div><div style=\\'margin-top:6px;color:#0284c7;cursor:pointer\\'><u>查看完整 SOP >></u></div></div>'},2000)">生成异常分析报告</button>
+      `;
+      appendHtmlMsg(html);
+    };
+
+    const highlightColumn = sub => {
+      document.querySelectorAll('#pcw-table .col-selected').forEach(el => el.classList.remove('col-selected'));
+      document.querySelectorAll(`#pcw-table [data-submain="${sub}"]`).forEach(el => el.classList.add('col-selected'));
+    };
+
+    document.getElementById('reset-btn').addEventListener('click', () => { refreshSeries(); renderHeatmap('PCW_Q', 'pcw-heatmap-q'); renderHeatmap('PCW_PA', 'pcw-heatmap-pa'); renderHeatmap('PCW_T', 'pcw-heatmap-t'); });
+    document.getElementById('query-btn').addEventListener('click', () => { refreshSeries(); renderHeatmap('PCW_Q', 'pcw-heatmap-q'); renderHeatmap('PCW_PA', 'pcw-heatmap-pa'); renderHeatmap('PCW_T', 'pcw-heatmap-t'); });
+
+    // SPC详情跳转
+    document.getElementById('spc-panel').addEventListener('click', () => {
+      window.open('spc_detail.html', '_blank');
+    });
+
+    // clickable columns trigger refresh by submain (only line chart/stats)
+    // clickable columns trigger refresh by submain (only line chart/stats)
+    document.getElementById('pcw-table').addEventListener('click', e => {
+      const cell = e.target.closest('th, td');
+      if (!cell) return;
+      const sub = cell.getAttribute('data-submain');
+      if (sub) {
+        refreshSeries(sub);
+        // Sync index if in monitor mode or simply to keep valid state
+        const idx = submains.indexOf(sub);
+        if (idx !== -1) {
+          currentSubmainIndex = idx;
+          // Reset timer to avoid immediate jump
+          if (isMonitorMode) {
+            restartPolling();
+          }
+        }
+      }
+    });
+
+    // Monitor Mode Logic
+    let isMonitorMode = true;
+    let monitorInterval = null;
+    let currentSubmainIndex = 0;
+    const monitorToggle = document.getElementById('monitor-toggle');
+
+    const startPolling = () => {
+      stopPolling();
+      monitorInterval = setInterval(() => {
+        currentSubmainIndex = (currentSubmainIndex + 1) % submains.length;
+        refreshSeries(submains[currentSubmainIndex]);
+      }, 5000);
+    };
+
+    const stopPolling = () => {
+      if (monitorInterval) {
+        clearInterval(monitorInterval);
+        monitorInterval = null;
+      }
+    };
+
+    const restartPolling = () => {
+      stopPolling();
+      if (isMonitorMode) startPolling();
+    };
+
+    monitorToggle.addEventListener('click', () => {
+      isMonitorMode = !isMonitorMode;
+      monitorToggle.classList.toggle('active', isMonitorMode);
+      monitorToggle.setAttribute('aria-checked', isMonitorMode);
+
+      if (isMonitorMode) {
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    });
+
+    // Start by default
+    startPolling();
+
+    const agentBtn = document.getElementById('agent-button');
+    const agentPanel = document.getElementById('agent-panel');
+    const agentClose = document.getElementById('agent-close');
+    const agentBody = document.getElementById('agent-chat-body');
+    const agentInput = document.getElementById('agent-input');
+    const agentSend = document.getElementById('agent-send');
+    const toggleAgent = () => agentPanel.classList.toggle('visible');
+    const appendMsg = (text, role = 'bot') => {
+      const div = document.createElement('div');
+      div.className = `agent-msg ${role === 'user' ? 'user' : 'bot'}`;
+      div.textContent = text;
+      agentBody.appendChild(div);
+      agentBody.scrollTop = agentBody.scrollHeight;
+    };
+    const appendHtmlMsg = (html) => {
+      const div = document.createElement('div');
+      div.className = 'agent-msg bot';
+      div.innerHTML = html;
+      agentBody.appendChild(div);
+      agentBody.scrollTop = agentBody.scrollHeight;
+      div.querySelectorAll('.agent-check').forEach(btn => {
+        btn.addEventListener('click', () => btn.classList.toggle('done'));
+      });
+      return div;
+    };
+    agentBtn.addEventListener('click', toggleAgent);
+    agentClose.addEventListener('click', toggleAgent);
+    agentSend.addEventListener('click', () => {
+      const text = agentInput.value.trim();
+      if (!text) return;
+      appendMsg(text, 'user');
+      agentInput.value = '';
+      appendMsg('已收到切机请求，请确认目标风机与压差范围后按 SOP 操作。', 'bot');
+    });
+
+    document.getElementById('form-submit').addEventListener('click', () => {
+      const from = document.getElementById('form-from').value.trim() || '未填';
+      const to = document.getElementById('form-to').value.trim() || '未填';
+      const targetA = document.getElementById('form-target-a').value.trim() || '未填';
+      const targetB = document.getElementById('form-target-b').value.trim() || '未填';
+      const step = document.getElementById('form-step').value.trim() || '未填';
+      const band = document.getElementById('form-band').value.trim() || '未填';
+      const tband = document.getElementById('form-temp-band').value.trim() || '未填';
+      const parseHz = (txt, def) => { const m = txt.match(/(-?\d+\.?\d*)\s*hz/i); return m ? parseFloat(m[1]) : def; };
+      const stepNum = parseFloat(step) || 2;
+      const startA = parseHz(targetA, 30);
+      const startB = parseHz(targetB, 0);
+      const midB = (startB || 0) + stepNum;
+      const finalB = Math.max(startB, midB + stepNum);
+      const afterA = Math.max(0, startA - stepNum);
+      const checklist = [
+        `PCW 供水压力：165.1（是否超 spec）`,
+        `PCW 回水压力：114.1（是否超 spec）`,
+        `PCW 压差：2.7（是否超 spec）`,
+        `PCW 流量：${randomValue(500).toFixed(1)}（是否超 spec：否）`,
+        `PCW 温度：${randomValue(18).toFixed(1)}℃（是否超 spec：否，波动 ${tband}，target:${tband})`,
+        `submain1-submain11：供水压力 SPC 正常`,
+        `一次泵是否有报警：无`,
+        `二次泵是否有报警：无`
+      ];
+      const steps = [
+        `检查泵B（${to}）可用，泵A（${from}）运行稳定，无告警。`,
+        `泵B 拉升：0 Hz → ${midB.toFixed(1)} Hz（步长 ${stepNum} Hz），验证通过，监控压差/流量在 ${band} 内。`,
+        `泵B 继续拉升：${midB.toFixed(1)} Hz → ${finalB.toFixed(1)} Hz（步长 ${stepNum} Hz），验证通过，确认压差稳定。`,
+        `泵A 降频：${startA.toFixed(1)} Hz → ${afterA.toFixed(1)} Hz（步长 ${stepNum} Hz），验证通过，保持压差在目标范围。`,
+        `泵A 进一步降至最小/停机：${afterA.toFixed(1)} Hz → 0 Hz，验证通过，观测 5 分钟。`,
+        '若压差异常，暂停并回调上一步频率，确认稳定后再继续。',
+        '完成切机后记录频率、压差，确认 SPC 无异常。'
+      ];
+      const buildSopHtml = (withReport = false) => {
+        const rows = [
+          `<tr><td style="font-weight:700">切机工况评估</td><td><span class="agent-status-ok">切机工况评估结论：具备切机条件</span><div style="margin-top:6px;line-height:1.5">${checklist.map(item => `• ${item}`).join('<br>')}</div></td><td><button class="agent-check">✓</button> <button class="agent-validate" data-row="eval">🔍</button></td></tr>`,
+          ...steps.map((txt, idx) => `<tr><td>${idx + 1}</td><td>${txt}</td><td><button class="agent-check">✓</button> <button class="agent-validate" data-row="${idx + 1}">🔍</button></td></tr>`),
+          withReport ? `<tr><td colspan="3" style="font-weight:700">切机报告：操作已完成，压差/流量正常，记录归档。日期：${new Date().toLocaleString('zh-CN', { hour12: false })}</td></tr>` : ''
+        ].join('');
+        return `<div style="font-weight:600;margin-bottom:6px">切机 SOP（表单提交）</div><table class="agent-table"><thead><tr><th>序号</th><th>步骤</th><th>检查</th></tr></thead><tbody>${rows}</tbody></table><div style="margin-top:8px;text-align:right"><button class="agent-check" id="sop-submit-btn">提交</button></div>`;
+      };
+
+      const msgEl = appendHtmlMsg(buildSopHtml(false));
+      const bindActions = (container) => {
+        container.querySelectorAll('.agent-validate').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const tr = btn.closest('tr');
+            const cell = tr?.querySelector('td:nth-child(2)');
+            if (!cell) { return; }
+            const now = new Date().toLocaleString('zh-CN', { hour12: false });
+            const value = (Math.random() * 20 + 120).toFixed(2);
+            const stamp = document.createElement('div');
+            stamp.style.marginTop = '4px';
+            stamp.innerHTML = `<span class="agent-status-ok">数据验证通过</span> | 最新值 ${value} @ ${now}`;
+            cell.appendChild(stamp);
+          });
+        });
+      };
+      bindActions(msgEl);
+      const submitBtn = msgEl.querySelector('#sop-submit-btn');
+      if (submitBtn) {
+        submitBtn.addEventListener('click', () => {
+          const reportEl = appendHtmlMsg(buildSopHtml(true));
+          bindActions(reportEl);
+          appendMsg('已提交本次切机 SOP，系统已记录。', 'bot');
+        });
+      }
+    });
+  </script>
+</body>
+
+</html>

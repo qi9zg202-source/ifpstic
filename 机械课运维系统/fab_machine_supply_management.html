@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="zh-cn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>机台供应管理 - 机械课运维</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    :root{
+      --bg:#f3f6fb;
+      --card:#ffffff;
+      --border:#d7deea;
+      --primary:#0a66d1;
+      --muted:#6a7590;
+      --success:#2ecc71;
+      --warn:#ff9800;
+      --danger:#ef476f;
+      --text:#0f1b2d;
+      --sidebar:#0f1b2d;
+      --sidebar-text:#cfd7ea;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;height:100%;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--text)}
+    #app-shell{display:grid;grid-template-columns:240px 1fr;height:100vh;overflow:hidden}
+    #sidebar{background:var(--sidebar);color:var(--sidebar-text);display:flex;flex-direction:column}
+    #sidebar h1{margin:16px 16px 8px;font-size:18px;color:#fff}
+    #sidebar nav{flex:1;overflow:auto;padding:0 12px 12px}
+    .menu-section{margin-top:12px}
+    .menu-title{font-size:12px;color:#8691a8;padding:8px 12px;text-transform:uppercase;letter-spacing:0.6px}
+    .menu-item{padding:10px 12px;border-radius:10px;color:var(--sidebar-text);display:flex;align-items:center;gap:8px;cursor:pointer}
+    .menu-item.active{background:rgba(255,255,255,0.08);color:#fff}
+    #content{display:flex;flex-direction:column;overflow:hidden}
+    #topbar{display:flex;align-items:center;gap:12px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+    #filter-bar{padding:10px 16px;background:#fff;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .filter-group{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+    .filter-group input,.filter-group select{padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:#fff}
+    .pill-button{border:1px solid var(--border);background:#fff;border-radius:18px;padding:6px 10px;font-size:12px;cursor:pointer}
+    .pill-button.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+    #main{padding:12px 16px;overflow:auto;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:12px}
+    .panel{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.05);padding:12px;display:flex;flex-direction:column;gap:10px}
+    .panel-header{display:flex;align-items:center;justify-content:space-between}
+    .panel-title{margin:0;font-size:14px;font-weight:600}
+    #status-table{width:100%;border-collapse:collapse;font-size:12px}
+    #status-table th,#status-table td{border:1px solid var(--border);padding:8px;text-align:center}
+    #status-table th{background:#eef3fb;color:var(--text);font-weight:600}
+    #status-table td.metric-bad{color:var(--danger);font-weight:700}
+    #heatmap{width:100%;height:320px}
+    #chart-container{width:100%;height:320px}
+    .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;font-size:11px;background:#eef3fb;color:var(--text)}
+    .legend-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+    .site-tab{border:none;background:none;font-size:12px;color:var(--muted);cursor:pointer;padding:8px 6px;position:relative}
+    .site-tab.active{color:var(--primary);font-weight:600}
+    .site-tab.active::after{content:'';position:absolute;left:6px;right:6px;bottom:2px;height:2px;background:var(--primary);border-radius:2px}
+    #agent-button{position:fixed;right:22px;bottom:22px;width:56px;height:56px;border-radius:50%;background:var(--primary);color:#fff;border:none;box-shadow:0 12px 30px rgba(10,102,209,0.3);cursor:pointer;font-weight:700;letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;animation:agent-bounce 1.8s ease-in-out infinite}
+    #agent-panel{position:fixed;right:22px;top:12px;bottom:12px;width:340px;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,0.12);display:flex;flex-direction:column;overflow:hidden;opacity:0;pointer-events:none;transform:translateY(8px);transition:all 0.2s ease}
+    #agent-panel.visible{opacity:1;pointer-events:auto;transform:translateY(0)}
+    #agent-panel-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);background:#f7f9fc;font-size:13px;font-weight:600;color:var(--text)}
+    #agent-chat-body{flex:1;overflow:auto;padding:10px;background:#fafbff;font-size:12px;color:var(--text);display:flex;flex-direction:column;gap:8px}
+    .agent-msg{padding:8px 10px;border-radius:10px;max-width:85%;line-height:1.4}
+    .agent-msg.bot{background:#e9f1ff;align-self:flex-start}
+    .agent-msg.user{background:#f1f5f9;align-self:flex-end}
+    #agent-chat-input{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border);background:#fff}
+    #agent-chat-input input{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px}
+    #agent-chat-input button{border:none;background:var(--primary);color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer}
+    .agent-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+    .agent-table th,.agent-table td{border:1px solid var(--border);padding:6px;text-align:left;vertical-align:top}
+    .agent-table th{background:#eef3fb;font-weight:600}
+    .agent-check{border:1px solid var(--border);background:#fff;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer}
+    .agent-check.done{background:#2ecc71;color:#fff;border-color:#2ecc71}
+    .agent-status-ok{color:#2e7d32;font-weight:600}
+    .agent-status-fail{color:#d32f2f;font-weight:700}
+    @keyframes agent-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  </style>
+</head>
+<body>
+  <div id="app-shell">
+    <aside id="sidebar">
+      <h1>Pxsemi | IFP</h1>
+      <nav>
+        <div class="menu-section">
+          <div class="menu-title">设备运维</div>
+          <div class="menu-item">任务管理</div>
+          <div class="menu-item">巡检管理</div>
+          <div class="menu-item active">机台供应管理</div>
+          <div class="menu-item">FFU设备管理</div>
+          <div class="menu-item">EXH机台管理</div>
+        </div>
+        <div class="menu-section">
+          <div class="menu-title">监测</div>
+          <div class="menu-item">SPC指标</div>
+          <div class="menu-item">能耗监测</div>
+        </div>
+      </nav>
+    </aside>
+    <div id="content">
+      <div id="filter-bar">
+        <div class="filter-group">
+          <span>时间</span>
+          <select id="filter-range">
+            <option>近12h</option><option>近24h</option><option selected>本日</option><option>本周</option>
+          </select>
+          <input id="filter-date" type="datetime-local">
+        </div>
+        <button class="pill-button primary" id="btn-query">查询</button>
+        <button class="pill-button" id="btn-reset">重置</button>
+      </div>
+      <div id="site-tabs" style="background:#fff;padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:14px;align-items:center;overflow:auto">
+        <button class="site-tab active" data-site="SEX">SEX</button>
+        <button class="site-tab" data-site="AEX">AEX</button>
+        <button class="site-tab" data-site="VEX">VEX</button>
+        <button class="site-tab" data-site="PGEX">PGEX</button>
+        <button class="site-tab" data-site="ASX">ASX</button>
+        <button class="site-tab" data-site="SEX-EPI">SEX-EPI</button>
+        <button class="site-tab" data-site="PGEX-EPI">PGEX-EPI</button>
+      </div>
+      <div id="main">
+        <div class="panel" style="grid-column:1 / span 2">
+          <div class="panel-header">
+            <h3 class="panel-title">机台分支状态</h3>
+            <div class="badge"><span class="legend-dot" style="background:var(--danger)"></span>超标</div>
+          </div>
+          <div style="overflow:auto">
+            <table id="status-table">
+              <thead>
+                <tr>
+                  <th>点位</th>
+                  <th>submain1</th>
+                  <th>submain2</th>
+                  <th>submain3</th>
+                  <th>submain4</th>
+                  <th>submain5</th>
+                  <th>submain6</th>
+                  <th>submain7</th>
+                  <th>submain8</th>
+                  <th>submain9</th>
+                  <th>submain10</th>
+                  <th>submain11</th>
+                  <th>时间</th>
+                </tr>
+              </thead>
+              <tbody id="status-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title">指标分析</h3>
+            <div class="badge">ALARM(0) | OOC(0) | OOW(0)</div>
+          </div>
+          <div id="chart-container"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title">热力图分析</h3>
+            <div class="badge">PA</div>
+          </div>
+          <div id="heatmap"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <button id="agent-button" title="AGENT">AGENT</button>
+  <div id="agent-panel">
+    <div id="agent-panel-header">
+      <span>AGENT 助手</span>
+      <button id="agent-close" style="border:none;background:none;font-size:16px;color:var(--muted);cursor:pointer">×</button>
+    </div>
+    <div id="agent-chat-body">
+      <div class="agent-msg bot">您好，我是 AGENT，可以为您解读机台分支数据或生成报告。</div>
+      <div class="agent-msg bot" style="max-width:100%">
+        <div style="font-weight:600;margin-bottom:4px">倒机信息填写</div>
+        <div id="agent-form">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="font-size:12px;color:#333">行1: 从风机A <input id="form-from" type="text" placeholder="如 SF-CR-BAY3-01" value="SF-CR-BAY3-01" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px"></label>
+            <label style="font-size:12px;color:#333">行2: 到风机B <input id="form-to" type="text" placeholder="如 SF-CR-BAY3-02" value="SF-CR-BAY3-02" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px"></label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <label style="font-size:12px;color:#333;flex:1;min-width:130px">行3: 风机A目标 <input id="form-target-a" type="text" placeholder="+15 Pa" value="+15 Pa" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px"></label>
+              <label style="font-size:12px;color:#333;flex:1;min-width:130px">风机B目标 <input id="form-target-b" type="text" placeholder="+15 Pa" value="+15 Pa" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px"></label>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <label style="font-size:12px;color:#333;flex:1;min-width:130px">行4: 步长 <input id="form-step" type="text" placeholder="2 Hz" value="2 Hz" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px"></label>
+              <label style="font-size:12px;color:#333;flex:1;min-width:130px">允许压差波动 <input id="form-band" type="text" placeholder="±3 Pa" value="±3 Pa" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px"></label>
+            </div>
+            <button id="form-submit" style="align-self:flex-start;border:none;background:var(--primary);color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px">提交</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="agent-chat-input">
+      <input id="agent-input" type="text" placeholder="输入问题..." value="我要倒机">
+      <button id="agent-send">发送</button>
+    </div>
+  </div>
+  <script>
+    const submains=['submain1','submain2','submain3','submain4','submain5','submain6','submain7','submain8','submain9','submain10','submain11'];
+    const timeLabels=['00:00','02:00','04:00','06:00','08:00','10:00','12:00'];
+    const siteList=['SEX','AEX','VEX','PGEX','ASX','SEX-EPI','PGEX-EPI'];
+
+    const generateSiteData=site=>{
+      const seed=site.split('').reduce((sum,ch)=>sum+ch.charCodeAt(0),0);
+      const rand=(n)=>Math.abs(Math.sin(seed*n))*80+80;
+      return [
+        {point:'PA',values:submains.map((_,idx)=>rand(idx+1)),time:'2025-03-29 12:00'},
+        {point:'PB',values:submains.map((_,idx)=>rand(idx+2)-10),time:'2025-03-29 12:00'}
+      ];
+    };
+
+    let currentSite='SEX';
+    let statusData=generateSiteData(currentSite);
+    const statusBody=d3.select('#status-body');
+    const renderStatusTable=()=>{
+      statusBody.selectAll('tr').remove();
+      statusData.forEach(row=>{
+        const tr=statusBody.append('tr');
+        tr.append('td').text(row.point);
+        row.values.forEach(v=>{
+          tr.append('td').text(v.toFixed(2)).classed('metric-bad',v>130);
+        });
+        tr.append('td').text(row.time);
+      });
+    };
+
+    const lineChart=Highcharts.chart('chart-container',{
+      chart:{type:'spline',backgroundColor:'transparent'},
+      title:{text:''},
+      xAxis:{categories:timeLabels},
+      yAxis:{title:{text:'压力(kPa)'}},
+      legend:{enabled:false},
+      series:[{name:'指标值',data:[],color:'#0a66d1',lineWidth:2}],
+      credits:{enabled:false},
+      tooltip:{shared:true,valueSuffix:' kPa'}
+    });
+
+    const renderHeatmap=(site)=>{
+      d3.select('#heatmap').selectAll('*').remove();
+      const heatmapData=[];
+      submains.forEach((s,row)=>{
+        timeLabels.forEach((t,col)=>{
+          heatmapData.push({x:col,y:row,value:Math.round(60+Math.random()*120),time:t,sub:s});
+        });
+      });
+      const heatmapWidth=document.getElementById('heatmap').clientWidth||600;
+      const heatmapHeight=260;
+      const svg=d3.select('#heatmap').append('svg').attr('width',heatmapWidth).attr('height',heatmapHeight);
+      const margin={top:10,right:10,bottom:30,left:60};
+      const innerWidth=heatmapWidth-margin.left-margin.right;
+      const innerHeight=heatmapHeight-margin.top-margin.bottom;
+      const xScale=d3.scaleBand().domain(timeLabels).range([0,innerWidth]).padding(0.05);
+      const yScale=d3.scaleBand().domain(submains).range([0,innerHeight]).padding(0.05);
+      const colorScale=d3.scaleSequential(d3.interpolateRdPu).domain([60,180]);
+      const g=svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+      g.selectAll('rect')
+        .data(heatmapData)
+        .enter()
+        .append('rect')
+        .attr('x',d=>xScale(d.time))
+        .attr('y',d=>yScale(d.sub))
+        .attr('width',xScale.bandwidth())
+        .attr('height',yScale.bandwidth())
+        .attr('rx',3)
+        .attr('fill',d=>colorScale(d.value));
+      const xAxis=d3.axisBottom(xScale);
+      const yAxis=d3.axisLeft(yScale);
+      g.append('g').attr('transform',`translate(0,${innerHeight})`).call(xAxis).selectAll('text').attr('font-size','11px');
+      g.append('g').call(yAxis).selectAll('text').attr('font-size','11px');
+    };
+
+    const updateCharts=()=>{
+      const latest=statusData[0]?.values||[];
+      lineChart.series[0].setData(latest.slice(0,timeLabels.length),true);
+      renderHeatmap(currentSite);
+    };
+
+    const refreshAll=()=>{
+      statusData=generateSiteData(currentSite);
+      renderStatusTable();
+      updateCharts();
+    };
+    refreshAll();
+
+    document.querySelectorAll('.site-tab').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        document.querySelectorAll('.site-tab').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSite=btn.dataset.site;
+        refreshAll();
+      });
+    });
+
+    const agentBtn=document.getElementById('agent-button');
+    const agentPanel=document.getElementById('agent-panel');
+    const agentClose=document.getElementById('agent-close');
+    const agentBody=document.getElementById('agent-chat-body');
+    const agentInput=document.getElementById('agent-input');
+    const agentSend=document.getElementById('agent-send');
+
+    const toggleAgent=()=>{
+      agentPanel.classList.toggle('visible');
+    };
+    agentBtn.addEventListener('click',toggleAgent);
+    agentClose.addEventListener('click',toggleAgent);
+    const appendMessage=(text,role='bot')=>{
+      const msg=document.createElement('div');
+      msg.className=`agent-msg ${role==='user'?'user':'bot'}`;
+      msg.textContent=text;
+      agentBody.appendChild(msg);
+      agentBody.scrollTop=agentBody.scrollHeight;
+    };
+
+    const appendHtmlMessage=(html)=>{
+      const msg=document.createElement('div');
+      msg.className='agent-msg bot';
+      msg.innerHTML=html;
+      agentBody.appendChild(msg);
+      agentBody.scrollTop=agentBody.scrollHeight;
+      msg.querySelectorAll('.agent-check').forEach(btn=>{
+        btn.addEventListener('click',()=>btn.classList.toggle('done'));
+      });
+      return msg;
+    };
+
+    agentSend.addEventListener('click',()=>{
+      const text=agentInput.value.trim();
+      if(!text){return;}
+      appendMessage(text,'user');
+      agentInput.value='';
+      const lower=text.toLowerCase();
+      if(lower.includes('倒机')){
+        appendMessage([
+          '请按模版回复风机编号（保持换行）：',
+          '● 从风机A：[SF-CR-BAY3-01（当前 50 Hz）] 需用户输入',
+          '● 到风机B：[SF-CR-BAY3-02（当前 0 Hz，已确认可用）]需用户输入',
+          '● submain3 目标 +15 Pa，当前 +15 Pa；submain2 略低 +13 Pa；需用户输入',
+          '● 步长 2 Hz，每步观察 5 分钟，允许压差波动 ±3 Pa。'
+        ].join('\n'),'bot');
+      }else{
+        appendMessage('已收到您的问题，稍后为您整理洞察。','bot');
+      }
+    });
+
+    document.getElementById('form-submit').addEventListener('click',()=>{
+      const from=document.getElementById('form-from').value.trim()||'未填';
+      const to=document.getElementById('form-to').value.trim()||'未填';
+      const targetA=document.getElementById('form-target-a').value.trim()||'未填';
+      const targetB=document.getElementById('form-target-b').value.trim()||'未填';
+      const step=document.getElementById('form-step').value.trim()||'未填';
+      const band=document.getElementById('form-band').value.trim()||'未填';
+      const pressures=statusData?.[0]?.values||[];
+      const pMin=pressures.length?Math.min(...pressures).toFixed(1):'--';
+      const pMax=pressures.length?Math.max(...pressures).toFixed(1):'--';
+      const ready=true; // 模拟数据，默认具备倒机工况
+      const buildSopHtml=(includeResultRow=false)=>{
+        const evalRow=`倒机工况结果：<span class="${ready?'agent-status-ok':'agent-status-fail'}">${ready?'具备导机工况':'不具备导机工况'}</span>；当前 submain1~submain11 压差范围 ${pMin} ～ ${pMax} Pa；倒机路径 ${from} → ${to}；目标 ${targetA}/${targetB}，步长 ${step}，允许波动 ${band}`;
+        const steps=[
+          {text:`FAB2 / BAY3 倒机准备：从 ${from} → ${to}，监控 sunmain1～sunmain3 压差`, checkScada:false},
+          {text:'1）确认目标风机可启动，控制方式远程自动可控，无告警。',checkScada:false},
+          {text:'2）在 SCADA 确认主要压差点：sunmain1、sunmain2、sunmain3 均在目标范围。',checkScada:true},
+          {text:'3）确认原风机运行频率与洁净室压差稳定，无 SPC 异常告警。',checkScada:true},
+          {text:`4）启动新风机，初始频率按步长 ${step}（如 30 Hz），观察 5 分钟，压差允许波动 ${band}。`,checkScada:true},
+          {text:`5）逐步提升新风机频率（每步不超过 ${step}），每步观察 5～10 分钟，确认压差在范围内。`,checkScada:true},
+          {text:`6）分阶段降低原风机频率，保持压差在目标：风机A目标 ${targetA}，风机B目标 ${targetB}。`,checkScada:true},
+          {text:'7）任一 sunmain 压差超出范围或快速变化时，暂停调整并回调到上一步稳定值。',checkScada:false},
+          {text:'8）完成倒机后，确认压差稳定 ≥10 分钟且无 SPC 告警，记录频率与压差变化。',checkScada:false}
+        ];
+        const rows=[
+          `<tr><td style="font-weight:700">评估</td><td>${evalRow}</td><td><button class="agent-check">✓</button></td></tr>`,
+          ...steps.map((item,idx)=>{
+            const ok=Math.random()>0.2;
+            const status=item.checkScada?`<div class="${ok?'agent-status-ok':'agent-status-fail'}">${ok?'SCADA 点位已写入成功':'SCADA 点位未生效，需检查'}</div>`:'';
+            return `<tr><td>${idx+1}</td><td>${item.text}${status}</td><td><button class="agent-check">✓</button></td></tr>`;
+          }),
+          includeResultRow ? `<tr><td colspan="3" style="font-weight:600">倒机结果评估：<span class="${ready?'agent-status-ok':'agent-status-fail'}">${ready?'倒机成功，工况满足，所有步骤已提交完成':'倒机未成功或工况不足，请复核步骤'}</span></td></tr>` : ''
+        ].join('');
+        return `<div style="font-weight:600;margin-bottom:6px">导机 SOP（表单提交）</div><table class="agent-table"><thead><tr><th>序号</th><th>步骤</th><th>检查</th></tr></thead><tbody>${rows}</tbody></table><div style="margin-top:8px;text-align:right"><button class="agent-check" id="sop-submit-btn">提交</button></div>`;
+      };
+      const msgEl=appendHtmlMessage(buildSopHtml(false));
+      const submitBtn=msgEl.querySelector('#sop-submit-btn');
+      if(submitBtn){
+        submitBtn.addEventListener('click',()=>{
+          appendHtmlMessage(buildSopHtml(true));
+          appendMessage('已提交本次导机 SOP，系统已记录。','bot');
+        });
+      }
+    });
+  </script>
+</body>
+</html>

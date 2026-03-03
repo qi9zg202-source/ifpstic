@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAB晶圆厂 - 空调水质检测记录</title>
+    
+    <!-- Highcharts CDN -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header h2 {
+            font-size: 18px;
+            color: #4CAF50;
+            font-weight: normal;
+        }
+        
+        .header .subtitle {
+            font-size: 14px;
+            color: #ccc;
+            margin-top: 10px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        .chart-section {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            padding: 20px;
+        }
+        
+        .system-info {
+            background: #f8f9fa;
+            border-left: 4px solid #0076A8;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .system-info h3 {
+            font-size: 16px;
+            color: #0076A8;
+            margin-bottom: 8px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+        
+        .system-info p {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .chart-container {
+            height: 600px;
+            margin-top: 20px;
+        }
+        
+        .legend-info {
+            background: #f0f8ff;
+            border: 1px solid #0076A8;
+            border-radius: 5px;
+            padding: 12px;
+            margin-top: 15px;
+            font-size: 12px;
+            color: #333;
+        }
+        
+        .legend-item {
+            display: inline-block;
+            margin-right: 20px;
+            margin-bottom: 5px;
+        }
+        
+        .legend-color {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+        
+        .actual {
+            background: #0076A8;
+        }
+        
+        .predicted {
+            background: #FF6B6B;
+        }
+        
+        .trend-line {
+            background: #4CAF50;
+        }
+        
+        .standard-range {
+            background: #FFA726;
+        }
+        
+        /* 加药气泡样式 */
+        .dosing-bubble {
+            position: absolute;
+            width: 35px;
+            height: 35px;
+            background: #FF4081;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 8px rgba(255, 64, 129, 0.5);
+            animation: pulse 2s infinite;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .dosing-bubble .bubble-icon {
+            font-size: 12px;
+            line-height: 1;
+            margin-bottom: 1px;
+        }
+        
+        .dosing-bubble .bubble-time {
+            font-size: 7px;
+            color: white;
+            font-weight: bold;
+            line-height: 1;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+        
+        .dosing-bubble:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 12px rgba(255, 64, 129, 0.7);
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 2px 8px rgba(255, 64, 129, 0.5);
+            }
+            50% {
+                box-shadow: 0 2px 8px rgba(255, 64, 129, 0.8), 0 0 0 5px rgba(255, 64, 129, 0.3);
+            }
+            100% {
+                box-shadow: 0 2px 8px rgba(255, 64, 129, 0.5);
+            }
+        }
+        
+        /* 加药详情弹窗样式 */
+        .dosing-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .dosing-modal-content {
+            background: white;
+            border: 2px solid #0076A8;
+            border-radius: 8px;
+            width: 600px;
+            max-width: 90vw;
+            padding: 25px;
+            font-family: 'Arial', sans-serif;
+            position: relative;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .dosing-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #0076A8;
+            padding-bottom: 15px;
+        }
+        
+        .dosing-modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0076A8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .dosing-close-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .dosing-close-btn:hover {
+            background: #c82333;
+        }
+        
+        .dosing-info {
+            background: #f8f9fa;
+            border-left: 4px solid #FF4081;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .dosing-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+        
+        .dosing-table th {
+            background: #0076A8;
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .dosing-table td {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+            font-size: 12px;
+        }
+        
+        .dosing-table tr:hover {
+            background: #f5f5f5;
+        }
+        
+        .chemical-code {
+            font-weight: bold;
+            color: #0076A8;
+        }
+        
+        .dosing-volume {
+            color: #FF4081;
+            font-weight: bold;
+        }
+        
+        .dosing-purpose {
+            font-style: italic;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>FAB晶圆厂 - 机械课空调水质检测系统</h1>
+        <h2>水质指标监测记录</h2>
+        <div class="subtitle">数据来源：第三方检测机构 | 检测周期：每周一次</div>
+    </div>
+    
+    <div class="container">
+        <div class="chart-section">
+            <div class="system-info">
+                <h3>MIDDLETEMPERATURESYSTEM-PH 检测记录</h3>
+                <p><strong>系统名称：</strong>中温空调系统</p>
+                <p><strong>检测指标：</strong>pH值 (酸碱度)</p>
+                <p><strong>标准范围：</strong>6.5 - 8.5</p>
+                <p><strong>检测频率：</strong>每周一次</p>
+                <p><strong>最新检测时间：</strong><span id="lastTestDate"></span></p>
+            </div>
+            
+            <div class="chart-container">
+                <div id="water-quality-chart"></div>
+            </div>
+            
+            <div class="legend-info">
+                <div class="legend-item">
+                    <span class="legend-color actual"></span>
+                    <span>实际检测值</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color predicted"></span>
+                    <span>AI预测值</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color trend-line"></span>
+                    <span>趋势线</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color standard-range"></span>
+                    <span>标准范围线</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加药详情弹窗 -->
+    <div class="dosing-modal" id="dosingModal">
+        <div class="dosing-modal-content">
+            <div class="dosing-modal-header">
+                <div class="dosing-modal-title">加药记录详情</div>
+                <button class="dosing-close-btn" onclick="closeDosingModal()">×</button>
+            </div>
+            
+            <div class="dosing-info">
+                <h3 style="margin-bottom: 10px; color: #FF4081;">检测后加药处理</h3>
+                <p><strong>检测时间：</strong><span id="dosingDate"></span></p>
+                <p><strong>处理机构：</strong>第三方水质处理公司</p>
+                <p><strong>加药目的：</strong>pH值调节、水质优化处理</p>
+                <p><strong>处理时间：</strong><span id="dosingTime"></span></p>
+            </div>
+            
+            <table class="dosing-table">
+                <thead>
+                    <tr>
+                        <th>化学品编号</th>
+                        <th>化学品名称</th>
+                        <th>投加量</th>
+                        <th>投加目的</th>
+                        <th>操作员</th>
+                    </tr>
+                </thead>
+                <tbody id="dosingTableBody">
+                    <!-- 加药记录将在这里动态生成 -->
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 20px; padding: 15px; background: #e8f5e8; border-radius: 5px;">
+                <h4 style="margin-bottom: 10px; color: #155724;">处理效果</h4>
+                <p style="margin: 5px 0; font-size: 14px;">✅ pH值调节至标准范围内</p>
+                <p style="margin: 5px 0; font-size: 14px;">✅ 水质指标达到运行要求</p>
+                <p style="margin: 5px 0; font-size: 14px;">✅ 系统运行稳定性提升</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 加药记录数据
+        const dosingRecords = {
+            2: { // 第3个时间点（索引2）进行了加药
+                date: '12/15',
+                time: '14:30',
+                chemicals: [
+                    { code: '3DT199', name: '碱性调节剂', volume: '73升', purpose: 'pH值提升', operator: '李工程师' },
+                    { code: 'N74824', name: '缓冲稳定剂', volume: '83升', purpose: '稳定pH值', operator: '王技师' },
+                    { code: 'H3BO3', name: '硼酸调节剂', volume: '93升', purpose: '细调pH值', operator: '张操作员' }
+                ]
+            },
+            5: { // 第6个时间点（索引5）进行了加药
+                date: '12/26',
+                time: '10:15',
+                chemicals: [
+                    { code: '3DT199', name: '碱性调节剂', volume: '68升', purpose: 'pH值提升', operator: '陈工程师' },
+                    { code: 'N74824', name: '缓冲稳定剂', volume: '75升', purpose: '稳定pH值', operator: '刘技师' }
+                ]
+            }
+        };
+        
+        // 生成检测时间数据 (过去8周 + 未来2周预测)
+        function generateTimeLabels() {
+            const labels = [];
+            const now = new Date();
+            
+            // 过去8周的检测时间
+            for (let i = 8; i >= 1; i--) {
+                const date = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+                const month = date.getMonth() + 1;
+                const day = date.getDate();
+                labels.push(`${month}/${day}`);
+            }
+            
+            // 未来2周的预测时间
+            for (let i = 1; i <= 2; i++) {
+                const date = new Date(now.getTime() + i * 7 * 24 * 60 * 60 * 1000);
+                const month = date.getMonth() + 1;
+                const day = date.getDate();
+                labels.push(`${month}/${day} (预测)`);
+            }
+            
+            return labels;
+        }
+        
+        // 生成pH值检测数据
+        function generatePHData() {
+            const actualData = [];
+            const predictedData = [];
+            const trendData = [];
+            
+            // 过去8周的实际检测数据
+            const baseValues = [7.2, 7.1, 7.3, 6.9, 7.0, 7.4, 7.2, 7.1];
+            
+            for (let i = 0; i < 8; i++) {
+                const value = baseValues[i] + (Math.random() - 0.5) * 0.2;
+                actualData.push(parseFloat(value.toFixed(2)));
+                predictedData.push(null); // 实际数据时预测值为null
+                trendData.push(parseFloat(value.toFixed(2)));
+            }
+            
+            // 未来2周的AI预测数据
+            const lastActual = actualData[actualData.length - 1];
+            for (let i = 0; i < 2; i++) {
+                actualData.push(null); // 预测时间实际值为null
+                
+                // AI预测逻辑：基于历史趋势预测
+                const trend = (actualData[7] - actualData[0]) / 7; // 计算趋势
+                const predictedValue = lastActual + trend * (i + 1) + (Math.random() - 0.5) * 0.1;
+                const finalPredicted = Math.max(6.0, Math.min(8.0, predictedValue)); // 限制在合理范围内
+                
+                predictedData.push(parseFloat(finalPredicted.toFixed(2)));
+                trendData.push(parseFloat(finalPredicted.toFixed(2)));
+            }
+            
+            return { actualData, predictedData, trendData };
+        }
+        
+        // 设置最新检测时间
+        function setLastTestDate() {
+            const now = new Date();
+            const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const dateStr = lastWeek.toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+            document.getElementById('lastTestDate').textContent = dateStr;
+        }
+        
+        // 创建图表
+        function createChart() {
+            const timeLabels = generateTimeLabels();
+            const { actualData, predictedData, trendData } = generatePHData();
+            
+            Highcharts.chart('water-quality-chart', {
+                chart: {
+                    type: 'column',
+                    backgroundColor: 'transparent'
+                },
+                title: {
+                    text: '中温空调系统 - pH值检测记录',
+                    style: {
+                        fontSize: '18px',
+                        fontWeight: 'bold',
+                        color: '#0076A8'
+                    }
+                },
+                subtitle: {
+                    text: '数据来源：第三方检测机构 | 检测周期：每周一次',
+                    style: {
+                        fontSize: '12px',
+                        color: '#666'
+                    }
+                },
+                xAxis: {
+                    categories: timeLabels,
+                    title: {
+                        text: '检测时间',
+                        style: {
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                        }
+                    },
+                    labels: {
+                        rotation: -45,
+                        style: {
+                            fontSize: '10px'
+                        }
+                    }
+                },
+                yAxis: {
+                    title: {
+                        text: 'pH值',
+                        style: {
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            color: '#0076A8'
+                        }
+                    },
+                    min: 6.0,
+                    max: 8.5,
+                    plotBands: [{
+                        from: 6.5,
+                        to: 8.5,
+                        color: 'rgba(255, 167, 38, 0.1)',
+                        label: {
+                            text: '标准范围 (6.5-8.5)',
+                            style: {
+                                color: '#FFA726',
+                                fontSize: '10px'
+                            }
+                        }
+                    }],
+                    plotLines: [{
+                        value: 6.5,
+                        color: '#FFA726',
+                        width: 2,
+                        dashStyle: 'dash',
+                        label: {
+                            text: '下限 6.5',
+                            align: 'right',
+                            style: {
+                                color: '#FFA726',
+                                fontSize: '10px'
+                            }
+                        }
+                    }, {
+                        value: 8.5,
+                        color: '#FFA726',
+                        width: 2,
+                        dashStyle: 'dash',
+                        label: {
+                            text: '上限 8.5',
+                            align: 'right',
+                            style: {
+                                color: '#FFA726',
+                                fontSize: '10px'
+                            }
+                        }
+                    }]
+                },
+                tooltip: {
+                    shared: true,
+                    formatter: function() {
+                        let tooltip = `<b>${this.x}</b><br/>`;
+                        this.points.forEach(function(point) {
+                            if (point.y !== null) {
+                                tooltip += `<span style="color:${point.color}">${point.series.name}</span>: <b>${point.y}</b><br/>`;
+                            }
+                        });
+                        return tooltip;
+                    }
+                },
+                legend: {
+                    enabled: true,
+                    align: 'center',
+                    verticalAlign: 'bottom',
+                    layout: 'horizontal'
+                },
+                plotOptions: {
+                    column: {
+                        pointPadding: 0.1,
+                        borderWidth: 1,
+                        borderColor: '#333',
+                        dataLabels: {
+                            enabled: true,
+                            style: {
+                                fontSize: '9px',
+                                fontWeight: 'bold'
+                            }
+                        }
+                    },
+                    line: {
+                        dataLabels: {
+                            enabled: false
+                        },
+                        marker: {
+                            enabled: true,
+                            radius: 4
+                        }
+                    }
+                },
+                series: [{
+                    name: '实际检测值',
+                    type: 'column',
+                    data: actualData,
+                    color: '#0076A8',
+                    dataLabels: {
+                        enabled: true,
+                        format: '{y}',
+                        style: {
+                            color: '#0076A8',
+                            fontSize: '9px'
+                        }
+                    }
+                }, {
+                    name: 'AI预测值',
+                    type: 'column',
+                    data: predictedData,
+                    color: '#FF6B6B',
+                    dataLabels: {
+                        enabled: true,
+                        format: '{y}',
+                        style: {
+                            color: '#FF6B6B',
+                            fontSize: '9px'
+                        }
+                    }
+                }, {
+                    name: '趋势线',
+                    type: 'line',
+                    data: trendData,
+                    color: '#4CAF50',
+                    lineWidth: 3,
+                    marker: {
+                        enabled: true,
+                        fillColor: '#4CAF50',
+                        lineWidth: 2,
+                        lineColor: '#fff'
+                    }
+                }],
+                exporting: {
+                    enabled: true,
+                    buttons: {
+                        contextButton: {
+                            menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG']
+                        }
+                    }
+                },
+                credits: {
+                    enabled: false
+                }
+            });
+            
+            // 创建图表后添加加药气泡
+            addDosingBubbles();
+        }
+        
+        // 添加加药气泡到图表
+        function addDosingBubbles() {
+            setTimeout(() => {
+                const chartContainer = document.querySelector('#water-quality-chart .highcharts-container');
+                if (!chartContainer) return;
+                
+                // 获取图表的x轴刻度位置
+                const chart = Highcharts.charts[0];
+                const xAxis = chart.xAxis[0];
+                const yAxis = chart.yAxis[0];
+                
+                // 为每个有加药记录的时间点添加气泡
+                Object.keys(dosingRecords).forEach(index => {
+                    const pointIndex = parseInt(index);
+                    const pixelX = xAxis.toPixels(pointIndex);
+                    const pixelY = yAxis.toPixels(yAxis.max) + 10; // 在图表顶部稍下一点
+                    const record = dosingRecords[index];
+                    
+                    // 创建气泡元素
+                    const bubble = document.createElement('div');
+                    bubble.className = 'dosing-bubble';
+                    bubble.style.left = (pixelX - 17.5) + 'px'; // 减去气泡半径 (35px/2)
+                    bubble.style.top = pixelY + 'px';
+                    bubble.title = `加药时间：${record.time} - 点击查看详情`;
+                    bubble.onclick = () => showDosingDetails(pointIndex);
+                    
+                    // 添加图标和时间内容
+                    bubble.innerHTML = `
+                        <span class="bubble-icon">🧪</span>
+                        <span class="bubble-time">${record.date}</span>
+                    `;
+                    
+                    chartContainer.appendChild(bubble);
+                });
+            }, 500); // 等待图表完全渲染
+        }
+        
+        // 显示加药详情
+        function showDosingDetails(timeIndex) {
+            const record = dosingRecords[timeIndex];
+            if (!record) return;
+            
+            // 更新弹窗内容
+            document.getElementById('dosingDate').textContent = record.date;
+            document.getElementById('dosingTime').textContent = record.time;
+            
+            // 更新加药表格
+            const tableBody = document.getElementById('dosingTableBody');
+            tableBody.innerHTML = record.chemicals.map(chemical => `
+                <tr>
+                    <td class="chemical-code">${chemical.code}</td>
+                    <td>${chemical.name}</td>
+                    <td class="dosing-volume">${chemical.volume}</td>
+                    <td class="dosing-purpose">${chemical.purpose}</td>
+                    <td>${chemical.operator}</td>
+                </tr>
+            `).join('');
+            
+            // 显示弹窗
+            document.getElementById('dosingModal').style.display = 'flex';
+        }
+        
+        // 关闭加药详情弹窗
+        function closeDosingModal() {
+            document.getElementById('dosingModal').style.display = 'none';
+        }
+        
+        // 点击弹窗外部关闭
+        document.addEventListener('click', function(event) {
+            const modal = document.getElementById('dosingModal');
+            if (event.target === modal) {
+                closeDosingModal();
+            }
+        });
+        
+        // ESC键关闭弹窗
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                if (document.getElementById('dosingModal').style.display === 'flex') {
+                    closeDosingModal();
+                }
+            }
+        });
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            setLastTestDate();
+            createChart();
+        });
+    </script>
+</body>
+</html>

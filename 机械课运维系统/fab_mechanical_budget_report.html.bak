@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="zh-cn" id="budget-html-root">
+<head id="budget-head-root">
+  <meta charset="utf-8" id="budget-meta-charset">
+  <meta name="viewport" content="width=device-width, initial-scale=1" id="budget-meta-viewport">
+  <title id="budget-title-tag">机械课预算报表</title>
+  <link id="budget-font-link" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap">
+  <script id="budget-d3-script" src="https://d3js.org/d3.v7.min.js"></script>
+  <script id="budget-highcharts-script" src="https://code.highcharts.com/highcharts.js"></script>
+  <style id="budget-style-block">
+    :root{
+      --sap-bg:#f4f7fb;
+      --sap-surface:#ffffff;
+      --sap-soft:#eef3fb;
+      --sap-border:#d5dde8;
+      --sap-text:#0f1f3a;
+      --sap-muted:#7b879c;
+      --sap-accent:#0a6ed1;
+      --sap-green:#2ebd85;
+      --sap-orange:#f6c343;
+      --sap-shadow:0 12px 30px rgba(15,31,58,0.08);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:var(--sap-bg);color:var(--sap-text);overflow-x:hidden;overflow-y:auto}
+    #budget-page-shell{max-width:1600px;margin:0 auto;padding:20px 24px;display:flex;flex-direction:column;gap:16px}
+    #budget-header{display:flex;flex-direction:column;gap:12px}
+    #budget-title-row{display:flex;align-items:flex-end;justify-content:space-between}
+    #budget-title{margin:0;font-size:26px;font-weight:600}
+    #budget-subtitle{font-size:13px;color:var(--sap-muted)}
+    #budget-control-strip{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--sap-surface);border:1px solid var(--sap-border);border-radius:12px;box-shadow:var(--sap-shadow)}
+    #budget-plant-select,#budget-year-input,#budget-owner-input{border:1px solid var(--sap-border);border-radius:8px;padding:8px 12px;font-size:13px;background:#fff;color:var(--sap-text)}
+    #budget-year-input{width:110px}
+    #budget-buttons{display:flex;gap:8px;margin-left:auto}
+    #budget-buttons button{border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s ease}
+    #budget-query-btn{background:var(--sap-accent);color:#fff;box-shadow:0 10px 20px rgba(10,110,209,0.2)}
+    #budget-reset-btn{background:#fff;color:var(--sap-accent);border:1px solid var(--sap-accent)}
+    #budget-metric-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0}
+    .budget-metric-card{background:var(--sap-surface);border:1px solid var(--sap-border);border-radius:12px;padding:12px 16px;box-shadow:var(--sap-shadow);display:flex;flex-direction:column;gap:8px}
+    .budget-metric-header{display:flex;justify-content:space-between;align-items:flex-end;gap:8px}
+    @media(max-width:900px){.budget-metric-breakdown{flex-wrap:wrap}}
+    .budget-metric-breakdown{display:flex;gap:0;flex-wrap:nowrap;font-size:12px;color:var(--sap-muted)}
+    .budget-metric-half{flex:1 1 180px;display:flex;flex-direction:column;gap:4px;padding:6px;border:1px dashed var(--sap-border);border-radius:0;background:#f9fbff;min-width:170px}
+    .budget-metric-half-title,.budget-metric-quarter{display:flex;justify-content:flex-start;align-items:center;gap:4px}
+    .budget-metric-half-title{font-weight:600;color:var(--sap-muted)}
+    .budget-metric-half-title span,.budget-metric-quarter span{display:inline-flex;align-items:center;min-width:60px}
+    .budget-metric-half-title span::after,.budget-metric-quarter span::after{content:'：';margin-left:2px;color:var(--sap-muted)}
+    .budget-metric-half-title strong{color:var(--sap-text);font-size:14px}
+    .budget-metric-quarter{font-size:11px}
+    .budget-metric-quarter strong{color:var(--sap-text);font-size:12px}
+    .budget-metric-label{font-size:13px;color:var(--sap-muted)}
+    .budget-metric-value{font-size:22px;font-weight:600;color:var(--sap-accent)}
+    #budget-visual-section{display:flex;flex-direction:column;gap:16px}
+    .budget-card{background:var(--sap-surface);border:1px solid var(--sap-border);border-radius:14px;padding:18px;box-shadow:var(--sap-shadow);display:flex;flex-direction:column;gap:12px}
+    #budget-chart-container{width:100%;height:320px}
+    #budget-table-heading-row{display:flex;align-items:flex-end;justify-content:space-between}
+    #budget-table-heading{margin:0;font-size:20px;font-weight:600}
+    #budget-export-btn{border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;background:#fff;color:var(--sap-accent);border:1px solid var(--sap-accent);cursor:pointer}
+    #budget-table-wrapper{border-radius:14px;border:1px solid #c7d6eb;background:linear-gradient(180deg,#f7fbff 0%,#eef4fb 100%);padding:12px;overflow-x:auto;overflow-y:hidden;box-shadow:0 12px 30px rgba(15,32,60,0.08)}
+    #budget-data-table{width:100%;min-width:3600px;border-collapse:separate;border-spacing:0;font-size:11px;color:#0e223f;font-family:'IBM Plex Sans','Inter',sans-serif}
+    #budget-data-table thead th{background:#dce7f9;color:#102a4c;padding:8px;text-align:center;font-weight:600;border:1px solid #b9c9e4;letter-spacing:0.25px}
+    #budget-data-table thead tr:first-child th{background:#3a5d90;color:#f2f6ff;font-weight:700}
+    #budget-data-table thead tr:nth-child(2) th{background:#4f73a8;color:#eef4ff}
+    #budget-data-table thead tr:nth-child(3) th{background:#cfdcf2;color:#1a3255;font-weight:600}
+    #budget-data-table tbody td{padding:8px;border:1px solid #cfd8ea;text-align:center;background:#fff;white-space:nowrap}
+    #budget-data-table tbody tr:nth-child(odd) td{background:#fafcff}
+    #budget-data-table tbody tr:nth-child(even) td{background:#f1f6ff}
+    #budget-data-table input[type="text"],#budget-data-table input[type="number"],#budget-data-table input[type="date"],#budget-data-table select{width:100%;border:1px solid var(--sap-border);border-radius:6px;padding:4px 6px;font-size:11px;font-family:inherit;color:var(--sap-text);background:#fff}
+    #budget-data-table input:focus,#budget-data-table select:focus{outline:1px solid var(--sap-accent)}
+    .budget-col-small{min-width:120px}
+    .budget-col-medium{min-width:190px}
+    .budget-col-wide{min-width:240px}
+    .budget-col-amount{min-width:150px}
+    #budget-data-table thead th[rowspan="2"],#budget-data-table thead th[rowspan="3"]{background:linear-gradient(135deg,#0a6ed1,#5abbed);color:#fff}
+    .budget-text-left{text-align:left;white-space:normal}
+    .budget-negative{color:#d53939;font-weight:600}
+    @media(max-width:1400px){
+      #budget-page-shell{padding:16px}
+      #budget-metric-row{grid-template-columns:repeat(2,1fr)}
+    }
+  </style>
+</head>
+<body id="budget-body-root">
+  <div id="budget-page-shell">
+    <header id="budget-header">
+      <div id="budget-title-row">
+        <div>
+          <h1 id="budget-title">机械课预算报表</h1>
+                  </div>
+      </div>
+      <div id="budget-control-strip">
+        <select id="budget-plant-select" aria-label="厂区选择">
+          <option value="phase1" selected>创新中心一期</option>
+          <option value="phase2">创新中心二期</option>
+        </select>
+        <input id="budget-year-input" type="number" min="2020" max="2035" value="2025" aria-label="预算年度">
+        <input id="budget-owner-input" type="text" placeholder="负责人 / 预算编号" aria-label="关键字">
+        <div id="budget-buttons">
+          <button id="budget-query-btn" type="button">查询</button>
+          <button id="budget-reset-btn" type="button">重置</button>
+        </div>
+      </div>
+      <div id="budget-metric-row">
+        <div class="budget-metric-card" id="budget-metric-total">
+          <div class="budget-metric-header">
+            <span class="budget-metric-label">年度预算</span>
+            <span class="budget-metric-value" id="budget-metric-total-value">--</span>
+          </div>
+          <div class="budget-metric-breakdown">
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>上半年</span><strong id="budget-total-half1">--</strong></div>
+              <div class="budget-metric-quarter"><span>一季度</span><strong id="budget-total-q1">--</strong></div>
+              <div class="budget-metric-quarter"><span>二季度</span><strong id="budget-total-q2">--</strong></div>
+            </div>
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>下半年</span><strong id="budget-total-half2">--</strong></div>
+              <div class="budget-metric-quarter"><span>三季度</span><strong id="budget-total-q3">--</strong></div>
+              <div class="budget-metric-quarter"><span>四季度</span><strong id="budget-total-q4">--</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="budget-metric-card" id="budget-metric-executed">
+          <div class="budget-metric-header">
+            <span class="budget-metric-label">执行金额</span>
+            <span class="budget-metric-value" id="budget-metric-executed-value">--</span>
+          </div>
+          <div class="budget-metric-breakdown">
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>上半年</span><strong id="budget-exe-half1">--</strong></div>
+              <div class="budget-metric-quarter"><span>一季度</span><strong id="budget-exe-q1">--</strong></div>
+              <div class="budget-metric-quarter"><span>二季度</span><strong id="budget-exe-q2">--</strong></div>
+            </div>
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>下半年</span><strong id="budget-exe-half2">--</strong></div>
+              <div class="budget-metric-quarter"><span>三季度</span><strong id="budget-exe-q3">--</strong></div>
+              <div class="budget-metric-quarter"><span>四季度</span><strong id="budget-exe-q4">--</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="budget-metric-card" id="budget-metric-remaining">
+          <div class="budget-metric-header">
+            <span class="budget-metric-label">剩余金额</span>
+            <span class="budget-metric-value" id="budget-metric-remaining-value">--</span>
+          </div>
+          <div class="budget-metric-breakdown">
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>上半年</span><strong id="budget-rem-half1">--</strong></div>
+              <div class="budget-metric-quarter"><span>一季度</span><strong id="budget-rem-q1">--</strong></div>
+              <div class="budget-metric-quarter"><span>二季度</span><strong id="budget-rem-q2">--</strong></div>
+            </div>
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>下半年</span><strong id="budget-rem-half2">--</strong></div>
+              <div class="budget-metric-quarter"><span>三季度</span><strong id="budget-rem-q3">--</strong></div>
+              <div class="budget-metric-quarter"><span>四季度</span><strong id="budget-rem-q4">--</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="budget-metric-card" id="budget-metric-rate">
+          <div class="budget-metric-header">
+            <span class="budget-metric-label">预算执行率</span>
+            <span class="budget-metric-value" id="budget-metric-rate-value">--</span>
+          </div>
+          <div class="budget-metric-breakdown">
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>上半年</span><strong id="budget-rate-half1">--</strong></div>
+              <div class="budget-metric-quarter"><span>一季度</span><strong id="budget-rate-q1">--</strong></div>
+              <div class="budget-metric-quarter"><span>二季度</span><strong id="budget-rate-q2">--</strong></div>
+            </div>
+            <div class="budget-metric-half">
+              <div class="budget-metric-half-title"><span>下半年</span><strong id="budget-rate-half2">--</strong></div>
+              <div class="budget-metric-quarter"><span>三季度</span><strong id="budget-rate-q3">--</strong></div>
+              <div class="budget-metric-quarter"><span>四季度</span><strong id="budget-rate-q4">--</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section id="budget-visual-section">
+      <article class="budget-card" id="budget-chart-card">
+        <div id="budget-chart-heading-row">
+          <h2 id="budget-chart-heading">月度预算趋势</h2>
+        </div>
+        <div id="budget-chart-container"></div>
+      </article>
+
+      <article class="budget-card" id="budget-table-card">
+        <div id="budget-table-heading-row">
+          <h2 id="budget-table-heading">机械课预算执行明细</h2>
+          <button id="budget-export-btn" type="button">导出 CSV</button>
+        </div>
+        <div id="budget-table-wrapper">
+          <table id="budget-data-table">
+                        <thead id="budget-table-head">
+              <tr id="budget-head-top">
+                <th rowspan="3">序号</th>
+                <th colspan="8">预算项目</th>
+                <th colspan="6">PR追踪</th>
+                <th colspan="5">PO追踪</th>
+                <th colspan="29">GR追踪</th>
+              </tr>
+              <tr id="budget-head-middle">
+                <th rowspan="2">预算编号</th>
+                <th rowspan="2">预算名称</th>
+                <th rowspan="2">old PO</th>
+                <th rowspan="2">项目代码</th>
+                <th rowspan="2">总金额</th>
+                <th rowspan="2">执行金额</th>
+                <th rowspan="2">剩余金额</th>
+                <th rowspan="2">预算执行率</th>
+                <th rowspan="2">PR名称</th>
+                <th rowspan="2">完成状态</th>
+                <th rowspan="2">PR预算金额(未税)</th>
+                <th rowspan="2">负责人</th>
+                <th rowspan="2">计划上会日期</th>
+                <th rowspan="2">实际开PR日期</th>
+                <th rowspan="2">PO号</th>
+                <th rowspan="2">PO实际金额(未税)</th>
+                <th rowspan="2">生成PO日期</th>
+                <th rowspan="2">PO到期日期</th>
+                <th rowspan="2">PO厂商</th>
+                <th colspan="5">收货汇总</th>
+                <th colspan="2">1月</th>
+                <th colspan="2">2月</th>
+                <th colspan="2">3月</th>
+                <th colspan="2">4月</th>
+                <th colspan="2">5月</th>
+                <th colspan="2">6月</th>
+                <th colspan="2">7月</th>
+                <th colspan="2">8月</th>
+                <th colspan="2">9月</th>
+                <th colspan="2">10月</th>
+                <th colspan="2">11月</th>
+                <th colspan="2">12月</th>
+              </tr>
+              <tr id="budget-head-bottom">
+                <th>计划请款金额</th>
+                <th>计划收货总比例</th>
+                <th>实际请款金额</th>
+                <th>实际请款差额</th>
+                <th>请款执行率</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+                <th>计划请款金额</th>
+                <th>实际请款金额</th>
+              </tr>
+            </thead>
+
+            <tbody id="budget-table-body"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <script id="budget-script-block">
+    (function(){
+      const monthConfig=[
+        {key:'jan',label:'1月'},{key:'feb',label:'2月'},{key:'mar',label:'3月'},{key:'apr',label:'4月'},
+        {key:'may',label:'5月'},{key:'jun',label:'6月'},{key:'jul',label:'7月'},{key:'aug',label:'8月'},
+        {key:'sep',label:'9月'},{key:'oct',label:'10月'},{key:'nov',label:'11月'},{key:'dec',label:'12月'}
+      ];
+
+      const budgetRows=[
+        {
+          id:'row-1',seq:1,
+          budget:{code:'Z6ME0050E101',name:'2025年机械课机台维保耗材',oldPo:'否',project:'C02113',total:1680000,executed:1024500,remaining:655500,rate:0.61},
+          pr:{name:'CMP机台维保耗材',status:'已出PO',amount:1250000,owner:'E001-程琼',planMeeting:'2025-02-18',actualPr:'2025-02-20'},
+          po:{number:'4500288810',amount:980000,created:'2025-03-05',due:'2025-05-15',vendor:'富士电机(上海)自动化有限公司'},
+          gr:{planAmount:750000,receptionRatio:0.58,actualAmount:690000,difference:60000,execRate:0.92},
+          months:{
+            jan:{plan:210000,actual:180000},feb:{plan:220000,actual:205000},mar:{plan:240000,actual:215000},apr:{plan:260000,actual:200000},
+            may:{plan:260000,actual:220000},jun:{plan:240000,actual:210000},jul:{plan:200000,actual:160000},aug:{plan:180000,actual:150000},
+            sep:{plan:170000,actual:140000},oct:{plan:160000,actual:120000},nov:{plan:140000,actual:90000},dec:{plan:130000,actual:70000}
+          }
+        },
+        {
+          id:'row-2',seq:2,
+          budget:{code:'Z6ME0050E205',name:'冷却塔系统节能改造',oldPo:'是',project:'C03207',total:2150000,executed:1356000,remaining:794000,rate:0.63},
+          pr:{name:'冷却塔节能改造PR',status:'采购议价',amount:1500000,owner:'E002-王立',planMeeting:'2025-03-12',actualPr:'2025-03-25'},
+          po:{number:'4500291123',amount:1120000,created:'2025-04-02',due:'2025-07-10',vendor:'日立建机(中国)有限公司'},
+          gr:{planAmount:980000,receptionRatio:0.41,actualAmount:420000,difference:560000,execRate:0.43},
+          months:{
+            jan:{plan:180000,actual:120000},feb:{plan:200000,actual:140000},mar:{plan:220000,actual:150000},apr:{plan:260000,actual:160000},
+            may:{plan:260000,actual:170000},jun:{plan:230000,actual:180000},jul:{plan:210000,actual:150000},aug:{plan:200000,actual:140000},
+            sep:{plan:190000,actual:130000},oct:{plan:180000,actual:110000},nov:{plan:160000,actual:90000},dec:{plan:150000,actual:60000}
+          }
+        },
+        {
+          id:'row-3',seq:3,
+          budget:{code:'Z6ME0050E312',name:'化学供应系统安全整改',oldPo:'否',project:'C04115',total:1425000,executed:645000,remaining:780000,rate:0.45},
+          pr:{name:'化学供应系统升级PR',status:'PR流程中',amount:820000,owner:'E003-赵敏',planMeeting:'2025-04-28',actualPr:'2025-05-06'},
+          po:{number:'4500295019',amount:510000,created:'2025-06-18',due:'2025-08-30',vendor:'英华达技术服务有限公司'},
+          gr:{planAmount:600000,receptionRatio:0.22,actualAmount:310000,difference:290000,execRate:0.52},
+          months:{
+            jan:{plan:120000,actual:60000},feb:{plan:130000,actual:70000},mar:{plan:140000,actual:75000},apr:{plan:150000,actual:80000},
+            may:{plan:160000,actual:82000},jun:{plan:160000,actual:85000},jul:{plan:150000,actual:88000},aug:{plan:140000,actual:90000},
+            sep:{plan:130000,actual:92000},oct:{plan:120000,actual:95000},nov:{plan:110000,actual:98000},dec:{plan:100000,actual:100000}
+          }
+        }
+      ];
+
+      const formatCurrency=value=>`¥${(value||0).toLocaleString('zh-CN',{minimumFractionDigits:0})}`;
+      const formatPercent=value=>value==null?'--':(value*100).toFixed(1)+'%';
+      const safeText=value=>value??'--';
+      const yesNoOptions=['是','否'].map(item=>({value:item,label:item}));
+      const statusOptions=['已出PO','审批中','已启动','PR流程中','采购议价','已完成'].map(item=>({value:item,label:item}));
+      const ownerOptions=['E001-程琼','E002-王立','E003-赵敏','E004-刘鹏'].map(item=>({value:item,label:item}));
+
+      const getValueByPath=(obj,path)=>path.reduce((acc,key)=>acc?acc[key]:undefined,obj);
+      const setValueByPath=(obj,path,value)=>{
+        let target=obj;
+        for(let i=0;i<path.length-1;i++){
+          if(!target[path[i]]){target[path[i]]={};}
+          target=target[path[i]];
+        }
+        target[path[path.length-1]]=value;
+      };
+
+      const createEditor=(cell,row,meta)=>{
+        const currentValue=getValueByPath(row,meta.path)||'';
+        let control;
+        if(meta.editType==='select'){
+          control=document.createElement('select');
+          control.className='budget-edit-select';
+          (meta.options||[]).forEach(opt=>{
+            const option=document.createElement('option');
+            option.value=opt.value;
+            option.textContent=opt.label;
+            control.appendChild(option);
+          });
+          control.value=currentValue||meta.defaultValue||((meta.options||[])[0]?.value||'');
+          control.addEventListener('change',event=>{setValueByPath(row,meta.path,event.target.value);});
+        }else{
+          control=document.createElement('input');
+          control.className='budget-edit-input';
+          if(meta.editType==='number'){
+            control.type='number';
+            control.step='0.01';
+            control.value=currentValue!==''?currentValue:'';
+            control.addEventListener('change',event=>{const val=event.target.value;setValueByPath(row,meta.path,val===''?'':Number(val));});
+          }else if(meta.editType==='date'){
+            control.type='date';
+            control.value=currentValue;
+            control.addEventListener('change',event=>{setValueByPath(row,meta.path,event.target.value);});
+          }else{
+            control.type='text';
+            control.value=currentValue;
+            control.addEventListener('input',event=>{setValueByPath(row,meta.path,event.target.value);});
+          }
+        }
+        cell.node().appendChild(control);
+      };
+
+      const tableBody=d3.select('#budget-table-body');
+      const rows=tableBody.selectAll('tr').data(budgetRows).enter().append('tr').attr('id',d=>`budget-row-${d.id}`);
+
+      rows.each(function(row){
+        const current=d3.select(this);
+        const baseColumns=[
+          {value:row.seq},
+          {editType:'text',path:['budget','code'],alignLeft:true,cellClass:'budget-col-medium'},
+          {editType:'text',path:['budget','name'],alignLeft:true,cellClass:'budget-col-wide'},
+          {editType:'select',path:['budget','oldPo'],options:yesNoOptions,cellClass:'budget-col-small'},
+          {editType:'text',path:['budget','project'],alignLeft:true,cellClass:'budget-col-medium'},
+          {editType:'number',path:['budget','total'],cellClass:'budget-col-amount'},
+          {value:formatCurrency(row.budget.executed),cellClass:'budget-col-amount'},
+          {value:formatCurrency(row.budget.remaining),cellClass:'budget-col-amount'},
+          {value:formatPercent(row.budget.rate)},
+          {editType:'text',path:['pr','name'],alignLeft:true,cellClass:'budget-col-wide'},
+          {editType:'select',path:['pr','status'],options:statusOptions,cellClass:'budget-col-small'},
+          {editType:'number',path:['pr','amount'],cellClass:'budget-col-amount'},
+          {editType:'select',path:['pr','owner'],options:ownerOptions,cellClass:'budget-col-medium'},
+          {editType:'date',path:['pr','planMeeting'],cellClass:'budget-col-medium'},
+          {editType:'date',path:['pr','actualPr'],cellClass:'budget-col-medium'},
+          {editType:'text',path:['po','number'],cellClass:'budget-col-medium'},
+          {editType:'number',path:['po','amount'],cellClass:'budget-col-amount'},
+          {editType:'date',path:['po','created'],cellClass:'budget-col-medium'},
+          {editType:'date',path:['po','due'],cellClass:'budget-col-medium'},
+          {editType:'text',path:['po','vendor'],alignLeft:true,cellClass:'budget-col-wide'},
+          {editType:'number',path:['gr','planAmount'],cellClass:'budget-col-amount'},
+          {value:(row.gr.receptionRatio*100).toFixed(0)+'%',cellClass:'budget-col-small'},
+          {value:formatCurrency(row.gr.actualAmount),cellClass:'budget-col-amount'},
+          {value:formatCurrency(row.gr.difference),cellClass:'budget-col-amount'},
+          {value:formatPercent(row.gr.execRate)}
+        ];
+
+        const monthColumns=[];
+        monthConfig.forEach(cfg=>{
+          const month=row.months[cfg.key]||{plan:0,actual:0};
+          monthColumns.push({value:formatCurrency(month.plan)});
+          monthColumns.push({value:formatCurrency(month.actual)});
+        });
+
+        const columnMeta=[...baseColumns,...monthColumns];
+        columnMeta.forEach((meta,idx)=>{
+          const classes=[];
+          if(meta.alignLeft){classes.push('budget-text-left');}
+          if(meta.cellClass){classes.push(meta.cellClass);}
+          const cell=current.append('td');
+          if(classes.length){cell.attr('class',classes.join(' '));}
+          if(meta.editType){
+            createEditor(cell,row,meta);
+          }else{
+            cell.text(meta.value);
+          }
+        });
+      });
+
+      const metrics=budgetRows.reduce((acc,row)=>{
+        acc.total+=row.budget.total;
+        acc.executed+=row.budget.executed;
+        acc.remaining+=row.budget.remaining;
+        return acc;
+      },{total:0,executed:0,remaining:0});
+      metrics.rate=metrics.total?metrics.executed/metrics.total:0;
+      document.getElementById('budget-metric-total-value').textContent=formatCurrency(metrics.total);
+      document.getElementById('budget-metric-executed-value').textContent=formatCurrency(metrics.executed);
+      document.getElementById('budget-metric-remaining-value').textContent=formatCurrency(metrics.remaining);
+      document.getElementById('budget-metric-rate-value').textContent=formatPercent(metrics.rate);
+
+      const monthlyTotals={plan:{},actual:{}};
+      monthConfig.forEach(cfg=>{
+        monthlyTotals.plan[cfg.key]=budgetRows.reduce((sum,row)=>sum+(row.months[cfg.key]?.plan||0),0);
+        monthlyTotals.actual[cfg.key]=budgetRows.reduce((sum,row)=>sum+(row.months[cfg.key]?.actual||0),0);
+      });
+      const remainingTotals={};
+      monthConfig.forEach(cfg=>{
+        remainingTotals[cfg.key]=(monthlyTotals.plan[cfg.key]||0)-(monthlyTotals.actual[cfg.key]||0);
+      });
+      const periodKeys={
+        half1:['jan','feb','mar','apr','may','jun'],
+        half2:['jul','aug','sep','oct','nov','dec'],
+        q1:['jan','feb','mar'],q2:['apr','may','jun'],q3:['jul','aug','sep'],q4:['oct','nov','dec']
+      };
+      const sumPeriod=(source,keys)=>keys.reduce((sum,key)=>sum+(source[key]||0),0);
+      const breakdowns={
+        total:{},executed:{},remaining:{},rate:{}
+      };
+      Object.entries(periodKeys).forEach(([slot,keys])=>{
+        breakdowns.total[slot]=sumPeriod(monthlyTotals.plan,keys);
+        breakdowns.executed[slot]=sumPeriod(monthlyTotals.actual,keys);
+        breakdowns.remaining[slot]=sumPeriod(remainingTotals,keys);
+        const planValue=breakdowns.total[slot];
+        breakdowns.rate[slot]=planValue?breakdowns.executed[slot]/planValue:0;
+      });
+      const setBreakdown=(id,value,formatter=formatCurrency)=>{
+        const el=document.getElementById(id);
+        if(el){el.textContent=formatter(value);}
+      };
+      setBreakdown('budget-total-half1',breakdowns.total.half1);
+      setBreakdown('budget-total-half2',breakdowns.total.half2);
+      setBreakdown('budget-total-q1',breakdowns.total.q1);
+      setBreakdown('budget-total-q2',breakdowns.total.q2);
+      setBreakdown('budget-total-q3',breakdowns.total.q3);
+      setBreakdown('budget-total-q4',breakdowns.total.q4);
+
+      setBreakdown('budget-exe-half1',breakdowns.executed.half1);
+      setBreakdown('budget-exe-half2',breakdowns.executed.half2);
+      setBreakdown('budget-exe-q1',breakdowns.executed.q1);
+      setBreakdown('budget-exe-q2',breakdowns.executed.q2);
+      setBreakdown('budget-exe-q3',breakdowns.executed.q3);
+      setBreakdown('budget-exe-q4',breakdowns.executed.q4);
+
+      setBreakdown('budget-rem-half1',breakdowns.remaining.half1);
+      setBreakdown('budget-rem-half2',breakdowns.remaining.half2);
+      setBreakdown('budget-rem-q1',breakdowns.remaining.q1);
+      setBreakdown('budget-rem-q2',breakdowns.remaining.q2);
+      setBreakdown('budget-rem-q3',breakdowns.remaining.q3);
+      setBreakdown('budget-rem-q4',breakdowns.remaining.q4);
+
+      setBreakdown('budget-rate-half1',breakdowns.rate.half1,formatPercent);
+      setBreakdown('budget-rate-half2',breakdowns.rate.half2,formatPercent);
+      setBreakdown('budget-rate-q1',breakdowns.rate.q1,formatPercent);
+      setBreakdown('budget-rate-q2',breakdowns.rate.q2,formatPercent);
+      setBreakdown('budget-rate-q3',breakdowns.rate.q3,formatPercent);
+      setBreakdown('budget-rate-q4',breakdowns.rate.q4,formatPercent);
+
+      const exportButton=document.getElementById('budget-export-btn');
+      const toCsvValue=value=>`"${String(value??'').replace(/"/g,'""')}"`;
+      exportButton.addEventListener('click',()=>{
+        const headers=[
+          '序号','预算编号','预算名称','old PO','项目代码','总金额','执行金额','剩余金额','预算执行率',
+          'PR名称','完成状态','PR预算金额(未税)','负责人','计划上会日期','实际开PR日期',
+          'PO号','PO实际金额(未税)','生成PO日期','PO到期日期','PO厂商','计划请款金额','计划收货总比例','实际请款金额','实际请款差额','请款执行率'
+        ];
+        monthConfig.forEach(cfg=>{
+          headers.push(`${cfg.label}计划`);
+          headers.push(`${cfg.label}实际`);
+        });
+        const csvRows=[headers.map(toCsvValue).join(',')];
+        budgetRows.forEach(row=>{
+          const values=[
+            row.seq,row.budget.code,row.budget.name,row.budget.oldPo,row.budget.project,row.budget.total,row.budget.executed,row.budget.remaining,row.budget.rate,
+            row.pr.name,row.pr.status,row.pr.amount,row.pr.owner,row.pr.planMeeting,row.pr.actualPr,
+            row.po.number,row.po.amount,row.po.created,row.po.due,row.po.vendor,row.gr.planAmount,row.gr.receptionRatio,row.gr.actualAmount,row.gr.difference,row.gr.execRate
+          ];
+          monthConfig.forEach(cfg=>{
+            const month=row.months[cfg.key]||{plan:0,actual:0};
+            values.push(month.plan);
+            values.push(month.actual);
+          });
+          csvRows.push(values.map(toCsvValue).join(','));
+        });
+        const blob=new Blob([csvRows.join('\n')],{type:'text/csv;charset=utf-8;'});
+        const url=URL.createObjectURL(blob);
+        const link=document.createElement('a');
+        link.href=url;
+        link.download='mechanical_budget_report.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      });
+
+      const chartCategories=monthConfig.map(cfg=>cfg.label);
+      const chartSeries=[
+        {name:'预算计划',data:monthConfig.map(cfg=>budgetRows.reduce((sum,row)=>sum+(row.months[cfg.key]?.plan||0),0)/10000),type:'area'},
+        {name:'预算实际',data:monthConfig.map(cfg=>budgetRows.reduce((sum,row)=>sum+(row.months[cfg.key]?.actual||0),0)/10000),type:'spline'}
+      ];
+
+      Highcharts.chart('budget-chart-container',{
+        chart:{backgroundColor:'transparent'},
+        title:{text:''},
+        xAxis:{categories:chartCategories,lineColor:'#cfd8e6'},
+        yAxis:{title:{text:'万元'},gridLineColor:'#e0e8f5'},
+        colors:['#0a6ed1','#2ebd85'],
+        tooltip:{shared:true,valueSuffix:' 万元'},
+        legend:{align:'center'},
+        credits:{enabled:false},
+        series:chartSeries
+      });
+
+      document.getElementById('budget-query-btn').addEventListener('click',()=>{
+        alert('查询条件已应用 (示例)');
+      });
+      document.getElementById('budget-reset-btn').addEventListener('click',()=>{
+        document.getElementById('budget-year-input').value='2025';
+        document.getElementById('budget-owner-input').value='';
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STIC-ME在线水质检测管理</title>
+    
+    <!-- 引入必要的CSS库 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- 页面样式 -->
+    <style>
+        .page-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 15px;
+            gap: 10px;
+        }
+
+        .title-section {
+            padding: 4px 0;
+            margin-bottom: 4px;
+        }
+
+        .title-section h2 {
+            font-size: 16px;
+            color: #346187;
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .search-panel {
+            background-color: #f8f9fa;
+            padding: 4px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            margin-bottom: 4px;
+        }
+
+        .search-panel .form-label {
+            font-size: 12px;
+            margin-bottom: 1px;
+            color: #666;
+            line-height: 1;
+        }
+
+        .search-panel .form-control,
+        .search-panel .form-select {
+            height: 24px;
+            padding: 1px 6px;
+            font-size: 12px;
+        }
+
+        .search-panel .btn {
+            height: 24px;
+            padding: 0 12px;
+            font-size: 12px;
+            line-height: 22px;
+        }
+
+        .search-panel .row {
+            margin: 0;
+            gap: 2px;
+        }
+
+        .search-panel .col-md-2,
+        .search-panel .col-md-3,
+        .search-panel .col-md-4 {
+            padding: 0 2px;
+        }
+
+        .search-panel .form-group.d-flex {
+            gap: 4px;
+        }
+
+        .form-group {
+            margin-bottom: 0;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            box-shadow: none;
+        }
+
+        .chart-container {
+            flex: 0 0 auto;
+            height: 400px;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .table-section {
+            position: relative;
+            z-index: 0;
+            height: auto;
+            min-height: 200px;
+            max-height: 300px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #dee2e6;
+            margin-top: 20px;
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table th {
+            position: sticky;
+            top: 0;
+            background: #f8f9fa;
+            z-index: 2;
+        }
+
+        .pagination-container {
+            padding: 10px;
+            background: white;
+            border-top: 1px solid #dee2e6;
+            position: sticky;
+            bottom: 0;
+            z-index: 2;
+        }
+
+        .table-section table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table-section td,
+        .table-section th {
+            padding: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        #chartContainer {
+            height: 100%;
+            min-height: 400px;
+        }
+
+        .content-wrapper {
+            position: relative;
+            height: calc(100vh - 30px);
+            overflow-y: auto;
+        }
+
+        .text-danger {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .pagination-container {
+            padding: 5px 0;
+            background: #fff;
+            position: sticky;
+            bottom: 0;
+        }
+
+        .search-panel .row.align-items-end {
+            align-items: flex-end !important;
+        }
+
+        .col-md-auto {
+            padding-left: 4px;
+            padding-right: 4px;
+        }
+
+        #chartContainer {
+            height: 100%;
+            min-height: 400px;
+        }
+        
+        /* 确保图例显示在图表下方 */
+        .highcharts-legend {
+            transform: translate(0, 20px);
+        }
+        
+        /* 调整图例样式 */
+        .highcharts-legend-item text {
+            font-size: 10px !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        <!-- 标题部分 -->
+        <div class="title-section">
+            <h2 class="text-center">STIC-ME在线水质检测管理</h2>
+        </div>
+
+        <!-- 查询面板 -->
+        <div class="search-panel">
+            <div class="row align-items-end g-1">
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="systemSelect" class="form-label">系统选择</label>
+                        <select class="form-select" id="systemSelect" onchange="handleSystemChange()">
+                            <option value="ALL">全部系统</option>
+                            <option value="MCHW">MCHW</option>
+                            <option value="LCHW">LCHW</option>
+                            <option value="HW">HW</option>
+                            <option value="HHW">HHW</option>
+                            <option value="CW">CW</option>
+                            <option value="PCW">PCW</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="startTime" class="form-label">开始时间</label>
+                        <input type="datetime-local" class="form-control" id="startTime">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="endTime" class="form-label">结束时间</label>
+                        <input type="datetime-local" class="form-control" id="endTime">
+                    </div>
+                </div>
+                <div class="col-md-auto" style="margin-left: -10px;">
+                    <button class="btn btn-primary btn-sm" onclick="queryData()">查询</button>
+                    <button class="btn btn-secondary btn-sm ms-1" onclick="resetQuery()">重置</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 图表容器 -->
+        <div class="chart-container" id="chartContainer"></div>
+
+        <!-- 表格部分 -->
+        <div class="table-section">
+            <table class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th rowspan="3">时间</th>
+                        <th colspan="2">MCHW</th>
+                        <th colspan="2">LCHW</th>
+                        <th colspan="2">HW</th>
+                        <th colspan="2">HHW</th>
+                        <th colspan="2">CW</th>
+                        <th colspan="2">PCW</th>
+                    </tr>
+                    <tr>
+                        <th>pH</th>
+                        <th>电导率</th>
+                        <th>pH</th>
+                        <th>电导率</th>
+                        <th>pH</th>
+                        <th>电导率</th>
+                        <th>pH</th>
+                        <th>电导率</th>
+                        <th>pH</th>
+                        <th>电导率</th>
+                        <th>pH</th>
+                        <th>电导率</th>
+                    </tr>
+                    <tr>
+                        <th><small>7.5~8.5</small></th>
+                        <th><small>≤50μS/cm</small></th>
+                        <th><small>7.5~8.5</small></th>
+                        <th><small>≤50μS/cm</small></th>
+                        <th><small>7.5~8.5</small></th>
+                        <th><small>≤50μS/cm</small></th>
+                        <th><small>7.5~8.5</small></th>
+                        <th><small>≤50μS/cm</small></th>
+                        <th><small>7.5~8.5</small></th>
+                        <th><small>≤50μS/cm</small></th>
+                        <th><small>7.5~8.5</small></th>
+                        <th><small>≤50μS/cm</small></th>
+                    </tr>
+                </thead>
+                <tbody id="dataTableBody">
+                    <!-- 数据行将通过 JavaScript 动态添加 -->
+                </tbody>
+            </table>
+            
+            <!-- 分页控件 -->
+            <div class="pagination-container d-flex justify-content-between align-items-center">
+                <div class="pagination-info">
+                    显示 <span id="startRow">1</span> 到 <span id="endRow">5</span> 条，共 <span id="totalRows">0</span> 条记录
+                </div>
+                <ul class="pagination" id="pagination"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入必要的JavaScript库 -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+
+    <!-- 页面脚本 -->
+    <script>
+        // 全局变量
+        let chart;
+        let currentPage = 1;
+        let pageSize = 5;
+        let totalData = [];
+        let selectedSystem = 'ALL';
+
+        // 初始化图表
+        function initializeChart() {
+            chart = Highcharts.chart('chartContainer', {
+                chart: {
+                    type: 'line',
+                    height: 360,          // 设置图表高度
+                    spacingBottom: 15,    // 底部间距
+                    spacingTop: 15,       // 顶部间距
+                    marginBottom: 100,    // 底部边距，为x轴留出空间
+                    marginTop: 50,        // 顶部边距
+                    marginRight: 60,      // 右侧边距
+                    marginLeft: 60        // 左侧边距
+                },
+                title: {
+                    text: '水质数据趋势图',
+                    style: {
+                        fontSize: '14px'
+                    },
+                    margin: 20
+                },
+                xAxis: {
+                    type: 'datetime',
+                    crosshair: true,
+                    labels: {
+                        rotation: -45,    // 旋转标签
+                        y: 50,           // 调整标签位置
+                        style: {
+                            fontSize: '11px'
+                        }
+                    },
+                    lineWidth: 1,        // 显示轴线
+                    tickLength: 5        // 刻度线长度
+                },
+                yAxis: [{
+                    title: { 
+                        text: 'pH值',
+                        margin: 20
+                    },
+                    min: 6,
+                    max: 10,
+                    tickInterval: 0.5
+                }, {
+                    title: { 
+                        text: '电导率 (μS/cm)',
+                        margin: 20
+                    },
+                    opposite: true
+                }],
+                legend: {
+                    enabled: true,
+                    align: 'center',
+                    verticalAlign: 'bottom',
+                    layout: 'horizontal',
+                    itemStyle: {
+                        fontSize: '10px'
+                    },
+                    y: -50,             // 调整图例位置
+                    itemDistance: 30
+                },
+                series: [{
+                    name: 'MCHW-pH',
+                    yAxis: 0,
+                    data: []
+                }, {
+                    name: 'MCHW-电导率',
+                    yAxis: 1,
+                    data: [],
+                    dashStyle: 'shortdot'
+                }, {
+                    name: 'LCHW-pH',
+                    yAxis: 0,
+                    data: []
+                }, {
+                    name: 'LCHW-电导率',
+                    yAxis: 1,
+                    data: [],
+                    dashStyle: 'shortdot'
+                }, {
+                    name: 'HW-pH',
+                    yAxis: 0,
+                    data: []
+                }, {
+                    name: 'HW-电导率',
+                    yAxis: 1,
+                    data: [],
+                    dashStyle: 'shortdot'
+                }, {
+                    name: 'HHW-pH',
+                    yAxis: 0,
+                    data: []
+                }, {
+                    name: 'HHW-电导率',
+                    yAxis: 1,
+                    data: [],
+                    dashStyle: 'shortdot'
+                }, {
+                    name: 'CW-pH',
+                    yAxis: 0,
+                    data: []
+                }, {
+                    name: 'CW-电导率',
+                    yAxis: 1,
+                    data: [],
+                    dashStyle: 'shortdot'
+                }, {
+                    name: 'PCW-pH',
+                    yAxis: 0,
+                    data: []
+                }, {
+                    name: 'PCW-电导率',
+                    yAxis: 1,
+                    data: [],
+                    dashStyle: 'shortdot'
+                }]
+            });
+        }
+
+        // 修改数据更新函数
+        function updateChart(data) {
+            if (!chart || !chart.series) return;
+            
+            const systems = ['MCHW', 'LCHW', 'HW', 'HHW', 'CW', 'PCW'];
+            
+            systems.forEach((system, index) => {
+                if (!data || !data.length) return;
+                
+                const phData = data.map(record => [
+                    record.timestamp,
+                    record.systems[system].ph
+                ]);
+                
+                const condData = data.map(record => [
+                    record.timestamp,
+                    record.systems[system].conductivity
+                ]);
+
+                chart.series[index * 2].setData(phData, false);
+                chart.series[index * 2 + 1].setData(condData, false);
+            });
+            
+            chart.redraw();
+        }
+
+        // 修改生成模拟数据的函数
+        function generateMockData(startTime, endTime) {
+            const data = [];
+            const interval = 5 * 60 * 1000; // 5分钟间隔
+            let currentTime = startTime.getTime();
+            
+            while (currentTime <= endTime.getTime()) {
+                const record = {
+                    timestamp: currentTime,
+                    systems: {
+                        'MCHW': {
+                            ph: 7.5 + Math.random() * 1.0,
+                            conductivity: 20 + Math.random() * 30
+                        },
+                        'LCHW': {
+                            ph: 7.6 + Math.random() * 1.0,
+                            conductivity: 22 + Math.random() * 30
+                        },
+                        'HW': {
+                            ph: 7.4 + Math.random() * 1.0,
+                            conductivity: 25 + Math.random() * 30
+                        },
+                        'HHW': {
+                            ph: 7.7 + Math.random() * 1.0,
+                            conductivity: 23 + Math.random() * 30
+                        },
+                        'CW': {
+                            ph: 7.3 + Math.random() * 1.0,
+                            conductivity: 21 + Math.random() * 30
+                        },
+                        'PCW': {
+                            ph: 7.8 + Math.random() * 1.0,
+                            conductivity: 24 + Math.random() * 30
+                        }
+                    }
+                };
+                data.push(record);
+                currentTime += interval;
+            }
+            
+            return data;
+        }
+
+        // 更新表格
+        function updateTable(data) {
+            const tbody = document.getElementById('dataTableBody');
+            if (!tbody) return;
+
+            // 清空现有数据
+            tbody.innerHTML = '';
+            
+            // 更新总记录数
+            document.getElementById('totalRows').textContent = data.length;
+            
+            // 计算当前页的数据范围
+            const startIndex = (currentPage - 1) * pageSize;
+            const endIndex = Math.min(startIndex + pageSize, data.length);
+            
+            // 更新显示范围
+            document.getElementById('startRow').textContent = startIndex + 1;
+            document.getElementById('endRow').textContent = endIndex;
+
+            // 添加数据行
+            for (let i = startIndex; i < endIndex; i++) {
+                const record = data[i];
+                const row = document.createElement('tr');
+                
+                // 添加时间列
+                row.innerHTML = `<td>${new Date(record.timestamp).toLocaleString()}</td>`;
+                
+                // 添加各系统数据
+                ['MCHW', 'LCHW', 'HW', 'HHW', 'CW', 'PCW'].forEach(system => {
+                    const systemData = record.systems[system];
+                    row.innerHTML += `
+                        <td>${systemData.ph.toFixed(2)}</td>
+                        <td>${systemData.conductivity.toFixed(1)}</td>
+                    `;
+                });
+                
+                tbody.appendChild(row);
+            }
+
+            // 更新分页
+            updatePagination();
+        }
+
+        // 渲染表格页面
+        function renderTablePage() {
+            const tbody = document.getElementById('dataTableBody');
+            if (!tbody) {
+                console.error('Table body element not found');
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            const startIndex = (currentPage - 1) * pageSize;
+            const endIndex = Math.min(startIndex + pageSize, totalData.length);
+            
+            document.getElementById('startRow').textContent = startIndex + 1;
+            document.getElementById('endRow').textContent = endIndex;
+            document.getElementById('totalRows').textContent = totalData.length;
+            
+            for (let i = startIndex; i < endIndex; i++) {
+                const record = totalData[i];
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `<td>${new Date(record.timestamp).toLocaleString()}</td>`;
+                
+                ['MCHW', 'LCHW', 'HW', 'HHW', 'CW', 'PCW'].forEach(system => {
+                    const systemData = record.systems[system];
+                    const phOutOfSpec = systemData.ph < 7.5 || systemData.ph > 8.5;
+                    const condOutOfSpec = systemData.conductivity >= 50;
+                    
+                    row.innerHTML += `
+                        <td class="${phOutOfSpec ? 'text-danger' : ''}">${systemData.ph.toFixed(2)}</td>
+                        <td class="${condOutOfSpec ? 'text-danger' : ''}">${systemData.conductivity.toFixed(1)}</td>
+                    `;
+                });
+                
+                tbody.appendChild(row);
+            }
+        }
+
+        // 更新分页
+        function updatePagination() {
+            const totalPages = Math.ceil(totalData.length / pageSize);
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = '';
+            
+            pagination.innerHTML += `
+                <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${currentPage - 1})">上一页</a>
+                </li>
+            `;
+
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    pagination.innerHTML += `
+                        <li class="page-item ${i === currentPage ? 'active' : ''}">
+                            <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+                        </li>
+                    `;
+                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                    pagination.innerHTML += `
+                        <li class="page-item disabled">
+                            <a class="page-link" href="#">...</a>
+                        </li>
+                    `;
+                }
+            }
+
+            pagination.innerHTML += `
+                <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${currentPage + 1})">下一页</a>
+                </li>
+            `;
+        }
+
+        // 切换页码
+        function changePage(page) {
+            const totalPages = Math.ceil(totalData.length / pageSize);
+            if (page < 1 || page > totalPages) return;
+            
+            currentPage = page;
+            renderTablePage();
+            updatePagination();
+        }
+
+        // 处理系统选择变化
+        function handleSystemChange() {
+            const selectedSystem = document.getElementById('systemSelect').value;
+            if (!chart) return;
+            
+            chart.series.forEach(series => {
+                if (selectedSystem === 'ALL') {
+                    series.show();
+                } else {
+                    series.setVisible(series.name.includes(selectedSystem), false);
+                }
+            });
+            
+            chart.redraw();
+        }
+
+        // 查询数据
+        function queryData() {
+            const startTime = new Date(document.getElementById('startTime').value);
+            const endTime = new Date(document.getElementById('endTime').value);
+            
+            if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+                alert('请选择有效的时间范围');
+                return;
+            }
+            
+            const testData = [];
+            let currentTime = startTime.getTime();
+            const interval = 5 * 60 * 1000; // 5分钟间隔
+
+            while (currentTime <= endTime.getTime()) {
+                testData.push({
+                    timestamp: currentTime,
+                    systems: {
+                        'MCHW': { 
+                            ph: 16 + Math.random() * 2,
+                            conductivity: 520 + Math.random() * 120
+                        },
+                        'LCHW': { 
+                            ph: 16 + Math.random() * 2,
+                            conductivity: 520 + Math.random() * 120
+                        },
+                        'HW': { 
+                            ph: 16 + Math.random() * 2,
+                            conductivity: 520 + Math.random() * 120
+                        },
+                        'HHW': { 
+                            ph: 16 + Math.random() * 2,
+                            conductivity: 520 + Math.random() * 120
+                        },
+                        'CW': { 
+                            ph: 16 + Math.random() * 2,
+                            conductivity: 520 + Math.random() * 120
+                        },
+                        'PCW': { 
+                            ph: 16 + Math.random() * 2,
+                            conductivity: 520 + Math.random() * 120
+                        }
+                    }
+                });
+                currentTime += interval;
+            }
+
+            console.log('Generated test data:', testData);
+            updateChart(testData);
+            updateTable(testData);
+        }
+
+        // 重置查询
+        function resetQuery() {
+            const endTime = new Date();
+            const startTime = new Date(endTime - 4 * 60 * 60 * 1000); // 4小时前
+            
+            document.getElementById('startTime').value = formatDateTime(startTime);
+            document.getElementById('endTime').value = formatDateTime(endTime);
+            document.getElementById('systemSelect').value = 'ALL';
+            
+            queryData(); // 直接调用查询函数
+        }
+
+        // 格式化日期时间
+        function formatDateTime(date) {
+            return date.toISOString().slice(0, 16);
+        }
+
+        // 确保页面加载完成后初始化图表并加载数据
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Page loaded, initializing chart...');
+            initializeChart();
+            resetQuery();
+            
+            // 延迟执行reflow以确保正确渲染
+            setTimeout(function() {
+                if (chart) {
+                    chart.reflow();
+                }
+            }, 100);
+        });
+
+        // 添加窗口大小改变时的处理
+        window.addEventListener('resize', function() {
+            if (chart) {
+                chart.reflow();  // 重新计算图表大小
+            }
+        });
+    </script>
+</body>
+</html> 

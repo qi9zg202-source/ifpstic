@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAB 多指标关联分析</title>
+    <!-- 引入必要的库 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+    <style>
+        .main-container {
+            padding: 20px;
+        }
+
+        .analysis-section {
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .chart-container {
+            height: 500px;
+            margin-top: 20px;
+        }
+
+        .control-panel {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .correlation-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .correlation-table th,
+        .correlation-table td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .correlation-cell {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .correlation-value {
+            font-weight: bold;
+        }
+
+        .indicator-select {
+            width: 200px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <h2 class="mb-4">多指标关联分析</h2>
+
+        <!-- 指标选择面板 -->
+        <div class="control-panel">
+            <div class="row">
+                <div class="col-md-8">
+                    <h5>选择分析指标</h5>
+                    <div class="d-flex flex-wrap align-items-center">
+                        <select class="form-select indicator-select" multiple id="indicatorSelect">
+                            <option value="thickness">膜厚</option>
+                            <option value="uniformity">均匀性</option>
+                            <option value="resistivity">电阻率</option>
+                            <option value="stress">应力</option>
+                            <option value="particles">颗粒数</option>
+                            <option value="temperature">温度</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="updateAnalysis()">更新分析</button>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <h5>分析类型</h5>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-secondary active" onclick="switchView('correlation')">相关性分析</button>
+                        <button class="btn btn-outline-secondary" onclick="switchView('scatter')">散点矩阵</button>
+                        <button class="btn btn-outline-secondary" onclick="switchView('multivariate')">多变量控制图</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 相关性分析部分 -->
+        <div class="analysis-section" id="correlationSection">
+            <h4>相关性分析</h4>
+            <div class="chart-container" id="correlationMatrix"></div>
+            <div class="mt-4">
+                <h5>相关系数矩阵</h5>
+                <div class="table-responsive">
+                    <table class="correlation-table" id="correlationTable"></table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 散点矩阵部分 -->
+        <div class="analysis-section" id="scatterSection" style="display: none;">
+            <h4>散点矩阵</h4>
+            <div class="chart-container" id="scatterMatrix"></div>
+        </div>
+
+        <!-- 多变量控制图部分 -->
+        <div class="analysis-section" id="multivariateSection" style="display: none;">
+            <h4>多变量控制图</h4>
+            <div class="chart-container" id="multivariateChart"></div>
+        </div>
+    </div>
+
+    <script>
+        // 模拟数据生成
+        function generateData(indicators) {
+            const data = {};
+            const n = 100; // 数据点数量
+            
+            indicators.forEach(indicator => {
+                data[indicator] = Array.from({length: n}, () => {
+                    let baseValue;
+                    switch(indicator) {
+                        case 'thickness': baseValue = 1000; break;
+                        case 'uniformity': baseValue = 95; break;
+                        case 'resistivity': baseValue = 50; break;
+                        case 'stress': baseValue = 200; break;
+                        case 'particles': baseValue = 100; break;
+                        case 'temperature': baseValue = 25; break;
+                        default: baseValue = 100;
+                    }
+                    return baseValue + (Math.random() - 0.5) * baseValue * 0.1;
+                });
+            });
+            return data;
+        }
+
+        // 计算相关系数
+        function calculateCorrelation(x, y) {
+            const n = x.length;
+            const xMean = x.reduce((a, b) => a + b) / n;
+            const yMean = y.reduce((a, b) => a + b) / n;
+            
+            const numerator = x.reduce((sum, xi, i) => 
+                sum + (xi - xMean) * (y[i] - yMean), 0);
+            
+            const xStd = Math.sqrt(x.reduce((sum, xi) => 
+                sum + Math.pow(xi - xMean, 2), 0));
+            const yStd = Math.sqrt(y.reduce((sum, yi) => 
+                sum + Math.pow(yi - yMean, 2), 0));
+            
+            return numerator / (xStd * yStd);
+        }
+
+        // 更新相关性矩阵
+        function updateCorrelationMatrix(data, indicators) {
+            const correlationData = [];
+            const correlations = {};
+            
+            indicators.forEach(ind1 => {
+                correlations[ind1] = {};
+                indicators.forEach(ind2 => {
+                    const correlation = calculateCorrelation(data[ind1], data[ind2]);
+                    correlations[ind1][ind2] = correlation;
+                    correlationData.push([
+                        indicators.indexOf(ind1),
+                        indicators.indexOf(ind2),
+                        Math.abs(correlation)
+                    ]);
+                });
+            });
+
+            const chart = echarts.init(document.getElementById('correlationMatrix'));
+            const option = {
+                tooltip: {
+                    position: 'top',
+                    formatter: function(params) {
+                        const ind1 = indicators[params.data[0]];
+                        const ind2 = indicators[params.data[1]];
+                        const value = correlations[ind1][ind2].toFixed(3);
+                        return `${ind1} vs ${ind2}<br>相关系数: ${value}`;
+                    }
+                },
+                grid: {
+                    top: '10%',
+                    bottom: '10%'
+                },
+                xAxis: {
+                    type: 'category',
+                    data: indicators,
+                    splitArea: {
+                        show: true
+                    }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: indicators,
+                    splitArea: {
+                        show: true
+                    }
+                },
+                visualMap: {
+                    min: 0,
+                    max: 1,
+                    calculable: true,
+                    orient: 'horizontal',
+                    left: 'center',
+                    bottom: '0%'
+                },
+                series: [{
+                    name: '相关系数',
+                    type: 'heatmap',
+                    data: correlationData,
+                    label: {
+                        show: true,
+                        formatter: function(params) {
+                            const value = correlations[indicators[params.data[0]]]
+                                [indicators[params.data[1]]].toFixed(2);
+                            return value;
+                        }
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 10,
+                            shadowColor: 'rgba(0, 0, 0, 0.5)'
+                        }
+                    }
+                }]
+            };
+            chart.setOption(option);
+
+            // 更新相关系数表格
+            updateCorrelationTable(correlations, indicators);
+        }
+
+        // 更新散点矩阵
+        function updateScatterMatrix(data, indicators) {
+            const traces = [];
+            
+            indicators.forEach((ind1, i) => {
+                indicators.forEach((ind2, j) => {
+                    if (i !== j) {
+                        traces.push({
+                            x: data[ind1],
+                            y: data[ind2],
+                            mode: 'markers',
+                            type: 'scatter',
+                            name: `${ind1} vs ${ind2}`,
+                            xaxis: `x${i + 1}`,
+                            yaxis: `y${j + 1}`,
+                            marker: { size: 4 }
+                        });
+                    }
+                });
+            });
+
+            const layout = {
+                grid: {rows: indicators.length, columns: indicators.length, pattern: 'independent'},
+                height: 800,
+                showlegend: false
+            };
+
+            Plotly.newPlot('scatterMatrix', traces, layout);
+        }
+
+        // 更新多变量控制图
+        function updateMultivariateChart(data, indicators) {
+            const traces = indicators.map(indicator => ({
+                y: data[indicator],
+                name: indicator,
+                type: 'scatter',
+                mode: 'lines+markers'
+            }));
+
+            const layout = {
+                title: '多变量时序控制图',
+                showlegend: true,
+                height: 600
+            };
+
+            Plotly.newPlot('multivariateChart', traces, layout);
+        }
+
+        // 切换视图
+        function switchView(view) {
+            document.getElementById('correlationSection').style.display = 
+                view === 'correlation' ? 'block' : 'none';
+            document.getElementById('scatterSection').style.display = 
+                view === 'scatter' ? 'block' : 'none';
+            document.getElementById('multivariateSection').style.display = 
+                view === 'multivariate' ? 'block' : 'none';
+            
+            // 重新调整图表大小
+            window.dispatchEvent(new Event('resize'));
+        }
+
+        // 更新分析
+        function updateAnalysis() {
+            const select = document.getElementById('indicatorSelect');
+            const selectedIndicators = Array.from(select.selectedOptions).map(option => option.value);
+            
+            if (selectedIndicators.length < 2) {
+                alert('请至少选择两个指标进行分析');
+                return;
+            }
+
+            const data = generateData(selectedIndicators);
+            updateCorrelationMatrix(data, selectedIndicators);
+            updateScatterMatrix(data, selectedIndicators);
+            updateMultivariateChart(data, selectedIndicators);
+        }
+
+        // 更新相关系数表格
+        function updateCorrelationTable(correlations, indicators) {
+            const table = document.getElementById('correlationTable');
+            table.innerHTML = '';
+            
+            // 创建表头
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            headerRow.innerHTML = '<th></th>' + 
+                indicators.map(ind => `<th>${ind}</th>`).join('');
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            // 创建表体
+            const tbody = document.createElement('tbody');
+            indicators.forEach(ind1 => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<th>${ind1}</th>` +
+                    indicators.map(ind2 => 
+                        `<td class="correlation-cell">
+                            <span class="correlation-value">
+                                ${correlations[ind1][ind2].toFixed(3)}
+                            </span>
+                        </td>`
+                    ).join('');
+                tbody.appendChild(row);
+            });
+            table.appendChild(tbody);
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            const defaultIndicators = ['thickness', 'uniformity', 'resistivity'];
+            const select = document.getElementById('indicatorSelect');
+            defaultIndicators.forEach(ind => {
+                Array.from(select.options).find(option => 
+                    option.value === ind).selected = true;
+            });
+            updateAnalysis();
+        });
+    </script>
+</body>
+</html> 

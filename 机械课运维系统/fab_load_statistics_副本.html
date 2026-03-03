@@ -1,0 +1,2395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高效制冷机房负荷统计</title>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/highcharts-more.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/offline-exporting.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            width: 100%;
+            height: 100vh;
+            background: white;
+            display: flex;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        
+        .main-content {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            gap: 15px;
+        }
+        
+        .device-tree-section {
+            width: 350px;
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 20px;
+            overflow-y: auto;
+            transition: width 0.3s ease, margin-left 0.3s ease;
+            position: relative;
+        }
+        
+        .device-tree-section.collapsed {
+            width: 50px;
+            padding: 10px;
+        }
+        
+        .device-tree-section.collapsed h3,
+        .device-tree-section.collapsed #deviceTree {
+            display: none;
+        }
+        
+        .sidebar-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+        
+        .sidebar-toggle:hover {
+            background: #0056b3;
+            transform: scale(1.1);
+        }
+        
+        .sidebar-toggle.collapsed {
+            right: 50%;
+            transform: translateX(50%);
+        }
+        
+        .device-tree-section h3 {
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 18px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        
+        .tree-node {
+            margin: 5px 0;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+            user-select: none;
+        }
+        
+        .tree-node:hover {
+            background-color: #e9ecef;
+        }
+        
+        .tree-node.active {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .tree-node.level-0 {
+            font-weight: bold;
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .tree-node.level-1 {
+            margin-left: 20px;
+            background-color: #f3e5f5;
+            border-left: 3px solid #9c27b0;
+        }
+        
+        .tree-node.level-2 {
+            margin-left: 40px;
+            background-color: #e8f5e8;
+            border-left: 2px solid #4caf50;
+            font-size: 14px;
+        }
+        
+        .tree-node.expandable {
+            position: relative;
+            padding-left: 25px;
+        }
+        
+        .expand-icon {
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-style: solid;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .expand-icon.expanded {
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 8px solid #666;
+            transform: translateY(-50%) rotate(0deg);
+        }
+        
+        .expand-icon.collapsed {
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            border-left: 8px solid #666;
+            transform: translateY(-50%) rotate(0deg);
+        }
+        
+        .tree-children {
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        
+        .tree-children.collapsed {
+            max-height: 0;
+        }
+        
+        .tree-children.expanded {
+            max-height: 1000px;
+        }
+        
+        .chart-section {
+            flex: 1;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+        
+        .chart-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .left-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .time-range {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .chart-controls label {
+            font-weight: bold;
+            color: #495057;
+            font-size: 12px;
+        }
+        
+        .chart-controls input {
+            padding: 5px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 3px;
+            font-size: 12px;
+            width: 160px;
+        }
+        
+        .chart-controls button {
+            padding: 5px 15px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        .query-btn {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .query-btn:hover {
+            background-color: #0056b3;
+        }
+        
+        .reset-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .reset-btn:hover {
+            background-color: #545b62;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+            margin-left: 10px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #28a745;
+        }
+        
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .toggle-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .toggle-label {
+            font-size: 12px;
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        /* 自定义柱状图悬停阴影效果 */
+        .highcharts-point.hover-shadow {
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3)) drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+            transform: translateY(-2px);
+            transition: all 0.2s ease;
+        }
+        
+        
+        .chart-container {
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #loadChart {
+            height: 100%;
+            min-height: 400px;
+            max-height: 600px;
+        }
+        
+        .data-table-section {
+            margin-top: 20px;
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 400px;
+            overflow: visible;
+            flex-shrink: 0;
+        }
+        
+        .data-table-section h4 {
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 16px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 8px;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            table-layout: fixed;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 8px 12px;
+            text-align: center;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 12px;
+        }
+        
+        .data-table th {
+            background-color: #f8f9fa;
+            color: #495057;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .data-table td {
+            color: #333;
+        }
+        
+        .data-table tbody tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .data-table .time-col {
+            background-color: #e3f2fd;
+            font-weight: bold;
+            min-width: 120px;
+        }
+        
+        .data-table .actual-col {
+            color: #007bff;
+            font-weight: bold;
+        }
+        
+        .data-table .compare-col {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .data-table .difference-col {
+            font-weight: bold;
+        }
+        
+        .data-table .difference-positive {
+            color: #dc3545;
+        }
+        
+        .data-table .difference-negative {
+            color: #17a2b8;
+        }
+        
+        .table-container {
+            height: 250px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+        
+        .export-section {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+        
+        .export-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+            color: white;
+            background-color: #28a745;
+        }
+        
+        .export-btn:hover {
+            background-color: #218838;
+        }
+        
+        .export-btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        #exportChartBtn {
+            background-color: #007bff;
+        }
+        
+        #exportChartBtn:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+        
+        .export-section-bottom {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .export-btn-small {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: normal;
+            transition: background-color 0.3s;
+            color: white;
+            background-color: #6c757d;
+            min-width: 60px;
+        }
+        
+        .export-btn-small:hover:not(:disabled) {
+            opacity: 0.8;
+        }
+        
+        .export-btn-small:disabled {
+            background-color: #adb5bd;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .export-btn-small#exportChartBtn:not(:disabled) {
+            background-color: #007bff;
+        }
+        
+        .export-btn-small#exportBtn:not(:disabled) {
+            background-color: #28a745;
+        }
+        
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+            padding: 10px 0;
+            border-top: 1px solid #e0e0e0;
+            font-size: 12px;
+        }
+        
+        .pagination-info {
+            color: #666;
+        }
+        
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .pagination-btn {
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+        
+        .pagination-btn:hover:not(:disabled) {
+            background-color: #f5f5f5;
+            border-color: #007bff;
+        }
+        
+        .pagination-btn:disabled {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .pagination-btn.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        .page-size-selector {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-left: 15px;
+        }
+        
+        .page-size-selector select {
+            padding: 2px 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        
+        .export-section-inline {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .time-granularity-section {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-right: 12px;
+            padding-right: 12px;
+            border-right: 1px solid #e0e0e0;
+        }
+        
+        .time-granularity-section label {
+            font-weight: bold;
+            color: #495057;
+            font-size: 12px;
+        }
+        
+        .granularity-options {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .granularity-radio {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+        
+        .granularity-radio input[type="radio"] {
+            margin: 0;
+            padding: 0;
+            width: 12px;
+            height: 12px;
+        }
+        
+        .granularity-radio label {
+            font-weight: normal;
+            margin: 0;
+            cursor: pointer;
+            font-size: 11px;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        
+        
+        .no-data {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            color: #6c757d;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-content">
+            <div class="device-tree-section" id="deviceTreeSection">
+                <button class="sidebar-toggle" id="sidebarToggle" title="折叠/展开侧边栏">
+                    <span id="toggleIcon">‹</span>
+                </button>
+                <h3>机械课模型</h3>
+                <div id="deviceTree">
+                    <!-- 动态生成设备树 -->
+                </div>
+            </div>
+            
+            <div class="chart-section">
+                <div class="chart-controls" id="chartControls" style="display: none;">
+                    <div class="left-controls">
+                        <div class="time-granularity-section">
+                            <label>时间粒度:</label>
+                            <div class="granularity-options">
+                                <div class="granularity-radio">
+                                    <input type="radio" id="hourGranularity" name="timeGranularity" value="hour" checked onchange="changeTimeGranularity()">
+                                    <label for="hourGranularity">小时</label>
+                                </div>
+                                <div class="granularity-radio">
+                                    <input type="radio" id="dayGranularity" name="timeGranularity" value="day" onchange="changeTimeGranularity()">
+                                    <label for="dayGranularity">天</label>
+                                </div>
+                                <div class="granularity-radio">
+                                    <input type="radio" id="monthGranularity" name="timeGranularity" value="month" onchange="changeTimeGranularity()">
+                                    <label for="monthGranularity">月</label>
+                                </div>
+                                <div class="granularity-radio">
+                                    <input type="radio" id="yearGranularity" name="timeGranularity" value="year" onchange="changeTimeGranularity()">
+                                    <label for="yearGranularity">年</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="time-range">
+                            <label for="startDate">时间:</label>
+                            <input type="datetime-local" id="startDate" value="2024-01-01T00:00">
+                            <span>至</span>
+                            <input type="datetime-local" id="endDate" value="2024-01-01T23:59">
+                        </div>
+                        <button class="query-btn" onclick="queryLoadData()">查询</button>
+                        <button class="reset-btn" onclick="resetLoadData()">重置</button>
+                    </div>
+                    <div class="toggle-group">
+                        <div class="toggle-item">
+                            <span class="toggle-label">同比</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="yoyToggle" onchange="toggleMode('yoy')">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-item">
+                            <span class="toggle-label">环比</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="momToggle" onchange="toggleMode('mom')">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-item">
+                            <span class="toggle-label">显示AI数据</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="aiToggle" checked onchange="toggleMode('ai')">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <div id="loadChart">
+                        <div class="no-data">
+                            <p>请从左侧机械课模型选择设备节点查看负荷统计图表</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="data-table-section" id="dataTableSection" style="display: none;">
+                    <div class="table-container">
+                        <table class="data-table" id="dataTable">
+                            <thead>
+                                <tr id="tableHeader">
+                                    <!-- 表头将由JavaScript动态生成 -->
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <!-- 表格数据将由JavaScript动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination-container" id="paginationContainer">
+                        <div class="pagination-info" id="paginationInfo">
+                            显示第 1-10 项，共 24 项
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div style="display: flex; align-items: center;">
+                                <div class="pagination-controls" id="paginationControls">
+                                    <button class="pagination-btn" id="prevBtn" onclick="changePage(-1)" disabled>上一页</button>
+                                    <div id="pageNumbers"></div>
+                                    <button class="pagination-btn" id="nextBtn" onclick="changePage(1)">下一页</button>
+                                </div>
+                                <div class="page-size-selector">
+                                    <span>每页</span>
+                                    <select id="pageSize" onchange="changePageSize()">
+                                        <option value="5">5</option>
+                                        <option value="10" selected>10</option>
+                                        <option value="15">15</option>
+                                        <option value="20">20</option>
+                                        <option value="50">50</option>
+                                    </select>
+                                    <span>项</span>
+                                </div>
+                            </div>
+                            <div class="export-section-inline">
+                                <button class="export-btn-small" id="exportChartBtn" onclick="exportChart()" disabled>保存图片</button>
+                                <button class="export-btn-small" id="exportBtn" onclick="exportToExcel()" disabled>导出Excel</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 设备树数据结构
+        const deviceTreeData = [
+            {
+                id: 'cooling_system',
+                name: '机械课',
+                level: 0,
+                children: [
+                    {
+                        id: 'low_temp_system',
+                        name: '低温系统',
+                        level: 1,
+                        children: [
+                            { id: 'low_chiller_1', name: '001#低温冰机', level: 2 },
+                            { id: 'low_chiller_2', name: '002#低温冰机', level: 2 },
+                            { id: 'low_chiller_3', name: '003#低温冰机', level: 2 },
+                            { id: 'low_chiller_4', name: '004#低温冰机', level: 2 },
+                            { id: 'low_pump_1', name: '001#低温水泵', level: 2 },
+                            { id: 'low_pump_2', name: '002#低温水泵', level: 2 }
+                        ]
+                    },
+                    {
+                        id: 'mid_temp_system',
+                        name: '中温系统',
+                        level: 1,
+                        children: [
+                            { id: 'mid_chiller_1', name: '001#中温冰机', level: 2 },
+                            { id: 'mid_chiller_2', name: '002#中温冰机', level: 2 },
+                            { id: 'mid_chiller_3', name: '003#中温冰机', level: 2 },
+                            { id: 'mid_pump_1', name: '001#中温水泵', level: 2 },
+                            { id: 'mid_pump_2', name: '002#中温水泵', level: 2 }
+                        ]
+                    },
+                    {
+                        id: 'cooling_tower_system',
+                        name: '冷却塔系统',
+                        level: 1,
+                        children: [
+                            { id: 'tower_1', name: '001#冷却塔', level: 2 },
+                            { id: 'tower_2', name: '002#冷却塔', level: 2 },
+                            { id: 'tower_3', name: '003#冷却塔', level: 2 },
+                            { id: 'tower_fan_1', name: '001#冷却塔风机', level: 2 },
+                            { id: 'tower_fan_2', name: '002#冷却塔风机', level: 2 }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        let currentChart = null;
+        let selectedNode = null;
+        let currentMode = 'ai'; // 'ai', 'yoy', 'mom', 'actual'
+        let currentLoadData = null; // 存储当前的负荷数据用于导出
+        
+        // 分页相关变量
+        let currentPage = 1;
+        let pageSize = 10;
+        let totalItems = 0;
+        
+        // 时间粒度相关变量
+        let currentTimeGranularity = 'hour';
+
+        // 获取当前日期字符串
+        function getCurrentDateString() {
+            const startDate = document.getElementById('startDate').value;
+            if (startDate) {
+                return startDate.split('T')[0];
+            }
+            return new Date().toISOString().split('T')[0];
+        }
+
+        // 获取同比日期字符串（去年同期）
+        function getYoyDateString() {
+            const currentDate = getCurrentDateString();
+            const date = new Date(currentDate);
+            date.setFullYear(date.getFullYear() - 1);
+            return date.toISOString().split('T')[0];
+        }
+
+        // 获取环比日期字符串（上月同期）
+        function getMomDateString() {
+            const currentDate = getCurrentDateString();
+            const date = new Date(currentDate);
+            date.setMonth(date.getMonth() - 1);
+            return date.toISOString().split('T')[0];
+        }
+
+        // 生成负荷数据
+        function generateLoadData(deviceId) {
+            const data = [];
+            const timePoints = 24; // 24小时数据
+            
+            for (let i = 0; i < timePoints; i++) {
+                const baseLoad = Math.random() * 500 + 300; // 基础负荷 300-800kW
+                const actualLoad = baseLoad + (Math.random() - 0.5) * 100; // 实际负荷有波动
+                const aiLoad = baseLoad + (Math.random() - 0.5) * 80; // AI预测负荷波动较小
+                
+                // 生成同比数据（去年同期）
+                const yoyLoad = actualLoad * (0.9 + Math.random() * 0.2); // 同比数据在±10%范围内
+                
+                // 生成环比数据（上个月同期）
+                const momLoad = actualLoad * (0.95 + Math.random() * 0.1); // 环比数据在±5%范围内
+                
+                // 生成温度数据（18-26℃）
+                const temperature = 18 + Math.random() * 8 + Math.sin(i * Math.PI / 12) * 2; // 模拟温度变化曲线
+                
+                // 生成湿度数据（40-70%）
+                const humidity = 40 + Math.random() * 30 + Math.cos(i * Math.PI / 8) * 5; // 模拟湿度变化曲线
+                
+                data.push({
+                    time: `${i.toString().padStart(2, '0')}:00`,
+                    actual: Math.round(actualLoad * 100) / 100,
+                    ai: Math.round(aiLoad * 100) / 100,
+                    yoy: Math.round(yoyLoad * 100) / 100,
+                    mom: Math.round(momLoad * 100) / 100,
+                    temperature: Math.round(temperature * 10) / 10,
+                    humidity: Math.round(humidity * 10) / 10
+                });
+            }
+            
+            return data;
+        }
+
+        // 计算统计数据
+        function calculateStats(data, mode) {
+            const actualValues = data.map(d => d.actual);
+            let compareValues = [];
+            
+            switch(mode) {
+                case 'ai':
+                    compareValues = data.map(d => d.ai);
+                    break;
+                case 'yoy':
+                    compareValues = data.map(d => d.yoy);
+                    break;
+                case 'mom':
+                    compareValues = data.map(d => d.mom);
+                    break;
+                case 'actual':
+                    // 仅显示实际负荷模式，不需要对比数据
+                    compareValues = [];
+                    break;
+                default:
+                    compareValues = data.map(d => d.ai);
+            }
+            
+            const result = {
+                actual: {
+                    avg: Math.round((actualValues.reduce((a, b) => a + b, 0) / actualValues.length) * 100) / 100,
+                    max: Math.round(Math.max(...actualValues) * 100) / 100,
+                    min: Math.round(Math.min(...actualValues) * 100) / 100
+                }
+            };
+
+            // 如果有对比数据，则计算对比统计
+            if (compareValues.length > 0) {
+                result.compare = {
+                    avg: Math.round((compareValues.reduce((a, b) => a + b, 0) / compareValues.length) * 100) / 100,
+                    max: Math.round(Math.max(...compareValues) * 100) / 100,
+                    min: Math.round(Math.min(...compareValues) * 100) / 100
+                };
+            }
+            
+            return result;
+        }
+
+
+        // 找到最大值和最小值的索引
+        function findExtremeValues(data, mode) {
+            const actualData = data.map(d => d.actual);
+            let compareData = [];
+            
+            switch(mode) {
+                case 'ai':
+                    compareData = data.map(d => d.ai);
+                    break;
+                case 'yoy':
+                    compareData = data.map(d => d.yoy);
+                    break;
+                case 'mom':
+                    compareData = data.map(d => d.mom);
+                    break;
+                default:
+                    compareData = data.map(d => d.ai);
+            }
+            
+            const actualMaxIndex = actualData.indexOf(Math.max(...actualData));
+            const actualMinIndex = actualData.indexOf(Math.min(...actualData));
+            const compareMaxIndex = compareData.indexOf(Math.max(...compareData));
+            const compareMinIndex = compareData.indexOf(Math.min(...compareData));
+            
+            return {
+                actualMax: { index: actualMaxIndex, value: actualData[actualMaxIndex] },
+                actualMin: { index: actualMinIndex, value: actualData[actualMinIndex] },
+                compareMax: { index: compareMaxIndex, value: compareData[compareMaxIndex] },
+                compareMin: { index: compareMinIndex, value: compareData[compareMinIndex] }
+            };
+        }
+
+        // 创建气泡数据
+        function createBubbleData(extremes, mode) {
+            const getCompareLabel = (mode) => {
+                switch(mode) {
+                    case 'ai': return 'AI预测负荷极值';
+                    case 'yoy': return '同比负荷极值';
+                    case 'mom': return '环比负荷极值';
+                    default: return 'AI预测负荷极值';
+                }
+            };
+
+            return [
+                {
+                    name: '实际负荷极值',
+                    color: 'rgba(0, 123, 255, 0.8)',
+                    data: [
+                        {
+                            x: extremes.actualMax.index,
+                            y: extremes.actualMax.value,
+                            z: 15,
+                            name: `最大值: ${extremes.actualMax.value}kW`,
+                            marker: {
+                                symbol: 'circle',
+                                fillColor: '#dc3545',
+                                lineColor: '#fff',
+                                lineWidth: 2
+                            }
+                        },
+                        {
+                            x: extremes.actualMin.index,
+                            y: extremes.actualMin.value,
+                            z: 15,
+                            name: `最小值: ${extremes.actualMin.value}kW`,
+                            marker: {
+                                symbol: 'circle',
+                                fillColor: '#17a2b8',
+                                lineColor: '#fff',
+                                lineWidth: 2
+                            }
+                        }
+                    ]
+                },
+                {
+                    name: getCompareLabel(mode),
+                    color: 'rgba(40, 167, 69, 0.8)',
+                    data: [
+                        {
+                            x: extremes.compareMax.index,
+                            y: extremes.compareMax.value,
+                            z: 15,
+                            name: `最大值: ${extremes.compareMax.value}kW`,
+                            marker: {
+                                symbol: 'diamond',
+                                fillColor: '#dc3545',
+                                lineColor: '#fff',
+                                lineWidth: 2
+                            }
+                        },
+                        {
+                            x: extremes.compareMin.index,
+                            y: extremes.compareMin.value,
+                            z: 15,
+                            name: `最小值: ${extremes.compareMin.value}kW`,
+                            marker: {
+                                symbol: 'diamond',
+                                fillColor: '#17a2b8',
+                                lineColor: '#fff',
+                                lineWidth: 2
+                            }
+                        }
+                    ]
+                }
+            ];
+        }
+
+        // 创建图表
+        function createChart(deviceName, data) {
+            // 保存当前数据用于导出
+            currentLoadData = data;
+            
+            const stats = calculateStats(data, currentMode);
+            
+            const categories = data.map(d => d.time);
+            const actualData = data.map(d => d.actual);
+            const temperatureData = data.map(d => d.temperature);
+            const humidityData = data.map(d => d.humidity);
+            let compareData = [];
+            let compareName = '';
+            let compareColor = '#28a745';
+            let differenceRateData = [];
+            
+            switch(currentMode) {
+                case 'ai':
+                    compareData = data.map(d => d.ai);
+                    compareName = 'AI预测负荷';
+                    compareColor = '#28a745';
+                    // 计算差异率：(实际 - AI) / AI * 100
+                    differenceRateData = data.map(d => {
+                        return Math.round(((d.actual - d.ai) / d.ai) * 10000) / 100;
+                    });
+                    break;
+                case 'yoy':
+                    compareData = data.map(d => d.yoy);
+                    compareName = '同比负荷';
+                    compareColor = '#5a9bd4'; // 使用稍微浅一点的蓝色以区分但保持相似
+                    // 计算差异率：(实际 - 同比) / 同比 * 100
+                    differenceRateData = data.map(d => {
+                        return Math.round(((d.actual - d.yoy) / d.yoy) * 10000) / 100;
+                    });
+                    break;
+                case 'mom':
+                    compareData = data.map(d => d.mom);
+                    compareName = '环比负荷';
+                    compareColor = '#fd7e14';
+                    // 计算差异率：(实际 - 环比) / 环比 * 100
+                    differenceRateData = data.map(d => {
+                        return Math.round(((d.actual - d.mom) / d.mom) * 10000) / 100;
+                    });
+                    break;
+                case 'actual':
+                    // 仅显示实际负荷模式
+                    compareData = [];
+                    compareName = '';
+                    compareColor = '';
+                    differenceRateData = [];
+                    break;
+            }
+
+            const extremes = findExtremeValues(data, currentMode);
+            const bubbleData = createBubbleData(extremes, currentMode);
+
+            // 构建系列数据
+            const series = [
+                {
+                    type: 'column',
+                    name: '实际负荷',
+                    data: actualData,
+                    color: '#007bff',
+                    dataLabels: {
+                        enabled: false
+                    },
+                    // 同比模式下调整实际负荷的样式以匹配同比效果
+                    ...(currentMode === 'yoy' && {
+                        borderWidth: 1,
+                        borderColor: '#0056b3',
+                        opacity: 0.9
+                    })
+                }
+            ];
+
+            // 如果不是仅显示实际负荷模式，则添加对比数据
+            if (currentMode !== 'actual') {
+                series.push({
+                    type: 'column',
+                    name: compareName,
+                    data: compareData,
+                    color: compareColor,
+                    dataLabels: {
+                        enabled: false
+                    },
+                    // 同比模式下的特殊样式
+                    ...(currentMode === 'yoy' && {
+                        borderWidth: 1,
+                        borderColor: '#3d7ab8',
+                        opacity: 0.9,
+                        dashStyle: 'Solid'
+                    })
+                });
+            }
+
+            // 添加温度曲线
+            series.push({
+                type: 'line',
+                name: '温度',
+                data: temperatureData,
+                color: '#dc3545',
+                yAxis: 1,
+                marker: {
+                    enabled: true,
+                    radius: 3
+                },
+                lineWidth: 2,
+                visible: false // 默认不显示
+            });
+
+            // 添加湿度曲线
+            series.push({
+                type: 'line',
+                name: '湿度',
+                data: humidityData,
+                color: '#17a2b8',
+                yAxis: 2,
+                marker: {
+                    enabled: true,
+                    radius: 3
+                },
+                lineWidth: 2,
+                visible: false // 默认不显示
+            });
+
+            // 添加差异率曲线（仅在对比模式下）
+            if (currentMode !== 'actual' && differenceRateData.length > 0) {
+                series.push({
+                    type: 'line',
+                    name: '差异率',
+                    data: differenceRateData,
+                    color: '#ffc107',
+                    yAxis: 3,
+                    marker: {
+                        enabled: true,
+                        radius: 4
+                    },
+                    lineWidth: 2,
+                    visible: true, // 默认显示
+                    tooltip: {
+                        pointFormatter: function() {
+                            return '<span style="color:' + this.color + '">' + this.series.name + '</span>: ' + this.y + '%<br/>';
+                        }
+                    }
+                });
+            }
+
+            // 添加气泡图
+            series.push({
+                type: 'bubble',
+                name: '实际负荷极值',
+                data: bubbleData[0].data,
+                showInLegend: false,
+                enableMouseTracking: true,
+                yAxis: 0
+            });
+
+            // 如果不是仅显示实际负荷模式，则添加对比气泡
+            if (currentMode !== 'actual' && bubbleData[1]) {
+                series.push({
+                    type: 'bubble',
+                    name: bubbleData[1].name,
+                    data: bubbleData[1].data,
+                    showInLegend: false,
+                    enableMouseTracking: true,
+                    yAxis: 0
+                });
+            }
+
+            const plotLines = [
+                {
+                    value: stats.actual.avg,
+                    color: '#007bff',
+                    dashStyle: 'dash',
+                    width: 2,
+                    label: {
+                        text: `实际均值: ${stats.actual.avg}kW`,
+                        style: {
+                            color: '#007bff'
+                        }
+                    }
+                }
+            ];
+
+            let subtitle = `实际负荷均值: ${stats.actual.avg}kW`;
+
+            // 如果不是仅显示实际负荷模式，则添加对比均值线和副标题
+            if (currentMode !== 'actual') {
+                plotLines.push({
+                    value: stats.compare.avg,
+                    color: compareColor,
+                    dashStyle: 'dash',
+                    width: 2,
+                    label: {
+                        text: `${compareName}均值: ${stats.compare.avg}kW`,
+                        style: {
+                            color: compareColor
+                        }
+                    }
+                });
+
+                subtitle = `实际负荷均值: ${stats.actual.avg}kW | ${compareName}均值: ${stats.compare.avg}kW`;
+            }
+
+            currentChart = Highcharts.chart('loadChart', {
+                chart: {
+                    backgroundColor: 'transparent'
+                },
+                title: {
+                    text: `${deviceName} - 负荷统计`,
+                    style: {
+                        fontSize: '16px',
+                        fontWeight: 'bold'
+                    }
+                },
+                subtitle: {
+                    text: subtitle,
+                    style: {
+                        fontSize: '12px',
+                        color: '#666'
+                    }
+                },
+                xAxis: {
+                    categories: categories,
+                    title: {
+                        text: '时间'
+                    }
+                },
+                yAxis: [{
+                    // 主Y轴 - 负荷
+                    title: {
+                        text: '负荷 (kW)',
+                        style: {
+                            color: '#007bff'
+                        }
+                    },
+                    labels: {
+                        style: {
+                            color: '#007bff'
+                        }
+                    },
+                    plotLines: plotLines
+                }, {
+                    // 第二Y轴 - 温度
+                    title: {
+                        text: '温度 (℃)',
+                        style: {
+                            color: '#dc3545'
+                        }
+                    },
+                    labels: {
+                        style: {
+                            color: '#dc3545'
+                        }
+                    },
+                    opposite: true,
+                    min: 15,
+                    max: 30
+                }, {
+                    // 第三Y轴 - 湿度
+                    title: {
+                        text: '湿度 (%)',
+                        style: {
+                            color: '#17a2b8'
+                        }
+                    },
+                    labels: {
+                        style: {
+                            color: '#17a2b8'
+                        }
+                    },
+                    opposite: true,
+                    offset: 80,
+                    min: 30,
+                    max: 80
+                }, {
+                    // 第四Y轴 - 差异率
+                    title: {
+                        text: '差异率 (%)',
+                        style: {
+                            color: '#ffc107'
+                        }
+                    },
+                    labels: {
+                        style: {
+                            color: '#ffc107'
+                        },
+                        formatter: function() {
+                            return this.value + '%';
+                        }
+                    },
+                    opposite: true,
+                    offset: 160,
+                    min: -50,
+                    max: 50,
+                    plotLines: [{
+                        value: 0,
+                        color: '#ffc107',
+                        dashStyle: 'dash',
+                        width: 1,
+                        label: {
+                            text: '0%',
+                            style: {
+                                color: '#ffc107'
+                            }
+                        }
+                    }]
+                }],
+                plotOptions: {
+                    column: {
+                        pointPadding: 0.2,
+                        borderWidth: 0,
+                        groupPadding: 0.1
+                    },
+                    bubble: {
+                        minSize: 15,
+                        maxSize: 25,
+                        zMin: 10,
+                        zMax: 20,
+                        dataLabels: {
+                            enabled: true,
+                            format: '{point.name}',
+                            style: {
+                                fontSize: '10px',
+                                fontWeight: 'bold',
+                                color: '#333',
+                                textOutline: '1px white'
+                            },
+                            y: -10
+                        }
+                    },
+                    series: {
+                        grouping: true,
+                        states: {
+                            hover: {
+                                enabled: true
+                            }
+                        },
+                        point: {
+                            events: {
+                                mouseOver: function() {
+                                    // 高亮同一时间点的所有柱状图并添加阴影效果
+                                    const chart = this.series.chart;
+                                    const pointIndex = this.index;
+                                    
+                                    chart.series.forEach(function(series) {
+                                        if (series.type === 'column' && series.data[pointIndex]) {
+                                            const point = series.data[pointIndex];
+                                            point.setState('hover');
+                                            
+                                            // 添加阴影CSS类
+                                            if (point.graphic && point.graphic.element) {
+                                                point.graphic.element.classList.add('hover-shadow');
+                                            }
+                                        }
+                                    });
+                                },
+                                mouseOut: function() {
+                                    // 取消高亮和阴影效果
+                                    const chart = this.series.chart;
+                                    const pointIndex = this.index;
+                                    
+                                    chart.series.forEach(function(series) {
+                                        if (series.type === 'column' && series.data[pointIndex]) {
+                                            const point = series.data[pointIndex];
+                                            point.setState('');
+                                            
+                                            // 移除阴影CSS类
+                                            if (point.graphic && point.graphic.element) {
+                                                point.graphic.element.classList.remove('hover-shadow');
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                },
+                series: series,
+                tooltip: {
+                    shared: true,
+                    formatter: function() {
+                        if (this.points && this.points.length > 0) {
+                            // 共享tooltip，显示同一时间点的所有数据
+                            const timePoint = this.x;
+                            let tooltip = '<b>当前时间: ' + getCurrentDateString() + ' ' + timePoint + '</b><br/>';
+                            
+                            // 根据当前模式添加对比时间信息
+                            if (currentMode === 'yoy') {
+                                tooltip += '<b>同比时间: ' + getYoyDateString() + ' ' + timePoint + '</b><br/><br/>';
+                            } else if (currentMode === 'mom') {
+                                tooltip += '<b>环比时间: ' + getMomDateString() + ' ' + timePoint + '</b><br/><br/>';
+                            } else {
+                                tooltip += '<br/>';
+                            }
+                            
+                            this.points.forEach(function(point) {
+                                if (point.point.z === undefined) {
+                                    // 显示柱状图和折线图数据，不显示气泡数据
+                                    if (point.series.name === '差异率') {
+                                        tooltip += '<span style="color:' + point.color + '">' + point.series.name + '</span>: ' + point.y + '%<br/>';
+                                    } else {
+                                        tooltip += '<span style="color:' + point.color + '">' + point.series.name + '</span>: ' + point.y + ' kW<br/>';
+                                    }
+                                }
+                            });
+                            
+                            return tooltip;
+                        } else if (this.point.z !== undefined) {
+                            // 气泡提示
+                            return '<b>' + this.point.name + '</b><br/>' +
+                                   '时间: ' + getCurrentDateString() + ' ' + this.series.chart.xAxis[0].categories[this.point.x] + '<br/>' +
+                                   '数值: ' + this.point.y + ' kW';
+                        } else {
+                            // 单个柱状图或折线图提示
+                            if (this.series.name === '差异率') {
+                                return '<b>' + getCurrentDateString() + ' ' + this.series.chart.xAxis[0].categories[this.point.x] + '</b><br/>' +
+                                       this.series.name + ': ' + this.point.y + '%';
+                            } else {
+                                return '<b>' + getCurrentDateString() + ' ' + this.series.chart.xAxis[0].categories[this.point.x] + '</b><br/>' +
+                                       this.series.name + ': ' + this.point.y + ' kW';
+                            }
+                        }
+                    }
+                },
+                legend: {
+                    layout: 'horizontal',
+                    align: 'center',
+                    verticalAlign: 'bottom'
+                },
+                credits: {
+                    enabled: false
+                },
+                exporting: {
+                    enabled: false, // 禁用默认导出菜单，使用自定义按钮
+                    filename: `${deviceName}_负荷统计_${getCurrentDateString().replace(/[\/\s:]/g, '')}`,
+                    chartOptions: {
+                        title: {
+                            text: `${deviceName} - 负荷统计图表`,
+                            style: {
+                                fontSize: '18px',
+                                fontWeight: 'bold'
+                            }
+                        },
+                        subtitle: {
+                            text: `导出时间: ${new Date().toLocaleString('zh-CN')} | 比较模式: ${getModeDisplayName()}`,
+                            style: {
+                                fontSize: '12px',
+                                color: '#666'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 更新数据表格
+            updateDataTable(deviceName, data);
+            
+            // 启用导出按钮
+            document.getElementById('exportBtn').disabled = false;
+            document.getElementById('exportChartBtn').disabled = false;
+        }
+
+        // 更新数据表格
+        function updateDataTable(deviceName, data) {
+            // 显示表格区域
+            document.getElementById('dataTableSection').style.display = 'block';
+            
+            // 保存总数据量并重置分页
+            totalItems = data.length;
+            currentPage = 1;
+            
+            // 渲染表格
+            renderTable(data);
+            
+            // 更新分页组件
+            updatePagination();
+        }
+        
+        // 渲染表格数据
+        function renderTable(data) {
+            // 获取表格元素
+            const tableHeader = document.getElementById('tableHeader');
+            const tableBody = document.getElementById('tableBody');
+            
+            // 清空现有内容
+            tableHeader.innerHTML = '';
+            tableBody.innerHTML = '';
+            
+            // 生成表头
+            const headers = ['时间', '实际负荷 (kW)'];
+            
+            // 根据当前模式添加对比列
+            if (currentMode !== 'actual') {
+                let compareTitle = '';
+                switch(currentMode) {
+                    case 'ai':
+                        compareTitle = 'AI预测负荷 (kW)';
+                        break;
+                    case 'yoy':
+                        compareTitle = '同比负荷 (kW)';
+                        break;
+                    case 'mom':
+                        compareTitle = '环比负荷 (kW)';
+                        break;
+                }
+                headers.push(compareTitle);
+                headers.push('差异率 (%)');
+            }
+            
+            // 添加环境数据列
+            headers.push('温度 (℃)');
+            headers.push('湿度 (%)');
+            
+            // 创建表头
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                tableHeader.appendChild(th);
+            });
+            
+            // 计算分页数据
+            const startIndex = (currentPage - 1) * pageSize;
+            const endIndex = Math.min(startIndex + pageSize, data.length);
+            const pageData = data.slice(startIndex, endIndex);
+            
+            // 生成表格数据
+            pageData.forEach((item, index) => {
+                const row = document.createElement('tr');
+                
+                // 时间列
+                const timeCell = document.createElement('td');
+                timeCell.textContent = item.time;
+                timeCell.className = 'time-col';
+                row.appendChild(timeCell);
+                
+                // 实际负荷列
+                const actualCell = document.createElement('td');
+                actualCell.textContent = item.actual;
+                actualCell.className = 'actual-col';
+                row.appendChild(actualCell);
+                
+                // 对比数据列（如果不是仅显示实际负荷模式）
+                if (currentMode !== 'actual') {
+                    let compareValue = 0;
+                    switch(currentMode) {
+                        case 'ai':
+                            compareValue = item.ai;
+                            break;
+                        case 'yoy':
+                            compareValue = item.yoy;
+                            break;
+                        case 'mom':
+                            compareValue = item.mom;
+                            break;
+                    }
+                    
+                    const compareCell = document.createElement('td');
+                    compareCell.textContent = compareValue;
+                    compareCell.className = 'compare-col';
+                    row.appendChild(compareCell);
+                    
+                    // 差异率列
+                    const differenceRate = Math.round(((item.actual - compareValue) / compareValue) * 10000) / 100;
+                    const differenceCell = document.createElement('td');
+                    differenceCell.textContent = differenceRate + '%';
+                    differenceCell.className = 'difference-col ' + (differenceRate >= 0 ? 'difference-positive' : 'difference-negative');
+                    row.appendChild(differenceCell);
+                }
+                
+                // 温度列
+                const tempCell = document.createElement('td');
+                tempCell.textContent = item.temperature;
+                row.appendChild(tempCell);
+                
+                // 湿度列
+                const humidityCell = document.createElement('td');
+                humidityCell.textContent = item.humidity;
+                row.appendChild(humidityCell);
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        // 更新分页组件
+        function updatePagination() {
+            const totalPages = Math.ceil(totalItems / pageSize);
+            const startItem = (currentPage - 1) * pageSize + 1;
+            const endItem = Math.min(currentPage * pageSize, totalItems);
+            
+            // 更新分页信息
+            document.getElementById('paginationInfo').textContent = 
+                `显示第 ${startItem}-${endItem} 项，共 ${totalItems} 项`;
+            
+            // 更新按钮状态
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage === totalPages;
+            
+            // 生成页码按钮
+            renderPageNumbers(totalPages);
+        }
+        
+        // 渲染页码按钮
+        function renderPageNumbers(totalPages) {
+            const pageNumbersContainer = document.getElementById('pageNumbers');
+            pageNumbersContainer.innerHTML = '';
+            
+            // 计算显示的页码范围
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, currentPage + 2);
+            
+            // 确保显示至少5个页码（如果总页数足够）
+            if (endPage - startPage < 4) {
+                if (startPage === 1) {
+                    endPage = Math.min(totalPages, startPage + 4);
+                } else if (endPage === totalPages) {
+                    startPage = Math.max(1, endPage - 4);
+                }
+            }
+            
+            // 如果起始页不是1，显示第一页和省略号
+            if (startPage > 1) {
+                addPageButton(1, pageNumbersContainer);
+                if (startPage > 2) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.textContent = '...';
+                    ellipsis.style.padding = '4px 8px';
+                    ellipsis.style.color = '#666';
+                    pageNumbersContainer.appendChild(ellipsis);
+                }
+            }
+            
+            // 渲染页码按钮
+            for (let i = startPage; i <= endPage; i++) {
+                addPageButton(i, pageNumbersContainer);
+            }
+            
+            // 如果结束页不是最后一页，显示省略号和最后一页
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.textContent = '...';
+                    ellipsis.style.padding = '4px 8px';
+                    ellipsis.style.color = '#666';
+                    pageNumbersContainer.appendChild(ellipsis);
+                }
+                addPageButton(totalPages, pageNumbersContainer);
+            }
+        }
+        
+        // 添加页码按钮
+        function addPageButton(pageNum, container) {
+            const button = document.createElement('button');
+            button.textContent = pageNum;
+            button.className = 'pagination-btn' + (pageNum === currentPage ? ' active' : '');
+            button.onclick = () => goToPage(pageNum);
+            container.appendChild(button);
+        }
+        
+        // 跳转到指定页
+        function goToPage(pageNum) {
+            currentPage = pageNum;
+            renderTable(currentLoadData);
+            updatePagination();
+        }
+        
+        // 翻页
+        function changePage(direction) {
+            const totalPages = Math.ceil(totalItems / pageSize);
+            const newPage = currentPage + direction;
+            
+            if (newPage >= 1 && newPage <= totalPages) {
+                goToPage(newPage);
+            }
+        }
+        
+        // 改变每页显示数量
+        function changePageSize() {
+            const newPageSize = parseInt(document.getElementById('pageSize').value);
+            pageSize = newPageSize;
+            currentPage = 1; // 重置到第一页
+            
+            if (currentLoadData) {
+                renderTable(currentLoadData);
+                updatePagination();
+            }
+        }
+
+        // 时间粒度变化处理
+        function changeTimeGranularity() {
+            const granularity = document.querySelector('input[name="timeGranularity"]:checked').value;
+            currentTimeGranularity = granularity;
+            
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            
+            // 根据选择的粒度更新输入框类型和默认值
+            switch(granularity) {
+                case 'hour':
+                    startDateInput.type = 'datetime-local';
+                    endDateInput.type = 'datetime-local';
+                    startDateInput.value = '2024-01-01T00:00';
+                    endDateInput.value = '2024-01-01T23:59';
+                    break;
+                case 'day':
+                    startDateInput.type = 'date';
+                    endDateInput.type = 'date';
+                    startDateInput.value = '2024-01-01';
+                    endDateInput.value = '2024-01-31';
+                    break;
+                case 'month':
+                    startDateInput.type = 'month';
+                    endDateInput.type = 'month';
+                    startDateInput.value = '2024-01';
+                    endDateInput.value = '2024-12';
+                    break;
+                case 'year':
+                    // 年份选择使用number类型
+                    startDateInput.type = 'number';
+                    endDateInput.type = 'number';
+                    startDateInput.min = '2020';
+                    startDateInput.max = '2030';
+                    endDateInput.min = '2020';
+                    endDateInput.max = '2030';
+                    startDateInput.value = '2023';
+                    endDateInput.value = '2024';
+                    startDateInput.placeholder = '起始年份';
+                    endDateInput.placeholder = '结束年份';
+                    break;
+            }
+            
+            // 如果已选择设备，重新生成数据
+            if (selectedNode) {
+                const loadData = generateLoadDataByGranularity(selectedNode.id, granularity);
+                createChart(selectedNode.name, loadData);
+            }
+        }
+        
+        // 根据时间粒度生成数据
+        function generateLoadDataByGranularity(deviceId, granularity) {
+            const data = [];
+            let timePoints = 24; // 默认24小时
+            let timeFormat = 'HH:mm';
+            
+            switch(granularity) {
+                case 'hour':
+                    timePoints = 24;
+                    timeFormat = 'HH:mm';
+                    break;
+                case 'day':
+                    timePoints = 31;
+                    timeFormat = 'MM-DD';
+                    break;
+                case 'month':
+                    timePoints = 12;
+                    timeFormat = 'YYYY-MM';
+                    break;
+                case 'year':
+                    timePoints = 5;
+                    timeFormat = 'YYYY';
+                    break;
+            }
+            
+            for (let i = 0; i < timePoints; i++) {
+                let timeLabel = '';
+                let baseLoad = 0;
+                
+                switch(granularity) {
+                    case 'hour':
+                        timeLabel = String(i).padStart(2, '0') + ':00';
+                        baseLoad = Math.random() * 500 + 300; // 300-800kW
+                        break;
+                    case 'day':
+                        timeLabel = '01-' + String(i + 1).padStart(2, '0');
+                        baseLoad = Math.random() * 600 + 400; // 400-1000kW (日平均较高)
+                        break;
+                    case 'month':
+                        timeLabel = '2024-' + String(i + 1).padStart(2, '0');
+                        baseLoad = Math.random() * 800 + 500; // 500-1300kW (月平均更高)
+                        break;
+                    case 'year':
+                        timeLabel = String(2020 + i);
+                        baseLoad = Math.random() * 1000 + 600; // 600-1600kW (年平均最高)
+                        break;
+                }
+                
+                const actualLoad = baseLoad + (Math.random() - 0.5) * 100;
+                const aiLoad = baseLoad + (Math.random() - 0.5) * 80;
+                const yoyLoad = actualLoad * (0.9 + Math.random() * 0.2);
+                const momLoad = actualLoad * (0.95 + Math.random() * 0.1);
+                
+                // 温度和湿度数据
+                const temperature = 18 + Math.random() * 8 + Math.sin(i * Math.PI / 12) * 2;
+                const humidity = 40 + Math.random() * 30 + Math.cos(i * Math.PI / 8) * 5;
+                
+                data.push({
+                    time: timeLabel,
+                    actual: Math.round(actualLoad * 100) / 100,
+                    ai: Math.round(aiLoad * 100) / 100,
+                    yoy: Math.round(yoyLoad * 100) / 100,
+                    mom: Math.round(momLoad * 100) / 100,
+                    temperature: Math.round(temperature * 10) / 10,
+                    humidity: Math.round(humidity * 10) / 10
+                });
+            }
+            
+            return data;
+        }
+
+        // 导出图片功能
+        function exportChart() {
+            if (!currentChart) {
+                alert('没有可导出的图表');
+                return;
+            }
+            
+            // 生成文件名
+            const fileName = `${selectedNode.name}_负荷统计图表_${getCurrentDateString().replace(/[\/\s:]/g, '')}`;
+            
+            // 创建导出选项菜单
+            const exportOptions = [
+                {
+                    text: 'PNG图片 (推荐)',
+                    onclick: function() {
+                        currentChart.exportChart({
+                            type: 'image/png',
+                            filename: fileName,
+                            width: 1200,
+                            scale: 2
+                        });
+                    }
+                },
+                {
+                    text: 'JPEG图片',
+                    onclick: function() {
+                        currentChart.exportChart({
+                            type: 'image/jpeg',
+                            filename: fileName,
+                            width: 1200,
+                            scale: 2
+                        });
+                    }
+                },
+                {
+                    text: 'PDF文档',
+                    onclick: function() {
+                        currentChart.exportChart({
+                            type: 'application/pdf',
+                            filename: fileName,
+                            width: 1200
+                        });
+                    }
+                },
+                {
+                    text: 'SVG矢量图',
+                    onclick: function() {
+                        currentChart.exportChart({
+                            type: 'image/svg+xml',
+                            filename: fileName,
+                            width: 1200
+                        });
+                    }
+                }
+            ];
+            
+            // 显示导出选项菜单
+            showExportMenu(exportOptions);
+        }
+        
+        // 显示导出菜单
+        function showExportMenu(options) {
+            // 移除现有菜单
+            const existingMenu = document.getElementById('exportMenu');
+            if (existingMenu) {
+                existingMenu.remove();
+            }
+            
+            // 创建菜单
+            const menu = document.createElement('div');
+            menu.id = 'exportMenu';
+            menu.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 1000;
+                min-width: 200px;
+                padding: 10px 0;
+            `;
+            
+            // 添加标题
+            const title = document.createElement('div');
+            title.textContent = '选择导出格式';
+            title.style.cssText = `
+                padding: 10px 15px;
+                font-weight: bold;
+                border-bottom: 1px solid #eee;
+                margin-bottom: 5px;
+                color: #333;
+            `;
+            menu.appendChild(title);
+            
+            // 添加选项
+            options.forEach(option => {
+                const item = document.createElement('div');
+                item.textContent = option.text;
+                item.style.cssText = `
+                    padding: 8px 15px;
+                    cursor: pointer;
+                    transition: background-color 0.2s;
+                `;
+                
+                item.addEventListener('mouseenter', function() {
+                    this.style.backgroundColor = '#f5f5f5';
+                });
+                
+                item.addEventListener('mouseleave', function() {
+                    this.style.backgroundColor = 'transparent';
+                });
+                
+                item.addEventListener('click', function() {
+                    option.onclick();
+                    menu.remove();
+                    overlay.remove();
+                });
+                
+                menu.appendChild(item);
+            });
+            
+            // 添加取消按钮
+            const cancelItem = document.createElement('div');
+            cancelItem.textContent = '取消';
+            cancelItem.style.cssText = `
+                padding: 8px 15px;
+                cursor: pointer;
+                border-top: 1px solid #eee;
+                margin-top: 5px;
+                color: #666;
+                text-align: center;
+            `;
+            
+            cancelItem.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#f5f5f5';
+            });
+            
+            cancelItem.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = 'transparent';
+            });
+            
+            cancelItem.addEventListener('click', function() {
+                menu.remove();
+                overlay.remove();
+            });
+            
+            menu.appendChild(cancelItem);
+            
+            // 创建遮罩层
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.3);
+                z-index: 999;
+            `;
+            
+            overlay.addEventListener('click', function() {
+                menu.remove();
+                overlay.remove();
+            });
+            
+            // 添加到页面
+            document.body.appendChild(overlay);
+            document.body.appendChild(menu);
+        }
+
+        // 导出Excel功能
+        function exportToExcel() {
+            if (!selectedNode || !currentLoadData) {
+                alert('没有可导出的数据');
+                return;
+            }
+            
+            // 创建工作簿
+            const wb = XLSX.utils.book_new();
+            
+            // 准备基础信息
+            const exportData = [];
+            const currentTime = new Date().toLocaleString('zh-CN');
+            
+            // 添加表头信息
+            exportData.push(['设备负荷统计数据导出']);
+            exportData.push(['导出时间:', currentTime]);
+            exportData.push(['设备名称:', selectedNode.name]);
+            exportData.push(['比较模式:', getModeDisplayName()]);
+            exportData.push(['数据时间范围:', getTimeRangeText()]);
+            exportData.push([]);
+            
+            // 准备表格数据
+            const headers = ['时间', '实际负荷 (kW)'];
+            
+            // 根据当前模式添加对比列
+            if (currentMode !== 'actual') {
+                let compareTitle = '';
+                switch(currentMode) {
+                    case 'ai':
+                        compareTitle = 'AI预测负荷 (kW)';
+                        break;
+                    case 'yoy':
+                        compareTitle = '同比负荷 (kW)';
+                        break;
+                    case 'mom':
+                        compareTitle = '环比负荷 (kW)';
+                        break;
+                }
+                headers.push(compareTitle);
+                headers.push('差异率 (%)');
+            }
+            
+            // 添加环境数据列
+            headers.push('温度 (℃)');
+            headers.push('湿度 (%)');
+            
+            // 添加表头
+            exportData.push(headers);
+            
+            // 添加数据行
+            currentLoadData.forEach(item => {
+                const row = [item.time, item.actual];
+                
+                // 对比数据列（如果不是仅显示实际负荷模式）
+                if (currentMode !== 'actual') {
+                    let compareValue = 0;
+                    switch(currentMode) {
+                        case 'ai':
+                            compareValue = item.ai;
+                            break;
+                        case 'yoy':
+                            compareValue = item.yoy;
+                            break;
+                        case 'mom':
+                            compareValue = item.mom;
+                            break;
+                    }
+                    
+                    row.push(compareValue);
+                    
+                    // 差异率
+                    const differenceRate = Math.round(((item.actual - compareValue) / compareValue) * 10000) / 100;
+                    row.push(differenceRate + '%');
+                }
+                
+                // 环境数据
+                row.push(item.temperature);
+                row.push(item.humidity);
+                
+                exportData.push(row);
+            });
+            
+            // 添加统计信息
+            if (currentLoadData.length > 0) {
+                exportData.push([]);
+                exportData.push(['统计信息']);
+                
+                const actualValues = currentLoadData.map(d => d.actual);
+                const actualAvg = Math.round((actualValues.reduce((a, b) => a + b, 0) / actualValues.length) * 100) / 100;
+                const actualMax = Math.max(...actualValues);
+                const actualMin = Math.min(...actualValues);
+                
+                exportData.push(['实际负荷均值 (kW):', actualAvg]);
+                exportData.push(['实际负荷最大值 (kW):', actualMax]);
+                exportData.push(['实际负荷最小值 (kW):', actualMin]);
+                
+                if (currentMode !== 'actual') {
+                    let compareValues = [];
+                    switch(currentMode) {
+                        case 'ai':
+                            compareValues = currentLoadData.map(d => d.ai);
+                            break;
+                        case 'yoy':
+                            compareValues = currentLoadData.map(d => d.yoy);
+                            break;
+                        case 'mom':
+                            compareValues = currentLoadData.map(d => d.mom);
+                            break;
+                    }
+                    
+                    const compareAvg = Math.round((compareValues.reduce((a, b) => a + b, 0) / compareValues.length) * 100) / 100;
+                    const compareMax = Math.max(...compareValues);
+                    const compareMin = Math.min(...compareValues);
+                    
+                    exportData.push([getModeDisplayName() + '均值 (kW):', compareAvg]);
+                    exportData.push([getModeDisplayName() + '最大值 (kW):', compareMax]);
+                    exportData.push([getModeDisplayName() + '最小值 (kW):', compareMin]);
+                }
+            }
+            
+            // 创建工作表
+            const ws = XLSX.utils.aoa_to_sheet(exportData);
+            
+            // 设置列宽
+            const colWidths = [
+                { wch: 20 }, // 时间
+                { wch: 15 }, // 实际负荷
+            ];
+            
+            if (currentMode !== 'actual') {
+                colWidths.push({ wch: 15 }); // 对比负荷
+                colWidths.push({ wch: 12 }); // 差异率
+            }
+            
+            colWidths.push({ wch: 12 }); // 温度
+            colWidths.push({ wch: 12 }); // 湿度
+            
+            ws['!cols'] = colWidths;
+            
+            // 添加工作表到工作簿
+            XLSX.utils.book_append_sheet(wb, ws, '负荷统计数据');
+            
+            // 生成文件名
+            const fileName = `${selectedNode.name}_负荷统计_${getCurrentDateString().replace(/[\/\s:]/g, '')}.xlsx`;
+            
+            // 导出文件
+            XLSX.writeFile(wb, fileName);
+        }
+        
+        // 获取模式显示名称
+        function getModeDisplayName() {
+            switch(currentMode) {
+                case 'ai':
+                    return 'AI预测负荷';
+                case 'yoy':
+                    return '同比负荷';
+                case 'mom':
+                    return '环比负荷';
+                default:
+                    return '实际负荷';
+            }
+        }
+        
+        // 获取时间范围文本
+        function getTimeRangeText() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            if (startDate && endDate) {
+                return `${startDate} 至 ${endDate}`;
+            } else {
+                return '默认时间范围';
+            }
+        }
+
+        // 切换显示模式（允许全部取消）
+        function toggleMode(mode) {
+            const currentToggle = document.getElementById(mode + 'Toggle');
+            
+            if (currentToggle.checked) {
+                // 如果当前按钮被选中，则启用该模式
+                // 取消其他开关
+                document.getElementById('yoyToggle').checked = false;
+                document.getElementById('momToggle').checked = false;
+                document.getElementById('aiToggle').checked = false;
+                
+                // 重新设置当前选中的开关
+                currentToggle.checked = true;
+                
+                // 更新当前模式
+                currentMode = mode;
+            } else {
+                // 如果当前按钮被取消，则进入仅显示实际负荷模式
+                currentMode = 'actual';
+            }
+            
+            // 重新渲染图表
+            if (selectedNode && currentLoadData) {
+                createChart(selectedNode.name, currentLoadData);
+            }
+        }
+
+        // 切换节点展开/折叠状态
+        function toggleNodeExpansion(nodeElement, childrenContainer) {
+            const expandIcon = nodeElement.querySelector('.expand-icon');
+            const isExpanded = expandIcon.classList.contains('expanded');
+            
+            if (isExpanded) {
+                // 折叠
+                expandIcon.classList.remove('expanded');
+                expandIcon.classList.add('collapsed');
+                childrenContainer.classList.remove('expanded');
+                childrenContainer.classList.add('collapsed');
+            } else {
+                // 展开
+                expandIcon.classList.remove('collapsed');
+                expandIcon.classList.add('expanded');
+                childrenContainer.classList.remove('collapsed');
+                childrenContainer.classList.add('expanded');
+            }
+        }
+
+        // 渲染设备树
+        function renderDeviceTree(nodes, container) {
+            nodes.forEach(node => {
+                const nodeElement = document.createElement('div');
+                
+                // 如果有子节点，添加展开/折叠功能
+                if (node.children && node.children.length > 0) {
+                    nodeElement.className = `tree-node level-${node.level} expandable`;
+                    
+                    // 创建展开/折叠图标
+                    const expandIcon = document.createElement('div');
+                    expandIcon.className = 'expand-icon expanded'; // 默认展开
+                    nodeElement.appendChild(expandIcon);
+                    
+                    // 添加节点文本
+                    const textSpan = document.createElement('span');
+                    textSpan.textContent = node.name;
+                    nodeElement.appendChild(textSpan);
+                    
+                    // 创建子节点容器
+                    const childrenContainer = document.createElement('div');
+                    childrenContainer.className = 'tree-children expanded'; // 默认展开
+                    
+                    // 展开/折叠图标点击事件
+                    expandIcon.addEventListener('click', function(e) {
+                        e.stopPropagation(); // 阻止事件冒泡
+                        toggleNodeExpansion(nodeElement, childrenContainer);
+                    });
+                    
+                    container.appendChild(nodeElement);
+                    container.appendChild(childrenContainer);
+                    
+                    // 递归渲染子节点
+                    renderDeviceTree(node.children, childrenContainer);
+                } else {
+                    // 叶子节点
+                    nodeElement.className = `tree-node level-${node.level}`;
+                    nodeElement.textContent = node.name;
+                    container.appendChild(nodeElement);
+                }
+                
+                nodeElement.dataset.nodeId = node.id;
+                nodeElement.dataset.nodeName = node.name;
+                
+                // 只为实际设备节点添加点击事件（非根节点）
+                if (node.level > 0) {
+                    nodeElement.addEventListener('click', function(e) {
+                        // 如果点击的是展开图标，不处理选中逻辑
+                        if (e.target.classList.contains('expand-icon')) {
+                            return;
+                        }
+                        
+                        // 清除其他选中状态
+                        document.querySelectorAll('.tree-node').forEach(n => n.classList.remove('active'));
+                        // 设置当前选中状态
+                        this.classList.add('active');
+                        
+                        selectedNode = {
+                            id: this.dataset.nodeId,
+                            name: this.dataset.nodeName
+                        };
+                        
+                        // 显示时间查询控件
+                        document.getElementById('chartControls').style.display = 'flex';
+                        
+                        // 生成数据并创建图表
+                        const loadData = generateLoadDataByGranularity(selectedNode.id, currentTimeGranularity);
+                        createChart(selectedNode.name, loadData);
+                    });
+                }
+            });
+        }
+
+        // 查询负荷数据
+        function queryLoadData() {
+            if (!selectedNode) {
+                alert('请先选择设备节点');
+                return;
+            }
+            
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            if (!startDate || !endDate) {
+                alert('请选择开始和结束时间');
+                return;
+            }
+            
+            if (new Date(startDate) >= new Date(endDate)) {
+                alert('开始时间必须早于结束时间');
+                return;
+            }
+            
+            // 重新生成数据并更新图表
+            const loadData = generateLoadDataByGranularity(selectedNode.id, currentTimeGranularity);
+            createChart(selectedNode.name, loadData);
+        }
+
+        // 重置负荷数据查询
+        function resetLoadData() {
+            const today = new Date();
+            const todayStr = today.toISOString().slice(0, 16);
+            const endStr = today.toISOString().slice(0, 11) + '23:59';
+            
+            document.getElementById('startDate').value = todayStr.slice(0, 11) + '00:00';
+            document.getElementById('endDate').value = endStr;
+            
+            if (selectedNode) {
+                const loadData = generateLoadData(selectedNode.id);
+                createChart(selectedNode.name, loadData);
+            }
+        }
+
+        // 侧边栏折叠功能
+        function initSidebarToggle() {
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const deviceTreeSection = document.getElementById('deviceTreeSection');
+            const toggleIcon = document.getElementById('toggleIcon');
+            let isCollapsed = false;
+            
+            sidebarToggle.addEventListener('click', function() {
+                isCollapsed = !isCollapsed;
+                
+                if (isCollapsed) {
+                    deviceTreeSection.classList.add('collapsed');
+                    sidebarToggle.classList.add('collapsed');
+                    toggleIcon.innerHTML = '›';
+                    sidebarToggle.title = '展开侧边栏';
+                } else {
+                    deviceTreeSection.classList.remove('collapsed');
+                    sidebarToggle.classList.remove('collapsed');
+                    toggleIcon.innerHTML = '‹';
+                    sidebarToggle.title = '折叠侧边栏';
+                }
+            });
+        }
+
+        // 页面初始化
+        window.addEventListener('load', function() {
+            const treeContainer = document.getElementById('deviceTree');
+            renderDeviceTree(deviceTreeData, treeContainer);
+            
+            // 初始化侧边栏折叠功能
+            initSidebarToggle();
+            
+            // 初始化时间控件为今天
+            resetLoadData();
+            
+            // 默认选中低温系统节点
+            setTimeout(() => {
+                const lowTempNode = document.querySelector('[data-node-id="low_temp_system"]');
+                if (lowTempNode) {
+                    lowTempNode.click();
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>
