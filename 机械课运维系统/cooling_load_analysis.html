@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>冷量预测综合分析</title>
+    <!-- 添加调试信息 -->
+    <script>
+        console.log('开始加载页面');
+        window.onerror = function(msg, url, line) {
+            console.error('错误:', msg);
+            console.error('文件:', url);
+            console.error('行号:', line);
+            document.body.innerHTML += '<div style="color:red">加载出错，请查看控制台</div>';
+            return false;
+        };
+    </script>
+    
+    <!-- 逐个加载资源，并添加错误处理 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" 
+          rel="stylesheet" 
+          onerror="console.error('Bootstrap CSS 加载失败')">
+    
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js" 
+            onerror="console.error('D3.js 加载失败')"></script>
+    
+    <script src="https://code.highcharts.com/highcharts.js" 
+            onerror="console.error('Highcharts 加载失败')"></script>
+    
+    <style>
+        body { 
+            background: #f4f6f8; 
+            padding: 20px;
+        }
+        #debug-info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            z-index: 9999;
+        }
+        .dashboard-panel {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            padding: 32px 24px 24px 24px;
+            margin: 40px auto 0 auto;
+            max-width: 1200px;
+        }
+        .mode-btn-row {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            gap: 32px;
+            margin-bottom: 24px;
+        }
+        .mode-btn-group .btn {
+            min-width: 180px;
+            font-size: 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            box-shadow: none;
+        }
+        .mode-btn-group .btn-check:checked + .btn {
+            background-color: #0072B2 !important;
+            color: #fff !important;
+            border-color: #0072B2 !important;
+        }
+        .mode-btn-group .btn-check:not(:checked) + .btn {
+            background-color: #fff !important;
+            color: #0072B2 !important;
+            border-color: #0072B2 !important;
+        }
+        .mode-btn-group .btn-check:not(:checked) + .btn:hover {
+            background-color: #B3D7F4 !important;
+            color: #0072B2 !important;
+            border-color: #0072B2 !important;
+            transition: background 0.2s;
+        }
+        .system-btn-row {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 18px 24px;
+            margin-bottom: 32px;
+        }
+        .system-btn-group .btn {
+            min-width: 160px;
+            font-size: 15px;
+            border-radius: 8px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            box-shadow: none;
+        }
+        .system-btn-group .btn-check:checked + .btn,
+        .system-btn-group .btn.active {
+            background-color: #0072B2 !important;
+            color: #fff !important;
+            border-color: #0072B2 !important;
+        }
+        .system-btn-group .btn-check:not(:checked) + .btn {
+            background-color: #fff !important;
+            color: #0072B2 !important;
+            border-color: #0072B2 !important;
+        }
+        .system-btn-group .btn-check:not(:checked) + .btn:hover {
+            background-color: #B3D7F4 !important;
+            color: #0072B2 !important;
+            border-color: #0072B2 !important;
+            transition: background 0.2s;
+        }
+    </style>
+</head>
+<body>
+    <!-- 添加调试信息显示区域 -->
+    <div id="debug-info">
+        页面加载状态：<span id="load-status">正在加载...</span>
+    </div>
+
+    <div class="container">
+        <h2>冷量预测综合分析</h2>
+        <div id="basic-content">基本内容</div>
+    </div>
+
+    <div class="dashboard-panel">
+        <!-- 标题 -->
+        <h2 class="mb-4" style="font-weight:600; color:#346187; letter-spacing:2px; text-align:left;">
+            冷量预测综合分析
+        </h2>
+        <!-- 时间范围查询 + 查询/重置按钮（去除预测模式按钮） -->
+        <div class="mode-btn-row" style="justify-content: flex-start; align-items: center;">
+            <div class="d-flex align-items-center me-3">
+                <label for="startTime" class="form-label mb-0 me-1" style="font-weight:500;">起始时间</label>
+                <input type="datetime-local" id="startTime" class="form-control form-control-sm me-2" style="width:180px;">
+                <label for="endTime" class="form-label mb-0 me-1" style="font-weight:500;">结束时间</label>
+                <input type="datetime-local" id="endTime" class="form-control form-control-sm me-2" style="width:180px;">
+            </div>
+            <button id="queryBtn" class="btn btn-success btn-sm me-2">查询</button>
+            <button id="resetBtn" class="btn btn-secondary btn-sm">重置</button>
+        </div>
+        <!-- 第二行：九个系统多选按钮 -->
+        <div class="system-btn-row">
+            <div class="system-btn-group btn-group" role="group" aria-label="系统选择" id="systemBtnGroup">
+                <input type="checkbox" class="btn-check" id="PMD" autocomplete="off" checked>
+                <label class="btn btn-outline-primary active" for="PMD">PMD新风机组</label>
+                <input type="checkbox" class="btn-check" id="MAUPre" autocomplete="off" checked>
+                <label class="btn btn-outline-primary active" for="MAUPre">MAU预冷盘</label>
+                <input type="checkbox" class="btn-check" id="MAURe" autocomplete="off" checked>
+                <label class="btn btn-outline-primary active" for="MAURe">MAU再冷盘</label>
+                <input type="checkbox" class="btn-check" id="CRDCC" autocomplete="off" checked>
+                <label class="btn btn-outline-primary active" for="CRDCC">CR-DCC/FCU</label>
+                <input type="checkbox" class="btn-check" id="PV" autocomplete="off" checked>
+                <label class="btn btn-outline-primary active" for="PV">PV泵</label>
+                <input type="checkbox" class="btn-check" id="PCW" autocomplete="off" checked>
+                <label class="btn btn-outline-primary active" for="PCW">PCW</label>
+                <input type="checkbox" class="btn-check" id="AC" autocomplete="off" checked>
+                <label class="btn btn-outline-primary active" for="AC">一般空调</label>
+                <input type="checkbox" class="btn-check" id="IT" autocomplete="off" checked>
+                <label class="btn btn-outline-primary active" for="IT">IT机房</label>
+                <input type="checkbox" class="btn-check" id="UPW" autocomplete="off" checked>
+                <label class="btn btn-outline-primary active" for="UPW">UPW系统</label>
+            </div>
+        </div>
+        <!-- 图表 -->
+        <div id="coolingLoadChart" style="height: 480px; margin-bottom: 2rem;"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM已加载完成');
+            document.getElementById('load-status').textContent = 'DOM已加载';
+            
+            // 测试基本功能
+            try {
+                document.getElementById('basic-content').textContent = '页面已成功加载基本内容';
+            } catch(e) {
+                console.error('基本操作失败:', e);
+            }
+
+            // 系统定义
+            const systems = [
+                { id: 'PMD', name: 'PMD新风机组', color: '#0072B2', predColor: '#A6CEE3' },
+                { id: 'MAUPre', name: 'MAU预冷盘', color: '#D55E00', predColor: '#FDBF6F' },
+                { id: 'MAURe', name: 'MAU再冷盘', color: '#009E73', predColor: '#B2DF8A' },
+                { id: 'CRDCC', name: 'CR-DCC/FCU', color: '#CC79A7', predColor: '#CAB2D6' },
+                { id: 'PV', name: 'PV泵', color: '#E69F00', predColor: '#FFE082' },
+                { id: 'PCW', name: 'PCW', color: '#56B4E9', predColor: '#B3E2CD' },
+                { id: 'AC', name: '一般空调', color: '#8B5CF6', predColor: '#C4B5FD' },
+                { id: 'IT', name: 'IT机房', color: '#F59E42', predColor: '#FDE68A' },
+                { id: 'UPW', name: 'UPW系统', color: '#10B981', predColor: '#6EE7B7' }
+            ];
+
+            // 初始化图表
+            const chart = Highcharts.chart('coolingLoadChart', {
+                chart: { type: 'spline' },
+                title: { text: '冷负荷预测趋势' },
+                xAxis: { type: 'datetime', title: { text: '时间' } },
+                yAxis: { title: { text: '冷负荷 (kW)' } },
+                tooltip: {
+                    shared: true,
+                    crosshairs: true,
+                    formatter: function() {
+                        let tooltip = '<b>' + Highcharts.dateFormat('%Y-%m-%d %H:%M', this.x) + '</b><br/>';
+                        this.points.forEach(point => {
+                            tooltip += `<span style="color:${point.color}">\u25CF</span> ${point.series.name}: <b>${point.y.toFixed(2)} kW</b><br/>`;
+                        });
+                        return tooltip;
+                    }
+                },
+                plotOptions: {
+                    spline: { marker: { enabled: false } },
+                    series: { animation: false }
+                },
+                series: [
+                    ...systems.flatMap(sys => [
+                        { name: sys.name + '-实际', data: [], color: sys.color, dashStyle: 'Solid', visible: true },
+                        { name: sys.name + '-预测', data: [], color: sys.predColor, dashStyle: 'Dash', visible: true }
+                    ]),
+                    { name: '实际总冷负荷', data: [], color: '#222', lineWidth: 3, dashStyle: 'Solid', visible: true },
+                    { name: '预测总冷负荷', data: [], color: '#888', lineWidth: 3, dashStyle: 'Dash', visible: true }
+                ]
+            });
+
+            // 系统多选按钮交互
+            systems.forEach((sys, idx) => {
+                const input = document.getElementById(sys.id);
+                const label = document.querySelector('label[for="' + sys.id + '"]');
+                if (!input || !label) return;
+                input.addEventListener('change', function() {
+                    chart.series[idx * 2].setVisible(this.checked, false);
+                    chart.series[idx * 2 + 1].setVisible(this.checked, false);
+                    chart.redraw();
+                    if (this.checked) {
+                        label.classList.add('active');
+                    } else {
+                        label.classList.remove('active');
+                    }
+                });
+                if (input.checked) {
+                    label.classList.add('active');
+                } else {
+                    label.classList.remove('active');
+                }
+            });
+
+            // 时间控件初始化为默认4小时前到现在
+            function pad(n) { return n < 10 ? '0' + n : n; }
+            function toDatetimeLocalString(date) {
+                return date.getFullYear() + '-' +
+                    pad(date.getMonth() + 1) + '-' +
+                    pad(date.getDate()) + 'T' +
+                    pad(date.getHours()) + ':' +
+                    pad(date.getMinutes());
+            }
+            function setDefaultTimeRange() {
+                const now = new Date();
+                const start = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+                document.getElementById('startTime').value = toDatetimeLocalString(start);
+                document.getElementById('endTime').value = toDatetimeLocalString(now);
+            }
+            setDefaultTimeRange();
+
+            // 查询/重置按钮
+            document.getElementById('queryBtn').onclick = function() { updateData(); };
+            document.getElementById('resetBtn').onclick = function() { setDefaultTimeRange(); updateData(); };
+
+            // 生成并更新模拟数据
+            function updateData() {
+                try {
+                    const startStr = document.getElementById('startTime').value;
+                    const endStr = document.getElementById('endTime').value;
+                    if (!startStr || !endStr) return;
+                    const start = new Date(startStr).getTime();
+                    const end = new Date(endStr).getTime();
+                    if (isNaN(start) || isNaN(end) || end <= start) {
+                        alert('请选择正确的起始和结束时间');
+                        return;
+                    }
+                    const interval = 5 * 60 * 1000;
+                    const points = Math.floor((end - start) / interval) + 1;
+                    let totalActual = Array(points).fill(0);
+                    let totalPred = Array(points).fill(0);
+
+                    systems.forEach((sys, sysIdx) => {
+                        const realData = [];
+                        for (let i = 0; i < points; i++) {
+                            const time = start + i * interval;
+                            let base = 200 + sysIdx * 50;
+                            let value = base + Math.random() * 50 + 30 * Math.sin(i / 10 + sysIdx);
+                            realData.push([time, value]);
+                            totalActual[i] += value;
+                        }
+                        const predictData = realData.map(([t, v], i) => {
+                            let pred = v * (1 + (Math.random() - 0.5) * 0.08);
+                            totalPred[i] += pred;
+                            return [t, pred];
+                        });
+                        chart.series[sysIdx * 2].setData(realData, false);
+                        chart.series[sysIdx * 2 + 1].setData(predictData, false);
+                    });
+                    const totalActualData = [];
+                    const totalPredData = [];
+                    for (let i = 0; i < points; i++) {
+                        const time = start + i * interval;
+                        totalActualData.push([time, totalActual[i]]);
+                        totalPredData.push([time, totalPred[i]]);
+                    }
+                    chart.series[systems.length * 2].setData(totalActualData, false);
+                    chart.series[systems.length * 2 + 1].setData(totalPredData, false);
+                    chart.redraw();
+                } catch (e) {
+                    alert('渲染数据时发生错误：' + e.message);
+                    console.error(e);
+                }
+            }
+            updateData();
+            setInterval(updateData, 60000); // 每分钟自动刷新
+        });
+
+        window.onload = function() {
+            console.log('所有资源加载完成');
+            document.getElementById('load-status').textContent = '所有资源已加载';
+        };
+    </script>
+</body>
+</html> 

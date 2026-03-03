@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高效制冷机房指标监控</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .indicators-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .indicator-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .indicator-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+            border-color: #667eea;
+        }
+        
+        .indicator-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .indicator-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .indicator-unit {
+            font-size: 1em;
+            color: #666;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .indicator-status {
+            text-align: center;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        
+        .status-normal {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-alert {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .indicator-timestamp {
+            font-size: 0.8em;
+            color: #999;
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 2% auto;
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 1000px;
+            height: 85vh;
+            overflow-y: auto;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: black;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .modal-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .time-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .time-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .time-group label {
+            font-size: 12px;
+            color: #666;
+            font-weight: bold;
+        }
+        
+        .time-controls select,
+        .time-controls input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .time-controls button {
+            padding: 8px 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .time-controls button:hover {
+            background: #5a6fd8;
+        }
+        
+        .chart-container {
+            height: 400px;
+            margin-top: 20px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+        
+        .data-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #495057;
+            min-width: 80px;
+        }
+        
+        .info-value {
+            color: #667eea;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>高效制冷机房指标监控</h1>
+            <p>实时监控制冷系统关键指标</p>
+        </div>
+        
+        <div class="indicators-grid">
+            <div class="indicator-card" id="cooling-capacity-card" onclick="openModal('cooling-capacity')">
+                <div class="indicator-title">瞬时制冷量-低温系统</div>
+                <div class="indicator-value" id="cooling-capacity-value">--</div>
+                <div class="indicator-unit">kW</div>
+                <div class="indicator-status status-normal" id="cooling-capacity-status">正常</div>
+                <div class="indicator-timestamp" id="cooling-capacity-timestamp">--</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modal-title">瞬时制冷量-低温系统</div>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            
+            <div class="time-controls">
+                <div class="time-group">
+                    <label>时间范围</label>
+                    <select id="time-range">
+                        <option value="1h">最近1小时</option>
+                        <option value="4h">最近4小时</option>
+                        <option value="12h">最近12小时</option>
+                        <option value="24h">最近24小时</option>
+                        <option value="7d">最近7天</option>
+                        <option value="custom">自定义时间</option>
+                    </select>
+                </div>
+                
+                <div class="time-group" id="custom-time-group" style="display: none;">
+                    <label>开始时间</label>
+                    <input type="datetime-local" id="start-time">
+                </div>
+                
+                <div class="time-group" id="custom-time-group2" style="display: none;">
+                    <label>结束时间</label>
+                    <input type="datetime-local" id="end-time">
+                </div>
+                
+                <div class="time-group">
+                    <label>&nbsp;</label>
+                    <button onclick="refreshChart()">刷新数据</button>
+                </div>
+                
+                <div class="time-group">
+                    <label>&nbsp;</label>
+                    <button onclick="exportData()">导出数据</button>
+                </div>
+                
+                <div class="time-group">
+                    <label>&nbsp;</label>
+                    <button onclick="resetZoom()" id="reset-zoom-btn" style="display: none;">重置缩放</button>
+                </div>
+            </div>
+            
+            <div class="data-info" id="data-info" style="display: none;">
+                <div class="info-row">
+                    <span class="info-label">数据粒度：</span>
+                    <span class="info-value" id="granularity-info">--</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">数据点数：</span>
+                    <span class="info-value" id="datapoints-info">--</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">采样说明：</span>
+                    <span class="info-value" id="sampling-info">--</span>
+                </div>
+            </div>
+            
+            <div class="chart-container" id="chart-container">
+                <div class="loading">正在加载数据...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentChart = null;
+        let currentIndicator = null;
+        let drillDownHistory = []; // 钻取历史记录
+        
+        // 模拟SCADA数据
+        function generateMockData(hours = 24) {
+            const data = [];
+            const now = new Date();
+            const interval = 60000; // 1分钟间隔
+            
+            for (let i = hours * 60; i >= 0; i--) {
+                const timestamp = new Date(now.getTime() - i * interval);
+                const baseValue = 1200; // 基础制冷量
+                const variation = Math.sin(i / 60) * 200 + Math.random() * 100 - 50;
+                const value = Math.max(0, baseValue + variation);
+                
+                data.push({
+                    timestamp: timestamp.getTime(),
+                    value: Math.round(value * 10) / 10
+                });
+            }
+            
+            return data;
+        }
+        
+        // 更新指标卡数据
+        function updateIndicatorCard() {
+            const mockData = generateMockData(1);
+            const latestData = mockData[mockData.length - 1];
+            
+            document.getElementById('cooling-capacity-value').textContent = latestData.value;
+            document.getElementById('cooling-capacity-timestamp').textContent = 
+                new Date(latestData.timestamp).toLocaleString('zh-CN');
+            
+            // 根据数值设置状态
+            const statusElement = document.getElementById('cooling-capacity-status');
+            if (latestData.value > 1300) {
+                statusElement.textContent = '高负荷';
+                statusElement.className = 'indicator-status status-warning';
+            } else if (latestData.value < 800) {
+                statusElement.textContent = '低负荷';
+                statusElement.className = 'indicator-status status-alert';
+            } else {
+                statusElement.textContent = '正常';
+                statusElement.className = 'indicator-status status-normal';
+            }
+        }
+        
+        // 打开弹窗
+        function openModal(indicatorType) {
+            currentIndicator = indicatorType;
+            drillDownHistory = []; // 重置钻取历史
+            document.getElementById('reset-zoom-btn').style.display = 'none';
+            document.getElementById('modal').style.display = 'block';
+            refreshChart();
+        }
+        
+        // 关闭弹窗
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+            if (currentChart) {
+                currentChart.destroy();
+                currentChart = null;
+            }
+        }
+        
+        // 时间范围改变
+        document.getElementById('time-range').addEventListener('change', function(e) {
+            const customGroups = document.querySelectorAll('#custom-time-group, #custom-time-group2');
+            if (e.target.value === 'custom') {
+                customGroups.forEach(group => group.style.display = 'flex');
+                // 设置默认时间范围（最近24小时）
+                const now = new Date();
+                const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                
+                document.getElementById('start-time').value = formatDateTimeLocal(yesterday);
+                document.getElementById('end-time').value = formatDateTimeLocal(now);
+            } else {
+                customGroups.forEach(group => group.style.display = 'none');
+            }
+        });
+        
+        // 格式化日期时间为本地输入格式
+        function formatDateTimeLocal(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+        
+        // 数据存储模拟：多级聚合数据
+        class DataStorage {
+            constructor() {
+                this.rawData = new Map(); // 原始1分钟数据
+                this.aggregatedData = {
+                    '5min': new Map(),    // 5分钟聚合
+                    '15min': new Map(),   // 15分钟聚合
+                    '1hour': new Map(),   // 1小时聚合
+                    '1day': new Map()     // 1天聚合
+                };
+                this.maxDataPoints = 3000; // 最大数据点限制
+                this.initializePreAggregatedData(); // 初始化预聚合数据
+            }
+            
+            // 初始化预聚合数据（模拟后台定时任务计算的结果）
+            initializePreAggregatedData() {
+                console.log('初始化预聚合数据...');
+                
+                // 模拟过去30天的预聚合数据已经计算好
+                const now = new Date();
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                
+                // 预计算1小时聚合数据
+                this.preCalculateHourlyData(thirtyDaysAgo, now);
+                
+                // 预计算1天聚合数据  
+                this.preCalculateDailyData(thirtyDaysAgo, now);
+                
+                console.log('预聚合数据初始化完成');
+            }
+            
+            // 预计算小时聚合数据
+            preCalculateHourlyData(startTime, endTime) {
+                const hourlyData = this.aggregatedData['1hour'];
+                let currentHour = new Date(startTime);
+                currentHour.setMinutes(0, 0, 0); // 对齐到小时边界
+                
+                while (currentHour <= endTime) {
+                    const hourKey = currentHour.getTime();
+                    
+                    // 模拟该小时的聚合数据（基于1分钟原始数据计算得出）
+                    const baseValue = 1200;
+                    const hourOffset = (currentHour.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+                    const variation = Math.sin(hourOffset / 12) * 150 + Math.random() * 50 - 25;
+                    
+                    hourlyData.set(hourKey, {
+                        timestamp: hourKey,
+                        value: Math.round((baseValue + variation) * 10) / 10, // 平均值
+                        max: Math.round((baseValue + variation + 50) * 10) / 10,
+                        min: Math.round((baseValue + variation - 50) * 10) / 10,
+                        count: 60 // 基于60个1分钟数据点
+                    });
+                    
+                    currentHour = new Date(currentHour.getTime() + 3600000); // 下一小时
+                }
+            }
+            
+            // 预计算天聚合数据
+            preCalculateDailyData(startTime, endTime) {
+                const dailyData = this.aggregatedData['1day'];
+                let currentDay = new Date(startTime);
+                currentDay.setHours(0, 0, 0, 0); // 对齐到天边界
+                
+                while (currentDay <= endTime) {
+                    const dayKey = currentDay.getTime();
+                    
+                    // 模拟该天的聚合数据（基于1440个1分钟数据计算得出）
+                    const baseValue = 1200;
+                    const dayOffset = (currentDay.getTime() - startTime.getTime()) / (1000 * 60 * 60 * 24);
+                    const variation = Math.sin(dayOffset / 7) * 100 + Math.random() * 30 - 15;
+                    
+                    dailyData.set(dayKey, {
+                        timestamp: dayKey,
+                        value: Math.round((baseValue + variation) * 10) / 10, // 平均值
+                        max: Math.round((baseValue + variation + 200) * 10) / 10,
+                        min: Math.round((baseValue + variation - 200) * 10) / 10,
+                        count: 1440 // 基于1440个1分钟数据点
+                    });
+                    
+                    currentDay = new Date(currentDay.getTime() + 86400000); // 下一天
+                }
+            }
+            
+            // 生成原始1分钟数据
+            generateRawData(startTime, endTime) {
+                const data = [];
+                const interval = 60000; // 1分钟
+                let currentTime = new Date(startTime);
+                
+                while (currentTime <= endTime) {
+                    const baseValue = 1200;
+                    const timeOffset = (currentTime.getTime() - startTime) / (1000 * 60);
+                    const variation = Math.sin(timeOffset / 120) * 200 + Math.random() * 100 - 50;
+                    const value = Math.max(0, baseValue + variation);
+                    
+                    data.push({
+                        timestamp: currentTime.getTime(),
+                        value: Math.round(value * 10) / 10
+                    });
+                    
+                    currentTime = new Date(currentTime.getTime() + interval);
+                }
+                return data;
+            }
+            
+            // 数据聚合函数
+            aggregateData(rawData, intervalMs) {
+                const aggregated = [];
+                const groups = new Map();
+                
+                rawData.forEach(point => {
+                    const groupKey = Math.floor(point.timestamp / intervalMs) * intervalMs;
+                    if (!groups.has(groupKey)) {
+                        groups.set(groupKey, []);
+                    }
+                    groups.get(groupKey).push(point.value);
+                });
+                
+                groups.forEach((values, timestamp) => {
+                    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+                    const max = Math.max(...values);
+                    const min = Math.min(...values);
+                    
+                    aggregated.push({
+                        timestamp,
+                        value: Math.round(avg * 10) / 10,
+                        max: Math.round(max * 10) / 10,
+                        min: Math.round(min * 10) / 10,
+                        count: values.length
+                    });
+                });
+                
+                return aggregated.sort((a, b) => a.timestamp - b.timestamp);
+            }
+            
+            // 根据时间范围获取最优数据粒度
+            getOptimalGranularity(startTime, endTime) {
+                const duration = endTime - startTime;
+                const hours = duration / (1000 * 60 * 60);
+                const minutes = duration / (1000 * 60);
+                
+                if (minutes <= 30) {
+                    return { 
+                        type: 'raw', 
+                        interval: 60000, 
+                        label: '1分钟',
+                        description: '原始数据，每分钟一个数据点',
+                        maxPoints: 30
+                    };
+                } else if (minutes <= 120) { // 2小时
+                    return { 
+                        type: '5min', 
+                        interval: 300000, 
+                        label: '5分钟',
+                        description: '5分钟聚合数据，显示平均值',
+                        maxPoints: 24
+                    };
+                } else if (hours <= 12) {
+                    return { 
+                        type: '15min', 
+                        interval: 900000, 
+                        label: '15分钟',
+                        description: '15分钟聚合数据，显示平均值',
+                        maxPoints: 48
+                    };
+                } else if (hours <= 168) { // 7天
+                    return { 
+                        type: '1hour', 
+                        interval: 3600000, 
+                        label: '1小时',
+                        description: '1小时聚合数据，显示平均值',
+                        maxPoints: 168
+                    };
+                } else {
+                    return { 
+                        type: '1day', 
+                        interval: 86400000, 
+                        label: '1天',
+                        description: '1天聚合数据，显示平均值',
+                        maxPoints: 365
+                    };
+                }
+            }
+            
+            // 智能采样：当数据点过多时进行等间隔采样
+            smartSampling(data, maxPoints) {
+                if (data.length <= maxPoints) {
+                    return { data, sampled: false };
+                }
+                
+                const step = Math.ceil(data.length / maxPoints);
+                const sampledData = [];
+                
+                for (let i = 0; i < data.length; i += step) {
+                    sampledData.push(data[i]);
+                }
+                
+                return { 
+                    data: sampledData, 
+                    sampled: true, 
+                    originalCount: data.length,
+                    sampledCount: sampledData.length,
+                    samplingRatio: step
+                };
+            }
+            
+            // 从预聚合数据中查询
+            queryAggregatedData(granularityType, startTime, endTime) {
+                const aggregatedData = this.aggregatedData[granularityType];
+                const result = [];
+                
+                aggregatedData.forEach((dataPoint, timestamp) => {
+                    if (timestamp >= startTime && timestamp <= endTime) {
+                        result.push(dataPoint);
+                    }
+                });
+                
+                return result.sort((a, b) => a.timestamp - b.timestamp);
+            }
+            
+            // 获取数据的主要方法（工业级实现）
+            getData(startTime, endTime) {
+                const granularity = this.getOptimalGranularity(startTime, endTime);
+                let processedData;
+                
+                console.log(`查询数据: ${granularity.type} 粒度, 范围: ${new Date(startTime).toLocaleString()} - ${new Date(endTime).toLocaleString()}`);
+                
+                // 根据粒度直接查询对应的预聚合数据表
+                if (granularity.type === 'raw') {
+                    // 只有短时间范围才生成原始数据
+                    processedData = this.generateRawData(startTime, endTime);
+                } else if (granularity.type === '1hour') {
+                    // 直接查询预聚合的小时数据
+                    processedData = this.queryAggregatedData('1hour', startTime, endTime);
+                } else if (granularity.type === '1day') {
+                    // 直接查询预聚合的天数据
+                    processedData = this.queryAggregatedData('1day', startTime, endTime);
+                } else if (granularity.type === '5min') {
+                    // 5分钟聚合：从原始数据实时计算
+                    let rawData = this.generateRawData(startTime, endTime);
+                    processedData = this.aggregateData(rawData, granularity.interval);
+                } else if (granularity.type === '15min') {
+                    // 15分钟聚合：从原始数据实时计算
+                    let rawData = this.generateRawData(startTime, endTime);
+                    processedData = this.aggregateData(rawData, granularity.interval);
+                }
+                
+                console.log(`数据查询完成: ${processedData.length} 个数据点`);
+                
+                // 智能采样
+                const samplingResult = this.smartSampling(processedData, this.maxDataPoints);
+                
+                return {
+                    data: samplingResult.data,
+                    granularity: granularity,
+                    sampling: samplingResult,
+                    totalDuration: endTime - startTime,
+                    dataPoints: samplingResult.data.length
+                };
+            }
+        }
+        
+        // 全局数据存储实例
+        const dataStorage = new DataStorage();
+        
+        // 刷新图表
+        function refreshChart() {
+            if (!currentIndicator) return;
+            
+            const timeRange = document.getElementById('time-range').value;
+            let startTime, endTime;
+            
+            if (timeRange === 'custom') {
+                const startTimeStr = document.getElementById('start-time').value;
+                const endTimeStr = document.getElementById('end-time').value;
+                
+                if (!startTimeStr || !endTimeStr) {
+                    alert('请选择开始时间和结束时间');
+                    return;
+                }
+                
+                startTime = new Date(startTimeStr).getTime();
+                endTime = new Date(endTimeStr).getTime();
+                
+                if (startTime >= endTime) {
+                    alert('开始时间必须早于结束时间');
+                    return;
+                }
+                
+                // 检查时间范围是否过大（超过365天）
+                const daysDiff = (endTime - startTime) / (1000 * 60 * 60 * 24);
+                if (daysDiff > 365) {
+                    alert('时间范围不能超过365天');
+                    return;
+                }
+                
+            } else {
+                // 预设时间范围
+                const now = new Date();
+                let hours = 24;
+                
+                switch(timeRange) {
+                    case '1h': hours = 1; break;
+                    case '4h': hours = 4; break;
+                    case '12h': hours = 12; break;
+                    case '24h': hours = 24; break;
+                    case '7d': hours = 168; break;
+                }
+                
+                endTime = now.getTime();
+                startTime = now.getTime() - hours * 60 * 60 * 1000;
+            }
+            
+            // 使用新的数据存储系统获取数据
+            const result = dataStorage.getData(startTime, endTime);
+            
+            // 创建图表
+            createChart(result);
+        }
+        
+        // 更新数据信息显示
+        function updateDataInfo(result) {
+            const dataInfo = document.getElementById('data-info');
+            const granularityInfo = document.getElementById('granularity-info');
+            const datapointsInfo = document.getElementById('datapoints-info');
+            const samplingInfo = document.getElementById('sampling-info');
+            
+            // 显示数据粒度
+            granularityInfo.textContent = result.granularity.label;
+            granularityInfo.title = result.granularity.description;
+            
+            // 显示数据点数
+            datapointsInfo.textContent = result.dataPoints.toLocaleString();
+            
+            // 显示采样信息
+            if (result.sampling.sampled) {
+                samplingInfo.textContent = `已采样 (${result.sampling.sampledCount.toLocaleString()}/${result.sampling.originalCount.toLocaleString()})`;
+                samplingInfo.title = `原始数据点：${result.sampling.originalCount.toLocaleString()}，采样间隔：${result.sampling.samplingRatio}`;
+            } else {
+                samplingInfo.textContent = '无采样';
+                samplingInfo.title = '显示全部数据点';
+            }
+            
+            // 显示数据信息面板
+            dataInfo.style.display = 'block';
+        }
+        
+        // 创建图表
+        function createChart(result) {
+            const chartData = result.data.map(item => [item.timestamp, item.value]);
+            
+            // 更新数据信息显示
+            updateDataInfo(result);
+            
+            if (currentChart) {
+                currentChart.destroy();
+            }
+            
+            currentChart = Highcharts.chart('chart-container', {
+                chart: {
+                    type: 'line',
+                    zoomType: 'x',
+                    events: {
+                        // 监听缩放事件，实现动态钻取
+                        selection: function(event) {
+                            if (event.xAxis) {
+                                const min = event.xAxis[0].min;
+                                const max = event.xAxis[0].max;
+                                
+                                // 延迟执行，避免与默认缩放冲突
+                                setTimeout(() => {
+                                    handleZoomDrillDown(min, max);
+                                }, 100);
+                                
+                                return false; // 阻止默认缩放行为
+                            }
+                        }
+                    }
+                },
+                title: {
+                    text: `瞬时制冷量-低温系统趋势图 (${result.granularity.label})`
+                },
+                subtitle: {
+                    text: result.granularity.description + ' | 支持鼠标框选钻取到更细粒度'
+                },
+                xAxis: {
+                    type: 'datetime',
+                    title: {
+                        text: '时间'
+                    }
+                },
+                yAxis: {
+                    title: {
+                        text: '制冷量 (kW)'
+                    },
+                    plotLines: [{
+                        value: 1000,
+                        color: 'red',
+                        dashStyle: 'shortdash',
+                        width: 2,
+                        label: {
+                            text: '最低运行线'
+                        }
+                    }, {
+                        value: 1400,
+                        color: 'orange',
+                        dashStyle: 'shortdash',
+                        width: 2,
+                        label: {
+                            text: '额定上限'
+                        }
+                    }]
+                },
+                series: [{
+                    name: '瞬时制冷量',
+                    data: chartData,
+                    color: '#667eea',
+                    lineWidth: 2,
+                    marker: {
+                        enabled: result.dataPoints <= 100, // 少于100个点时显示标记
+                        states: {
+                            hover: {
+                                enabled: true,
+                                radius: 5
+                            }
+                        }
+                    }
+                }],
+                tooltip: {
+                    shared: true,
+                    crosshairs: true,
+                    dateTimeLabelFormats: {
+                        minute: '%H:%M',
+                        hour: '%H:%M',
+                        day: '%m-%d %H:%M'
+                    },
+                    pointFormat: '<span style="color:{series.color}">{series.name}</span>: <b>{point.y} kW</b><br/>',
+                    footerFormat: result.sampling.sampled ? 
+                        `<small>数据已采样 (${result.sampling.samplingRatio}:1)</small>` : 
+                        '<small>完整数据</small>'
+                },
+                legend: {
+                    enabled: false
+                },
+                credits: {
+                    enabled: false
+                }
+            });
+        }
+        
+        // 处理缩放钻取
+        function handleZoomDrillDown(minTime, maxTime) {
+            console.log(`缩放钻取: ${new Date(minTime).toLocaleString()} - ${new Date(maxTime).toLocaleString()}`);
+            
+            // 保存当前状态到历史记录
+            const currentTimeRange = document.getElementById('time-range').value;
+            const currentStart = document.getElementById('start-time').value;
+            const currentEnd = document.getElementById('end-time').value;
+            
+            drillDownHistory.push({
+                timeRange: currentTimeRange,
+                startTime: currentStart,
+                endTime: currentEnd
+            });
+            
+            // 设置新的时间范围
+            document.getElementById('time-range').value = 'custom';
+            document.getElementById('start-time').value = formatDateTimeLocal(new Date(minTime));
+            document.getElementById('end-time').value = formatDateTimeLocal(new Date(maxTime));
+            
+            // 显示自定义时间控件
+            const customGroups = document.querySelectorAll('#custom-time-group, #custom-time-group2');
+            customGroups.forEach(group => group.style.display = 'flex');
+            
+            // 显示重置按钮
+            document.getElementById('reset-zoom-btn').style.display = 'inline-block';
+            
+            // 刷新图表
+            refreshChart();
+        }
+        
+        // 重置缩放
+        function resetZoom() {
+            if (drillDownHistory.length > 0) {
+                const lastState = drillDownHistory.pop();
+                
+                // 恢复上一个状态
+                document.getElementById('time-range').value = lastState.timeRange;
+                document.getElementById('start-time').value = lastState.startTime;
+                document.getElementById('end-time').value = lastState.endTime;
+                
+                // 处理时间控件显示
+                const customGroups = document.querySelectorAll('#custom-time-group, #custom-time-group2');
+                if (lastState.timeRange === 'custom') {
+                    customGroups.forEach(group => group.style.display = 'flex');
+                } else {
+                    customGroups.forEach(group => group.style.display = 'none');
+                }
+                
+                // 如果历史记录为空，隐藏重置按钮
+                if (drillDownHistory.length === 0) {
+                    document.getElementById('reset-zoom-btn').style.display = 'none';
+                }
+                
+                // 刷新图表
+                refreshChart();
+            }
+        }
+        
+        // 导出数据
+        function exportData() {
+            if (currentChart) {
+                currentChart.exportChart({
+                    type: 'image/png',
+                    filename: '制冷量趋势图_' + new Date().toISOString().split('T')[0]
+                });
+            }
+        }
+        
+        // 点击弹窗外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('modal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            updateIndicatorCard();
+            
+            // 每分钟更新一次数据
+            setInterval(updateIndicatorCard, 60000);
+        });
+    </script>
+</body>
+</html>

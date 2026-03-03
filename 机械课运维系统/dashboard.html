@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据可视化仪表板</title>
+    
+    <!-- 引入 Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- 引入 D3.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <!-- 引入 Highcharts -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+    
+    <!-- 引入 Grafana -->
+    <script src="https://cdn.jsdelivr.net/npm/@grafana/runtime"></script>
+    
+    <style>
+        .dashboard-container {
+            padding: 20px;
+            height: 100vh;
+            background: #f8f9fa;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: 400px;
+        }
+        
+        .chart-title {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .row {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="container-fluid">
+            <h1 class="text-center mb-4">数据可视化仪表板</h1>
+            
+            <!-- 第一行 -->
+            <div class="row">
+                <!-- Highcharts 图表 -->
+                <div class="col-md-6">
+                    <div class="chart-container">
+                        <div class="chart-title">Highcharts 示例</div>
+                        <div id="highchartsDemo"></div>
+                    </div>
+                </div>
+                <!-- D3.js 图表 -->
+                <div class="col-md-6">
+                    <div class="chart-container">
+                        <div class="chart-title">D3.js 示例</div>
+                        <div id="d3Demo"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 第二行 -->
+            <div class="row">
+                <!-- Grafana 面板 -->
+                <div class="col-12">
+                    <div class="chart-container">
+                        <div class="chart-title">Grafana 面板</div>
+                        <div id="grafanaPanel"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Highcharts 示例
+        function initHighcharts() {
+            Highcharts.chart('highchartsDemo', {
+                chart: {
+                    type: 'line'
+                },
+                title: {
+                    text: '数据趋势'
+                },
+                xAxis: {
+                    categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+                },
+                yAxis: {
+                    title: {
+                        text: '数值'
+                    }
+                },
+                series: [{
+                    name: '系列1',
+                    data: [29.9, 71.5, 106.4, 129.2, 144.0, 176.0]
+                }]
+            });
+        }
+
+        // D3.js 示例
+        function initD3() {
+            const width = 400;
+            const height = 300;
+            const margin = {top: 20, right: 20, bottom: 30, left: 40};
+
+            const svg = d3.select("#d3Demo")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            // 添加示例数据可视化
+            const data = [4, 8, 15, 16, 23, 42];
+
+            const x = d3.scaleBand()
+                .domain(d3.range(data.length))
+                .range([margin.left, width - margin.right])
+                .padding(0.1);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(data)])
+                .range([height - margin.bottom, margin.top]);
+
+            svg.append("g")
+                .selectAll("rect")
+                .data(data)
+                .join("rect")
+                .attr("x", (d, i) => x(i))
+                .attr("y", y)
+                .attr("height", d => y(0) - y(d))
+                .attr("width", x.bandwidth())
+                .attr("fill", "steelblue");
+        }
+
+        // Grafana 面板示例
+        function initGrafana() {
+            // 这里需要配置 Grafana 的具体连接信息
+            console.log("Grafana panel initialization would go here");
+        }
+
+        // 页面加载完成后初始化所有图表
+        document.addEventListener('DOMContentLoaded', function() {
+            initHighcharts();
+            initD3();
+            initGrafana();
+        });
+    </script>
+</body>
+</html> 
