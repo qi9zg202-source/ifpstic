@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高效制冷机房 - 高效机房运行态势预测</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/highcharts-more.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            color: #e2e8f0;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+        }
+
+        .page-title {
+            background: linear-gradient(90deg, #1e40af 0%, #3b82f6 100%);
+            color: #ffffff;
+            text-align: center;
+            padding: 10px 0;
+            font-size: 24px;
+            font-weight: 700;
+            text-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
+            border-bottom: 2px solid #3b82f6;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+            height: 50px;
+            line-height: 30px;
+            box-sizing: border-box;
+        }
+
+        .header {
+            background: linear-gradient(90deg, #1e40af 0%, #3b82f6 100%);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+            border-bottom: 1px solid #3b82f6;
+        }
+
+        .header h1 {
+            font-size: 26px;
+            color: #ffffff;
+            text-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
+            font-weight: 600;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 12px #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: 45vh 1fr;
+            gap: 10px;
+            padding: 10px;
+            height: calc(100vh - 60px);
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .panel {
+            background: rgba(30, 41, 59, 0.95);
+            border: 1px solid #475569;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            box-sizing: border-box;
+            height: 100%;
+        }
+
+        .panel-title {
+            font-size: 20px;
+            color: #3b82f6;
+            margin-bottom: 20px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+            font-weight: 600;
+            border-bottom: 1px solid #475569;
+            padding-bottom: 10px;
+        }
+
+        .query-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            font-size: 12px;
+        }
+
+        .query-controls label {
+            color: #e2e8f0;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .query-controls select,
+        .query-controls input {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid #475569;
+            color: #e2e8f0;
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            min-width: 100px;
+        }
+
+        .query-controls input[type="datetime-local"] {
+            min-width: 150px;
+        }
+
+        .query-controls select:focus,
+        .query-controls input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+        }
+
+        .query-btn {
+            background: linear-gradient(90deg, #1e40af 0%, #3b82f6 100%);
+            border: none;
+            color: #ffffff;
+            padding: 8px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .query-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .events-table {
+            grid-column: 1 / -1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .table-container {
+            overflow: hidden;
+            flex: 1;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.8);
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border-top: 1px solid #475569;
+            margin-top: 5px;
+            flex-shrink: 0;
+        }
+
+        .pagination button {
+            background: rgba(59, 130, 246, 0.8);
+            border: 1px solid #3b82f6;
+            color: #ffffff;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .pagination button:hover {
+            background: rgba(59, 130, 246, 1);
+            transform: scale(1.05);
+        }
+
+        .pagination button:disabled {
+            background: rgba(59, 130, 246, 0.3);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .pagination .current-page {
+            color: #3b82f6;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            background: rgba(15, 23, 42, 0.8);
+            table-layout: fixed;
+        }
+
+        th {
+            background: linear-gradient(90deg, #1e40af 0%, #3b82f6 100%);
+            color: #ffffff;
+            padding: 8px 6px;
+            text-align: center;
+            font-weight: 600;
+            border: 1px solid #475569;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-size: 11px;
+        }
+
+        td {
+            padding: 6px 4px;
+            border: 1px solid #475569;
+            text-align: center;
+            vertical-align: top;
+            line-height: 1.2;
+            word-wrap: break-word;
+            overflow: hidden;
+            font-size: 10px;
+        }
+
+        tr:nth-child(even) {
+            background: rgba(30, 41, 59, 0.3);
+        }
+
+        tr:hover {
+            background: rgba(59, 130, 246, 0.1);
+            transform: scale(1.005);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        tr.selected {
+            background: rgba(59, 130, 246, 0.3);
+            border: 2px solid #3b82f6;
+        }
+
+        .event-critical {
+            color: #ef4444;
+            font-weight: bold;
+        }
+
+        .event-warning {
+            color: #f59e0b;
+            font-weight: bold;
+        }
+
+        .event-normal {
+            color: #10b981;
+        }
+
+        .event-info {
+            color: #3b82f6;
+        }
+
+        .chart-container {
+            height: calc(100% - 80px);
+            width: 100%;
+            min-height: 250px;
+            max-height: calc(45vh - 100px);
+        }
+
+        .metric-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            height: 100%;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .metric-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+            margin-bottom: 8px;
+        }
+
+        .metric-label {
+            font-size: 14px;
+            color: #cbd5e1;
+            margin-bottom: 5px;
+        }
+
+        .metric-trend {
+            font-size: 12px;
+            color: #10b981;
+        }
+
+        .prediction-chart {
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        /* 隐藏所有滚动条 */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+
+        * {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .system-status {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .temp-display {
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .power-display {
+            color: #3b82f6;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="mainContainer" class="container">
+        <div id="pageTitle" class="page-title">STIC-高效制冷机房运行态势预测</div>
+        <div id="mainContent" class="main-content">
+            <div id="chartPanel" class="panel">
+                <div id="queryControls" class="query-controls">
+                    <label>查询条件:</label>
+                    <select id="timeRange">
+                        <option value="7">近7天</option>
+                        <option value="14" selected>近14天</option>
+                        <option value="30">近30天</option>
+                    </select>
+                    
+                    <label>事件类型:</label>
+                    <select id="eventType">
+                        <option value="all">全部类型</option>
+                        <option value="负荷异常">负荷异常</option>
+                        <option value="EER异常">EER异常</option>
+                        <option value="温度异常">温度异常</option>
+                        <option value="湿度异常">湿度异常</option>
+                        <option value="设备故障">设备故障</option>
+                        <option value="设备异常">设备异常</option>
+                    </select>
+                    
+                    <label>开始时间:</label>
+                    <input type="datetime-local" id="startDate">
+                    
+                    <label>结束时间:</label>
+                    <input type="datetime-local" id="endDate">
+                    
+                    <button id="queryBtn" class="query-btn" onclick="queryEvents()">查询事件</button>
+                    <button id="resetBtn" class="query-btn" onclick="resetQuery()">重置</button>
+                </div>
+                <div id="predictionChart" class="chart-container"></div>
+            </div>
+
+            <div id="tablePanel" class="panel events-table">
+                <div id="tableContainer" class="table-container">
+                    <table id="eventsTable">
+                        <thead id="tableHeader">
+                            <tr id="headerRow">
+                                <th style="width: 15%;">预测事件发生时间</th>
+                                <th style="width: 18%;">事件名称</th>
+                                <th style="width: 12%;">事件类型</th>
+                                <th style="width: 38%;">事件详情</th>
+                                <th style="width: 17%;">建议措施</th>
+                            </tr>
+                        </thead>
+                        <tbody id="eventsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="paginationControls" class="pagination">
+                    <button id="prevPage" onclick="changePage(-1)">上一页</button>
+                    <span id="pageInfo" class="current-page">第 <span id="currentPage">1</span> 页 / 共 <span id="totalPages">1</span> 页</span>
+                    <button id="nextPage" onclick="changePage(1)">下一页</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 事件数据
+        const eventsData = [
+            {
+                name: '抗负荷攻击告警',
+                type: '负荷异常',
+                typeClass: 'event-critical',
+                detail: '未来48小时有突发大雨(持续2小时,降雨量220mm),大风>7级(风速达28m/s),低温系统、中温系统、冷却塔系统需做好抗负荷攻击准备',
+                time: '2025-01-21 15:30',
+                action: '1.调整MAU进风量至80% 2.调整低温系统制冷量+25% 3.启动CT-04备用冷却塔',
+                dayIndex: 0,
+                bubbleSize: 15,
+                bubbleColor: '#ef4444'
+            },
+            {
+                name: '冷却塔飘水率异常',
+                type: '设备异常',
+                typeClass: 'event-warning',
+                detail: 'CT-02冷却塔飘水率升至0.15%(标准<0.1%),外界风速25m/s导致飘水损失增加,影响冷却效果,预计制冷量损失8%',
+                time: '2025-01-21 15:15',
+                action: '1.调整挡水板角度 2.降低风机转速至85% 3.增加补水量15%',
+                dayIndex: 0,
+                bubbleSize: 12,
+                bubbleColor: '#f59e0b'
+            },
+            {
+                name: '主机冷凝器结垢预警',
+                type: 'EER异常',
+                typeClass: 'event-warning',
+                detail: 'CH-01主机冷凝器传热系数下降至3200W/m²K(标准3800W/m²K),结垢厚度约0.8mm,制冷效率下降12%,需安排清洗',
+                time: '2025-01-21 14:45',
+                action: '1.安排下周停机清洗 2.调整化学加药量 3.启动CH-05备用主机',
+                dayIndex: 1,
+                bubbleSize: 10,
+                bubbleColor: '#f59e0b'
+            },
+            {
+                name: '工艺负荷峰值预测',
+                type: '负荷预测',
+                typeClass: 'event-info',
+                detail: '根据生产计划,明日14:00-18:00工艺负荷将达到峰值2100kW,较平时增加35%,建议提前调整制冷系统运行策略',
+                time: '2025-01-21 14:30',
+                action: '1.提前1小时启动CH-03 2.预冷低温水箱至6°C 3.调整二次泵频率至95%',
+                dayIndex: 2,
+                bubbleSize: 8,
+                bubbleColor: '#3b82f6'
+            },
+            {
+                name: 'PCW温度控制优化',
+                type: '温度异常',
+                typeClass: 'event-normal',
+                detail: 'AI算法建议PCW供水温度调整至19.5°C(当前20°C),可降低工艺设备功耗15kW,同时保证工艺稳定性',
+                time: '2025-01-21 14:00',
+                action: '1.缓慢调整供水温度 2.监控工艺设备反馈 3.记录节能效果',
+                dayIndex: 3,
+                bubbleSize: 6,
+                bubbleColor: '#10b981'
+            },
+            {
+                name: 'UPS散热负荷上升',
+                type: '负荷异常',
+                typeClass: 'event-warning',
+                detail: 'UPS间散热负荷达到380kW(设计值350kW),环境温度26°C,UPS负载率92%,精密空调已满负荷运行',
+                time: '2025-01-21 13:45',
+                action: '1.启动移动式精密空调 2.优化UPS负载分配 3.检查机房密封性',
+                dayIndex: 4,
+                bubbleSize: 11,
+                bubbleColor: '#f59e0b'
+            },
+            {
+                name: '低温主机高压保护',
+                type: '设备故障',
+                typeClass: 'event-critical',
+                detail: 'CH-02低温主机冷凝压力达到1.58MPa(报警值1.5MPa),冷却水进水温度32°C超标,系统已自动停机保护',
+                time: '2025-01-21 13:30',
+                action: '1.立即启动CH-06备机 2.检查冷却塔运行状态 3.排查冷却水系统故障',
+                dayIndex: 5,
+                bubbleSize: 18,
+                bubbleColor: '#ef4444'
+            },
+            {
+                name: '夜间节能模式切换',
+                type: 'EER优化',
+                typeClass: 'event-info',
+                detail: '今晚22:00-次日6:00工艺负荷降至60%,系统将自动切换节能模式,预计节约电能480kWh',
+                time: '2025-01-21 13:15',
+                action: '1.停运1台冷却塔 2.降低水泵频率至70% 3.启动主机能量调节',
+                dayIndex: 6,
+                bubbleSize: 7,
+                bubbleColor: '#3b82f6'
+            },
+            {
+                name: '冷却水水质恶化',
+                type: '水质异常',
+                typeClass: 'event-warning',
+                detail: '冷却水总硬度升至450mg/L(标准<400mg/L),电导率2800μS/cm,浊度15NTU,水质恶化加速设备腐蚀结垢',
+                time: '2025-01-21 13:00',
+                action: '1.增加排污量至5% 2.调整软化水比例 3.加强水质监测频次',
+                dayIndex: 7,
+                bubbleSize: 9,
+                bubbleColor: '#f59e0b'
+            },
+            {
+                name: 'MAU新风焓值优化',
+                type: '湿度优化',
+                typeClass: 'event-normal',
+                detail: '外界空气焓值62kJ/kg低于回风焓值,建议增加新风比至40%,可降低制冷负荷120kW,节能8.5%',
+                time: '2025-01-21 12:45',
+                action: '1.调整新风阀开度 2.监控室内空气品质 3.验证节能效果',
+                dayIndex: 8,
+                bubbleSize: 8,
+                bubbleColor: '#10b981'
+            },
+            {
+                name: '制冷剂泄漏检测',
+                type: '设备检测',
+                typeClass: 'event-info',
+                detail: '例行检测CH-04主机制冷剂R134a浓度185ppm(标准<200ppm),未发现泄漏点,系统密封性良好',
+                time: '2025-01-21 12:30',
+                action: '继续定期检测,下次检测时间2025-01-28',
+                dayIndex: 9,
+                bubbleSize: 5,
+                bubbleColor: '#3b82f6'
+            },
+            {
+                name: '干冷器效率下降',
+                type: 'EER异常',
+                typeClass: 'event-warning',
+                detail: 'DC-01干冷器传热效率降至75%(标准>85%),翅片积尘严重,影响洁净室温湿度控制精度',
+                time: '2025-01-21 12:15',
+                action: '1.安排翅片清洗 2.检查过滤网 3.调整风机运行参数',
+                dayIndex: 10,
+                bubbleSize: 10,
+                bubbleColor: '#f59e0b'
+            },
+            {
+                name: '蓄冷系统充冷优化',
+                type: '负荷优化',
+                typeClass: 'event-normal',
+                detail: '根据明日负荷预测,建议今晚23:00-次日7:00进行蓄冷罐充冷,利用峰谷电价差节约成本2400元',
+                time: '2025-01-21 12:00',
+                action: '1.设定充冷程序 2.监控蓄冷温度 3.优化充冷策略',
+                dayIndex: 11,
+                bubbleSize: 7,
+                bubbleColor: '#10b981'
+            },
+            {
+                name: '变频器故障预警',
+                type: '设备异常',
+                typeClass: 'event-critical',
+                detail: '冷却塔风机VFD-CT02变频器直流母线电压波动±15V,IGBT温度88°C接近报警值,有故障风险',
+                time: '2025-01-21 11:50',
+                action: '1.联系维修厂商检查 2.准备备用变频器 3.加强监控频次',
+                dayIndex: 12,
+                bubbleSize: 14,
+                bubbleColor: '#ef4444'
+            },
+            {
+                name: '能耗基准对比',
+                type: 'EER统计',
+                typeClass: 'event-info',
+                detail: '本周制冷系统能耗1.25kWh/RT·h,较基准值1.35kWh/RT·h节能7.4%,达到TSMC绿色制造标准',
+                time: '2025-01-21 11:30',
+                action: '维持当前运行策略,继续优化控制参数',
+                dayIndex: 13,
+                bubbleSize: 6,
+                bubbleColor: '#3b82f6'
+            }
+        ];
+
+        // 负荷数据
+        const loadData = [1850, 1920, 1780, 1650, 1890, 1820, 1750, 1880, 1960, 1700, 1580, 1840, 1990, 1720];
+
+        // 创建SVG水滴图标函数
+        function createBalloonSVG(event) {
+            const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+                <defs>
+                    <radialGradient id="balloonGrad_${event.dayIndex}" cx="30%" cy="25%" r="90%">
+                        <stop offset="0%" style="stop-color:white;stop-opacity:0.9" />
+                        <stop offset="15%" style="stop-color:${event.bubbleColor};stop-opacity:0.1" />
+                        <stop offset="60%" style="stop-color:${event.bubbleColor};stop-opacity:0.8" />
+                        <stop offset="100%" style="stop-color:#1a1f2e;stop-opacity:0.9" />
+                    </radialGradient>
+                    <filter id="balloonShadow_${event.dayIndex}">
+                        <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+                        <feOffset dx="2" dy="4" result="offset"/>
+                        <feComponentTransfer>
+                            <feFuncA type="linear" slope="0.5"/>
+                        </feComponentTransfer>
+                        <feMerge> 
+                            <feMergeNode/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                    <filter id="balloonGlow_${event.dayIndex}">
+                        <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                        <feMerge> 
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                </defs>
+                <!-- 热气球主体 -->
+                <ellipse cx="16" cy="18" rx="12" ry="16" 
+                         fill="url(#balloonGrad_${event.dayIndex})" 
+                         stroke="${event.bubbleColor}" 
+                         stroke-width="2" 
+                         filter="url(#balloonShadow_${event.dayIndex})"
+                         opacity="0.95"/>
+                <!-- 高光效果 -->
+                <ellipse cx="12" cy="12" rx="4" ry="6" fill="white" opacity="0.5"/>
+                <ellipse cx="10" cy="10" rx="2" ry="3" fill="white" opacity="0.8"/>
+                <!-- 吊篮 -->
+                <rect x="13" y="32" width="6" height="4" 
+                      fill="#8B4513" 
+                      stroke="#654321" 
+                      stroke-width="1" 
+                      rx="1"/>
+                <!-- 连接线 -->
+                <line x1="8" y1="28" x2="13" y2="32" stroke="#333" stroke-width="1" opacity="0.7"/>
+                <line x1="16" y1="30" x2="16" y2="32" stroke="#333" stroke-width="1" opacity="0.7"/>
+                <line x1="24" y1="28" x2="19" y2="32" stroke="#333" stroke-width="1" opacity="0.7"/>
+                <!-- 事件标记 -->
+                <text x="16" y="22" text-anchor="middle" fill="white" font-size="10" font-weight="bold" font-family="Arial">!</text>
+                <!-- 外发光边框 -->
+                <ellipse cx="16" cy="18" rx="12" ry="16" 
+                         fill="none" 
+                         stroke="${event.bubbleColor}" 
+                         stroke-width="1" 
+                         filter="url(#balloonGlow_${event.dayIndex})"
+                         opacity="0.6"/>
+            </svg>`;
+            
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+        }
+
+        // 创建气泡数据 - 使用热气球形图标
+        const bubbleData = eventsData.map(event => ({
+            x: event.dayIndex,
+            y: loadData[event.dayIndex],
+            name: event.name,
+            type: event.type,
+            detail: event.detail,
+            time: event.time,
+            action: event.action,
+            marker: {
+                symbol: 'url(' + createBalloonSVG(event) + ')',
+                width: event.bubbleSize + 15,
+                height: event.bubbleSize + 18
+            }
+        }));
+
+        // 存储当前图表实例
+        let chartInstance = null;
+
+        // 初始化未来14日机房运行态势预测图表
+        chartInstance = Highcharts.chart('predictionChart', {
+            chart: {
+                backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                height: 360,
+                zoomType: 'xy',
+                marginBottom: 90
+            },
+            title: {
+                text: null
+            },
+            xAxis: {
+                categories: [
+                    '01-21', '01-22', '01-23', '01-24', '01-25', '01-26', '01-27',
+                    '01-28', '01-29', '01-30', '01-31', '02-01', '02-02', '02-03'
+                ],
+                gridLineColor: '#475569',
+                lineColor: '#475569',
+                tickColor: '#475569',
+                labels: {
+                    style: {
+                        color: '#e2e8f0'
+                    }
+                },
+                title: {
+                    text: '日期',
+                    style: {
+                        color: '#e2e8f0'
+                    }
+                }
+            },
+            yAxis: [{
+                // Y1轴 - 机房EER
+                labels: {
+                    format: '{value}',
+                    style: {
+                        color: '#10b981',
+                        fontSize: '12px'
+                    }
+                },
+                title: {
+                    text: 'EER',
+                    style: {
+                        color: '#10b981',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                    }
+                },
+                gridLineColor: '#475569',
+                lineColor: '#10b981',
+                tickColor: '#10b981',
+                min: 3.0,
+                max: 6.0,
+                lineWidth: 2
+            }, {
+                // Y2轴 - 温度
+                title: {
+                    text: '温度 (°C)',
+                    style: {
+                        color: '#f59e0b',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                    }
+                },
+                labels: {
+                    format: '{value}°C',
+                    style: {
+                        color: '#f59e0b',
+                        fontSize: '12px'
+                    }
+                },
+                opposite: true,
+                gridLineColor: 'transparent',
+                lineColor: '#f59e0b',
+                tickColor: '#f59e0b',
+                lineWidth: 2,
+                min: 6,
+                max: 26
+            }, {
+                // Y3轴 - 湿度
+                title: {
+                    text: '湿度 (%RH)',
+                    style: {
+                        color: '#3b82f6',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                    }
+                },
+                labels: {
+                    format: '{value}%',
+                    style: {
+                        color: '#3b82f6',
+                        fontSize: '12px'
+                    }
+                },
+                opposite: true,
+                offset: 80,
+                gridLineColor: 'transparent',
+                lineColor: '#3b82f6',
+                tickColor: '#3b82f6',
+                lineWidth: 2,
+                min: 40,
+                max: 65
+            }, {
+                // Y4轴 - 负荷
+                title: {
+                    text: '负荷 (kW)',
+                    style: {
+                        color: '#ef4444',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                    }
+                },
+                labels: {
+                    format: '{value}kW',
+                    style: {
+                        color: '#ef4444',
+                        fontSize: '12px'
+                    }
+                },
+                opposite: true,
+                offset: 160,
+                gridLineColor: 'transparent',
+                lineColor: '#ef4444',
+                tickColor: '#ef4444',
+                lineWidth: 2,
+                min: 1200,
+                max: 2400
+            }],
+            legend: {
+                itemStyle: {
+                    color: '#e2e8f0',
+                    fontSize: '13px'
+                },
+                layout: 'horizontal',
+                align: 'center',
+                verticalAlign: 'bottom',
+                itemMarginTop: 8,
+                itemMarginBottom: 8,
+                itemDistance: 20,
+                y: -20,
+                floating: false
+            },
+            plotOptions: {
+                series: {
+                    marker: {
+                        enabled: true,
+                        radius: 5
+                    },
+                    lineWidth: 3
+                }
+            },
+            series: [{
+                name: 'EER曲线',
+                type: 'line',
+                yAxis: 0,
+                data: [4.8, 4.6, 4.9, 5.1, 4.7, 4.8, 5.0, 4.9, 4.6, 4.8, 5.2, 4.9, 4.7, 5.0],
+                color: '#10b981',
+                lineWidth: 3,
+                visible: true,
+                marker: {
+                    symbol: 'circle',
+                    radius: 4,
+                    enabled: true
+                }
+            }, {
+                name: '温度曲线',
+                type: 'line',
+                yAxis: 1,
+                data: [7.2, 7.0, 7.3, 7.1, 7.4, 7.2, 7.0, 7.1, 7.3, 7.2, 6.9, 7.1, 7.4, 7.0],
+                color: '#f59e0b',
+                lineWidth: 3,
+                visible: false,
+                dashStyle: 'ShortDash',
+                marker: {
+                    symbol: 'square',
+                    radius: 4,
+                    enabled: true
+                }
+            }, {
+                name: '湿度曲线',
+                type: 'line',
+                yAxis: 2,
+                data: [48, 52, 45, 50, 47, 49, 51, 46, 53, 48, 44, 50, 52, 47],
+                color: '#3b82f6',
+                lineWidth: 3,
+                visible: false,
+                dashStyle: 'LongDash',
+                marker: {
+                    symbol: 'diamond',
+                    radius: 4,
+                    enabled: true
+                }
+            }, {
+                name: '负荷曲线',
+                type: 'line',
+                yAxis: 3,
+                data: loadData,
+                color: '#ef4444',
+                lineWidth: 4,
+                visible: true,
+                marker: {
+                    symbol: 'circle',
+                    radius: 6,
+                    enabled: true
+                }
+            }, {
+                name: '事件气泡',
+                type: 'scatter',
+                yAxis: 3,
+                data: bubbleData,
+                visible: true,
+                zIndex: 10,
+                marker: {
+                    enabled: true,
+                    radius: 12
+                }
+            }],
+            credits: {
+                enabled: false
+            },
+            tooltip: {
+                backgroundColor: 'rgba(30, 41, 59, 0.95)',
+                borderColor: '#475569',
+                style: {
+                    color: '#e2e8f0'
+                },
+                formatter: function() {
+                    if (this.series.name === '事件气泡') {
+                        const dayIndex = this.point.x;
+                        const chart = this.series.chart;
+                        
+                        // 获取各条曲线在该时间点的数值
+                        const eerValue = chart.series[0].data[dayIndex] ? chart.series[0].data[dayIndex].y : 'N/A';
+                        const tempValue = chart.series[1].data[dayIndex] ? chart.series[1].data[dayIndex].y : 'N/A';
+                        const humidityValue = chart.series[2].data[dayIndex] ? chart.series[2].data[dayIndex].y : 'N/A';
+                        const loadValue = chart.series[3].data[dayIndex] ? chart.series[3].data[dayIndex].y : 'N/A';
+                        
+                        return '<div style="max-width: 400px;">' +
+                               '<b>📅 ' + this.x + '</b><br/><br/>' +
+                               
+                               '<b>🔵 事件信息:</b><br/>' +
+                               '<span style="color:#ef4444">● 事件名称:</span> ' + this.point.name + '<br/>' +
+                               '<span style="color:#f59e0b">● 事件类型:</span> ' + this.point.type + '<br/>' +
+                               '<span style="color:#3b82f6">● 发生时间:</span> ' + this.point.time + '<br/>' +
+                               '<span style="color:#10b981">● 建议措施:</span> ' + this.point.action + '<br/><br/>' +
+                               
+                               '<b>📊 当日运行数据:</b><br/>' +
+                               '<span style="color:#10b981">● EER:</span> ' + (eerValue !== 'N/A' ? eerValue.toFixed(2) : 'N/A') + '<br/>' +
+                               '<span style="color:#f59e0b">● 温度:</span> ' + (tempValue !== 'N/A' ? tempValue.toFixed(1) + '°C' : 'N/A') + '<br/>' +
+                               '<span style="color:#3b82f6">● 湿度:</span> ' + (humidityValue !== 'N/A' ? humidityValue + '%RH' : 'N/A') + '<br/>' +
+                               '<span style="color:#ef4444">● 负荷:</span> ' + (loadValue !== 'N/A' ? loadValue + 'kW' : 'N/A') + '<br/><br/>' +
+                               
+                               '<b>📝 详细描述:</b><br/>' +
+                               '<span style="font-size:12px; line-height:1.4;">' + this.point.detail + '</span>' +
+                               '</div>';
+                    } else {
+                        let tooltip = '<b>' + this.x + '</b><br/>';
+                        if (this.series.name === 'EER曲线') {
+                            tooltip += '<span style="color:' + this.series.color + '">' + this.series.name + '</span>: ' + this.y.toFixed(2) + '<br/>';
+                        } else if (this.series.name === '温度曲线') {
+                            tooltip += '<span style="color:' + this.series.color + '">' + this.series.name + '</span>: ' + this.y.toFixed(1) + '°C<br/>';
+                        } else if (this.series.name === '湿度曲线') {
+                            tooltip += '<span style="color:' + this.series.color + '">' + this.series.name + '</span>: ' + this.y + '%RH<br/>';
+                        } else if (this.series.name === '负荷曲线') {
+                            tooltip += '<span style="color:' + this.series.color + '">' + this.series.name + '</span>: ' + this.y + 'kW<br/>';
+                        }
+                        return tooltip;
+                    }
+                }
+            }
+        });
+
+        // 存储当前选中的行索引
+        let selectedRowIndex = -1;
+
+        // 分页变量
+        let currentPage = 1;
+        const itemsPerPage = 10;
+        const totalPages = Math.ceil(eventsData.length / itemsPerPage);
+
+        // 渲染表格数据
+        function renderTable() {
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const currentItems = eventsData.slice(startIndex, endIndex);
+            
+            const tbody = document.getElementById('eventsTableBody');
+            tbody.innerHTML = '';
+            
+            currentItems.forEach((event, index) => {
+                const globalIndex = startIndex + index;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${event.time}</td>
+                    <td class="${event.typeClass}">${event.name}</td>
+                    <td class="${event.typeClass}">${event.type}</td>
+                    <td>${event.detail}</td>
+                    <td>${event.action}</td>
+                `;
+                
+                // 添加点击事件
+                row.addEventListener('click', function() {
+                    // 检查是否点击了已选中的行
+                    if (selectedRowIndex === globalIndex) {
+                        // 取消选中
+                        this.classList.remove('selected');
+                        selectedRowIndex = -1;
+                        // 清除图表高亮
+                        clearChartHighlight();
+                    } else {
+                        // 移除其他行的选中状态
+                        tbody.querySelectorAll('tr').forEach(tr => tr.classList.remove('selected'));
+                        // 添加当前行的选中状态
+                        this.classList.add('selected');
+                        selectedRowIndex = globalIndex;
+                        // 显示对应的气泡信息
+                        showEventOnChart(globalIndex);
+                    }
+                });
+                
+                tbody.appendChild(row);
+            });
+            
+            // 更新分页信息
+            document.getElementById('currentPage').textContent = currentPage;
+            document.getElementById('totalPages').textContent = totalPages;
+            
+            // 更新按钮状态
+            document.getElementById('prevPage').disabled = currentPage === 1;
+            document.getElementById('nextPage').disabled = currentPage === totalPages;
+        }
+
+        // 在图表上显示选中的事件信息
+        function showEventOnChart(eventIndex) {
+            if (!chartInstance) return;
+            
+            const event = eventsData[eventIndex];
+            const dayIndex = event.dayIndex;
+            
+            // 获取对应的气泡点
+            const bubbleSeries = chartInstance.series.find(s => s.name === '事件气泡');
+            if (!bubbleSeries) return;
+            
+            const bubblePoint = bubbleSeries.data.find(point => point.x === dayIndex);
+            if (!bubblePoint) return;
+            
+            // 显示tooltip
+            chartInstance.tooltip.refresh(bubblePoint);
+            
+            // 高亮显示对应的气泡
+            bubbleSeries.data.forEach(point => {
+                if (point.x === dayIndex) {
+                    point.setState('hover');
+                } else {
+                    point.setState('');
+                }
+            });
+            
+            // 可选：滚动到对应的时间点
+            // chartInstance.xAxis[0].setExtremes(Math.max(0, dayIndex - 2), Math.min(13, dayIndex + 2));
+        }
+
+        // 清除图表高亮状态
+        function clearChartHighlight() {
+            if (!chartInstance) return;
+            
+            // 隐藏tooltip
+            chartInstance.tooltip.hide();
+            
+            // 清除所有气泡的高亮状态
+            const bubbleSeries = chartInstance.series.find(s => s.name === '事件气泡');
+            if (bubbleSeries) {
+                bubbleSeries.data.forEach(point => {
+                    point.setState('');
+                });
+            }
+        }
+
+        // 切换页面
+        function changePage(direction) {
+            const newPage = currentPage + direction;
+            if (newPage >= 1 && newPage <= totalPages) {
+                currentPage = newPage;
+                // 清除选中状态（因为切换页面后行索引会变化）
+                selectedRowIndex = -1;
+                clearChartHighlight();
+                renderTable();
+            }
+        }
+
+        // 查询事件功能
+        function queryEvents() {
+            const timeRange = document.getElementById('timeRange').value;
+            const eventType = document.getElementById('eventType').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            console.log('查询条件:', { timeRange, eventType, startDate, endDate });
+            
+            // 这里可以添加实际的查询逻辑
+            // 例如：根据条件过滤数据，更新图表和表格
+            alert(`查询条件:\n时间范围: ${timeRange}天\n事件类型: ${eventType}\n开始时间: ${startDate}\n结束时间: ${endDate}`);
+        }
+
+        // 重置查询条件
+        function resetQuery() {
+            document.getElementById('timeRange').value = '14';
+            document.getElementById('eventType').value = 'all';
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+        }
+
+        // 初始化日期控件
+        function initializeDates() {
+            const today = new Date();
+            // 设置结束时间为当前时间
+            const endDateTime = today.toISOString().slice(0, 16); // 格式: YYYY-MM-DDTHH:mm
+            // 设置开始时间为14天前的相同时间
+            const startDateTime = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
+            
+            document.getElementById('endDate').value = endDateTime;
+            document.getElementById('startDate').value = startDateTime;
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDates();
+        });
+
+        // 初始化表格
+        renderTable();
+
+    </script>
+</body>
+</html>

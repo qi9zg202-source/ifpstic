@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETL + 算法流程设计器</title>
+    <!-- 引入必要的库 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsPlumb/2.15.6/js/jsplumb.min.js"></script>
+    
+    <style>
+        .designer-container {
+            display: grid;
+            grid-template-areas: 
+                "toolbar toolbar"
+                "toolbox design";
+            grid-template-columns: 250px 1fr;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+            padding: 20px;
+            height: 95vh;
+            width: 100%;
+        }
+
+        .toolbar {
+            grid-area: toolbar;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toolbox {
+            grid-area: toolbox;
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            height: 100%;
+        }
+
+        .design-area {
+            grid-area: design;
+            position: relative !important;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            min-height: 600px;
+            height: calc(100vh - 200px);
+            overflow: auto;
+            padding: 20px;
+        }
+
+        /* 确保页面充满整个视窗 */
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+
+        /* 修改节点样式 */
+        .node {
+            position: absolute !important;
+            width: 180px;
+            min-height: 100px;
+            background: white;
+            border: 2px solid #5c96bc;
+            border-radius: 5px;
+            padding: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 100;
+            cursor: move;
+            user-select: none;
+            touch-action: none;
+        }
+
+        /* 修改工具箱中的节点项目样式 */
+        .node-item {
+            cursor: grab;
+            user-select: none;
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .node-item:active {
+            cursor: grabbing;
+        }
+
+        /* 右侧设计区域 */
+        .design-area {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            position: relative;
+            overflow: auto;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* 节点样式 */
+        .node {
+            position: absolute;
+            width: 150px;
+            padding: 10px;
+            border-radius: 5px;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            cursor: move;
+            z-index: 100;
+        }
+
+        .node.datasource {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+        }
+
+        .node.etl {
+            background: #f3e5f5;
+            border: 2px solid #9c27b0;
+        }
+
+        .node.algorithm {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+        }
+
+        .node.validation {
+            background: #fff3e0;
+            border: 2px solid #ff9800;
+        }
+
+        .node-header {
+            font-weight: bold;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+
+        .node-content {
+            font-size: 12px;
+        }
+
+        .endpoint {
+            width: 12px;
+            height: 12px;
+            background: #666;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* 配置面板 */
+        .config-panel {
+            position: fixed;
+            right: -300px;
+            top: 0;
+            width: 300px;
+            height: 100vh;
+            background: white;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            transition: right 0.3s;
+            padding: 20px;
+            z-index: 1000;
+        }
+
+        .config-panel.show {
+            right: 0;
+        }
+
+        /* 添加新的样式 */
+        .toolbar {
+            grid-column: 1 / -1;  /* 跨越所有列 */
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            margin-left: 20px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .status-running {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-stopped {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
+        /* 添加节点运行状态样式 */
+        .node.running {
+            animation: pulse 1.5s infinite;
+        }
+
+        .node.completed {
+            background-color: #e8f5e9;
+        }
+
+        .node.error {
+            background-color: #ffebee;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+            }
+        }
+
+        /* 进度指示器样式 */
+        .progress-indicator {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background-color: #4caf50;
+            transition: width 0.3s;
+        }
+
+        .node-actions {
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .preview-btn {
+            font-size: 12px;
+            padding: 2px 8px;
+        }
+
+        .data-preview-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .data-preview-content {
+            background: white;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 1200px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .data-preview-header {
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .data-preview-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .data-preview-table-container {
+            flex: 1;
+            overflow: auto;
+            padding: 15px;
+        }
+
+        .data-preview-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-preview-table th,
+        .data-preview-table td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .data-preview-table th {
+            background: #f8f9fa;
+            position: sticky;
+            top: 0;
+        }
+
+        .data-preview-footer {
+            padding: 15px;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* 调整设计区域的最小尺寸 */
+        #designArea {
+            min-width: 800px;
+            min-height: 600px;
+            position: relative;
+        }
+
+        /* 确保jsPlumb相关元素正确显示 */
+        .jtk-endpoint {
+            z-index: 110;
+            cursor: pointer;
+        }
+
+        .jtk-connector {
+            z-index: 90;
+        }
+
+        .jtk-dragging {
+            z-index: 120;
+        }
+
+        .jtk-drag-select * {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="designer-container">
+        <div class="toolbar">
+            <button class="btn btn-success" onclick="startFlow()" id="startBtn">
+                <i class="bi bi-play-fill"></i> 运行
+            </button>
+            <button class="btn btn-danger" onclick="stopFlow()" id="stopBtn" disabled>
+                <i class="bi bi-stop-fill"></i> 停止
+            </button>
+            <span class="status-indicator" id="flowStatus"></span>
+        </div>
+
+        <div class="toolbox">
+            <h5>组件库</h5>
+            <div class="node-type">
+                <h6>数据源</h6>
+                <div class="node-item" data-type="datasource" data-name="MySQL">
+                    MySQL数据源
+                </div>
+                <div class="node-item" data-type="datasource" data-name="PostgreSQL">
+                    PostgreSQL数据源
+                </div>
+                <div class="node-item" data-type="datasource" data-name="CSV">
+                    CSV文件
+                </div>
+            </div>
+            <div class="node-type">
+                <h6>ETL处理</h6>
+                <div class="node-item" data-type="etl" data-name="Filter">
+                    数据过滤
+                </div>
+                <div class="node-item" data-type="etl" data-name="Transform">
+                    数据转换
+                </div>
+                <div class="node-item" data-type="etl" data-name="Join">
+                    数据关联
+                </div>
+            </div>
+            <div class="node-type">
+                <h6>算法模型</h6>
+                <div class="node-item" data-type="algorithm" data-name="LinearRegression">
+                    线性回归
+                </div>
+                <div class="node-item" data-type="algorithm" data-name="RandomForest">
+                    随机森林
+                </div>
+                <div class="node-item" data-type="algorithm" data-name="NeuralNetwork">
+                    神经网络
+                </div>
+            </div>
+            <div class="node-type">
+                <h6>模型验证</h6>
+                <div class="node-item" data-type="validation" data-name="CrossValidation">
+                    交叉验证
+                </div>
+                <div class="node-item" data-type="validation" data-name="ModelEvaluation">
+                    模型评估
+                </div>
+            </div>
+        </div>
+
+        <div class="design-area" id="designArea"></div>
+
+        <!-- 配置面板 -->
+        <div class="config-panel" id="configPanel">
+            <h5>节点配置</h5>
+            <div id="configContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let jsPlumbInstance;
+        let nodeCounter = 0;
+
+        // 添加流程执行状态变量
+        let isFlowRunning = false;
+        let executionOrder = [];
+        let currentNodeIndex = -1;
+
+        // 修改初始化代码
+        document.addEventListener("DOMContentLoaded", function() {
+            // 确保 jsPlumb 实例正确初始化
+            jsPlumb.ready(function() {
+                // 创建 jsPlumb 实例
+                jsPlumbInstance = jsPlumb.getInstance();
+                
+                // 设置容器
+                const designArea = document.getElementById('designArea');
+                jsPlumbInstance.setContainer(designArea);
+                
+                // 初始化拖拽
+                initializeDragAndDrop();
+                
+                // 添加连接事件监听
+                jsPlumbInstance.bind("connection", function(info) {
+                    console.log("Connection made:", info);
+                });
+            });
+        });
+
+        // 完全重写拖拽初始化函数
+        function initializeDragAndDrop() {
+            const nodeItems = document.querySelectorAll('.node-item');
+            const designArea = document.getElementById('designArea');
+
+            nodeItems.forEach(item => {
+                item.draggable = true;
+                
+                item.addEventListener('dragstart', function(e) {
+                    const dragImage = item.cloneNode(true);
+                    dragImage.style.width = '180px';
+                    dragImage.style.height = '100px';
+                    dragImage.style.opacity = '0.5';
+                    document.body.appendChild(dragImage);
+                    
+                    e.dataTransfer.setDragImage(dragImage, 90, 50);
+                    e.dataTransfer.setData('nodeInfo', JSON.stringify({
+                        type: this.dataset.type,
+                        name: this.dataset.name
+                    }));
+                    
+                    setTimeout(() => document.body.removeChild(dragImage), 0);
+                });
+            });
+
+            designArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            });
+
+            designArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                
+                try {
+                    const data = JSON.parse(e.dataTransfer.getData('nodeInfo'));
+                    const rect = designArea.getBoundingClientRect();
+                    const x = e.clientX - rect.left + designArea.scrollLeft;
+                    const y = e.clientY - rect.top + designArea.scrollTop;
+                    
+                    createNode(data.type, data.name, x, y);
+                } catch (error) {
+                    console.error('Drop error:', error);
+                }
+            });
+        }
+
+        // 修改节点创建函数
+        function createNode(type, name, x, y) {
+            const node = document.createElement('div');
+            node.className = `node ${type}`;
+            node.id = `node_${++nodeCounter}`;
+            
+            node.innerHTML = `
+                <div class="node-header">${name}</div>
+                <div class="node-content">ID: ${node.id}</div>
+                <div class="node-actions">
+                    <button class="btn btn-sm btn-info preview-btn" onclick="showDataPreview('${node.id}')">
+                        数据示图
+                    </button>
+                </div>
+            `;
+            
+            node.style.left = `${x}px`;
+            node.style.top = `${y}px`;
+            node.style.position = 'absolute';
+
+            document.getElementById('designArea').appendChild(node);
+
+            // 使节点可拖动
+            jsPlumbInstance.draggable(node, {
+                containment: 'parent',
+                grid: [10, 10]
+            });
+
+            // 添加连接点
+            if (type !== 'validation') {
+                jsPlumbInstance.addEndpoint(node, {
+                    anchor: 'Right',
+                    isSource: true,
+                    maxConnections: -1,
+                    endpoint: ['Dot', { radius: 5 }],
+                    paintStyle: { fill: '#456' },
+                    connectorStyle: { stroke: '#456', strokeWidth: 2 },
+                    connector: ['Bezier', { curviness: 50 }]
+                });
+            }
+            
+            if (type !== 'datasource') {
+                jsPlumbInstance.addEndpoint(node, {
+                    anchor: 'Left',
+                    isTarget: true,
+                    maxConnections: -1,
+                    endpoint: ['Dot', { radius: 5 }],
+                    paintStyle: { fill: '#456' },
+                    connectorStyle: { stroke: '#456', strokeWidth: 2 }
+                });
+            }
+
+            // 添加双击事件监听
+            node.addEventListener('dblclick', function() {
+                showConfigPanel(this);
+            });
+
+            return node;
+        }
+
+        // 显示配置面板
+        function showConfigPanel(node) {
+            const panel = document.getElementById('configPanel');
+            const content = document.getElementById('configContent');
+            
+            // 根据节点类型生成不同的配置表单
+            const type = Array.from(node.classList).find(cls => 
+                ['datasource', 'etl', 'algorithm', 'validation'].includes(cls));
+            
+            let configHTML = '';
+            switch(type) {
+                case 'datasource':
+                    configHTML = `
+                        <div class="mb-3">
+                            <label class="form-label">连接字符串</label>
+                            <input type="text" class="form-control" id="connectionString">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">查询语句</label>
+                            <textarea class="form-control" id="query" rows="3"></textarea>
+                        </div>
+                    `;
+                    break;
+                case 'etl':
+                    configHTML = `
+                        <div class="mb-3">
+                            <label class="form-label">转换规则</label>
+                            <textarea class="form-control" id="transformRule" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">输出字段</label>
+                            <input type="text" class="form-control" id="outputFields">
+                        </div>
+                    `;
+                    break;
+                case 'algorithm':
+                    configHTML = `
+                        <div class="mb-3">
+                            <label class="form-label">算法参数</label>
+                            <textarea class="form-control" id="algorithmParams" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">目标字段</label>
+                            <input type="text" class="form-control" id="targetField">
+                        </div>
+                    `;
+                    break;
+                case 'validation':
+                    configHTML = `
+                        <div class="mb-3">
+                            <label class="form-label">验证方法</label>
+                            <select class="form-select" id="validationMethod">
+                                <option value="cv">交叉验证</option>
+                                <option value="holdout">留出法</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">评估指标</label>
+                            <input type="text" class="form-control" id="metrics">
+                        </div>
+                    `;
+                    break;
+            }
+
+            configHTML += `
+                <button class="btn btn-primary" onclick="saveConfig()">保存</button>
+                <button class="btn btn-secondary ms-2" onclick="closeConfig()">关闭</button>
+            `;
+
+            content.innerHTML = configHTML;
+            panel.classList.add('show');
+        }
+
+        // 保存配置
+        function saveConfig() {
+            // 这里添加保存配置的逻辑
+            closeConfig();
+        }
+
+        // 关闭配置面板
+        function closeConfig() {
+            document.getElementById('configPanel').classList.remove('show');
+        }
+
+        // 启动流程
+        async function startFlow() {
+            if (isFlowRunning) return;
+            
+            // 获取所有节点和连接
+            const nodes = document.querySelectorAll('.node');
+            if (nodes.length === 0) {
+                alert('请先添加节点！');
+                return;
+            }
+
+            // 验证流程
+            if (!validateFlow()) {
+                alert('流程验证失败，请检查节点连接！');
+                return;
+            }
+
+            isFlowRunning = true;
+            updateUIState(true);
+            
+            // 计算执行顺序
+            executionOrder = calculateExecutionOrder();
+            
+            // 开始执行
+            try {
+                for (let i = 0; i < executionOrder.length; i++) {
+                    currentNodeIndex = i;
+                    await executeNode(executionOrder[i]);
+                }
+                showSuccessMessage('流程执行完成！');
+            } catch (error) {
+                showErrorMessage(`流程执行错误: ${error.message}`);
+            } finally {
+                isFlowRunning = false;
+                updateUIState(false);
+            }
+        }
+
+        // 停止流程
+        function stopFlow() {
+            if (!isFlowRunning) return;
+            
+            isFlowRunning = false;
+            updateUIState(false);
+            
+            // 重置所有节点状态
+            document.querySelectorAll('.node').forEach(node => {
+                node.classList.remove('running', 'completed', 'error');
+                const progressBar = node.querySelector('.progress-indicator');
+                if (progressBar) progressBar.remove();
+            });
+
+            showMessage('流程已停止', 'stopped');
+        }
+
+        // 验证流程
+        function validateFlow() {
+            const nodes = document.querySelectorAll('.node');
+            let isValid = true;
+
+            nodes.forEach(node => {
+                // 检查数据源节点是否有输入连接
+                if (node.classList.contains('datasource')) {
+                    const connections = jsPlumbInstance.getConnections({target: node.id});
+                    if (connections.length > 0) {
+                        isValid = false;
+                    }
+                }
+                
+                // 检查验证节点是否有输出连接
+                if (node.classList.contains('validation')) {
+                    const connections = jsPlumbInstance.getConnections({source: node.id});
+                    if (connections.length > 0) {
+                        isValid = false;
+                    }
+                }
+            });
+
+            return isValid;
+        }
+
+        // 计算节点执行顺序
+        function calculateExecutionOrder() {
+            const order = [];
+            const visited = new Set();
+            
+            // 找到所有数据源节点作为起点
+            const datasources = Array.from(document.querySelectorAll('.node.datasource'));
+            
+            // 深度优先搜索遍历节点
+            function dfs(node) {
+                if (visited.has(node.id)) return;
+                visited.add(node.id);
+                
+                // 获取当前节点的所有输出连接
+                const connections = jsPlumbInstance.getConnections({source: node.id});
+                for (const conn of connections) {
+                    const targetNode = document.getElementById(conn.targetId);
+                    dfs(targetNode);
+                }
+                
+                order.push(node);
+            }
+
+            // 从每个数据源节点开始遍历
+            datasources.forEach(node => dfs(node));
+            
+            return order;
+        }
+
+        // 执行单个节点
+        async function executeNode(node) {
+            if (!isFlowRunning) throw new Error('Flow stopped');
+
+            // 添加进度条
+            const progressBar = document.createElement('div');
+            progressBar.className = 'progress-indicator';
+            node.appendChild(progressBar);
+
+            // 设置节点状态为运行中
+            node.classList.add('running');
+            
+            try {
+                // 模拟节点执行
+                await simulateNodeExecution(node, progressBar);
+                
+                // 执行成功
+                node.classList.remove('running');
+                node.classList.add('completed');
+            } catch (error) {
+                // 执行失败
+                node.classList.remove('running');
+                node.classList.add('error');
+                throw error;
+            }
+        }
+
+        // 模拟节点执行过程
+        async function simulateNodeExecution(node, progressBar) {
+            const duration = 2000; // 执行时间2秒
+            const steps = 20;
+            const stepDuration = duration / steps;
+            
+            for (let i = 0; i <= steps; i++) {
+                if (!isFlowRunning) throw new Error('Execution stopped');
+                
+                const progress = (i / steps) * 100;
+                progressBar.style.width = `${progress}%`;
+                
+                await new Promise(resolve => setTimeout(resolve, stepDuration));
+            }
+        }
+
+        // 更新UI状态
+        function updateUIState(isRunning) {
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const flowStatus = document.getElementById('flowStatus');
+
+            startBtn.disabled = isRunning;
+            stopBtn.disabled = !isRunning;
+
+            if (isRunning) {
+                flowStatus.textContent = '正在运行';
+                flowStatus.className = 'status-indicator status-running';
+            } else {
+                flowStatus.textContent = '已停止';
+                flowStatus.className = 'status-indicator status-stopped';
+            }
+        }
+
+        // 显示消息
+        function showMessage(message, type) {
+            const flowStatus = document.getElementById('flowStatus');
+            flowStatus.textContent = message;
+            flowStatus.className = `status-indicator status-${type}`;
+        }
+
+        function showSuccessMessage(message) {
+            showMessage(message, 'running');
+        }
+
+        function showErrorMessage(message) {
+            showMessage(message, 'stopped');
+        }
+
+        // 添加数据预览弹窗
+        function showDataPreview(nodeId) {
+            // 防止事件冒泡
+            event.stopPropagation();
+            
+            // 创建模态框
+            const modal = document.createElement('div');
+            modal.className = 'data-preview-modal';
+            modal.innerHTML = `
+                <div class="data-preview-content">
+                    <div class="data-preview-header">
+                        <h5>数据预览 - ${nodeId}</h5>
+                        <div class="data-preview-actions">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="refreshPreviewData('${nodeId}')">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" onclick="exportToExcel('${nodeId}')">
+                                <i class="bi bi-file-excel"></i> 导出
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="closeDataPreview()">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="data-preview-table-container">
+                        <table class="data-preview-table">
+                            <thead id="previewHeader_${nodeId}"></thead>
+                            <tbody id="previewBody_${nodeId}"></tbody>
+                        </table>
+                    </div>
+                    <div class="data-preview-footer">
+                        <div class="pagination-info">
+                            显示 <span id="currentRange">1-100</span> 条，共 <span id="totalCount">0</span> 条
+                        </div>
+                        <div class="pagination-controls">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="changePage('prev')">上一页</button>
+                            <span id="currentPage">1</span> / <span id="totalPages">1</span>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="changePage('next')">下一页</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            loadPreviewData(nodeId);
+        }
+
+        // 加载预览数据
+        function loadPreviewData(nodeId) {
+            // 模拟获取数据
+            const mockData = generateMockData(nodeId);
+            updatePreviewTable(nodeId, mockData);
+        }
+
+        // 生成模拟数据
+        function generateMockData(nodeId) {
+            const node = document.getElementById(nodeId);
+            const nodeType = Array.from(node.classList).find(cls => 
+                ['datasource', 'etl', 'algorithm', 'validation'].includes(cls));
+            
+            let columns = [];
+            let data = [];
+
+            switch(nodeType) {
+                case 'datasource':
+                    columns = ['ID', '时间戳', '温度', '湿度', '压力', '流量'];
+                    data = Array.from({length: 100}, (_, i) => [
+                        i + 1,
+                        new Date(Date.now() - i * 3600000).toLocaleString(),
+                        (20 + Math.random() * 5).toFixed(2),
+                        (45 + Math.random() * 10).toFixed(2),
+                        (101 + Math.random() * 2).toFixed(2),
+                        (500 + Math.random() * 100).toFixed(2)
+                    ]);
+                    break;
+                case 'etl':
+                    columns = ['处理ID', '原始值', '处理值', '状态', '处理时间'];
+                    data = Array.from({length: 100}, (_, i) => [
+                        i + 1,
+                        (100 + Math.random() * 50).toFixed(2),
+                        (80 + Math.random() * 40).toFixed(2),
+                        ['正常', '警告', '异常'][Math.floor(Math.random() * 3)],
+                        new Date(Date.now() - i * 1000).toLocaleString()
+                    ]);
+                    break;
+                case 'algorithm':
+                    columns = ['样本ID', '特征1', '特征2', '特征3', '预测值', '实际值', '误差'];
+                    data = Array.from({length: 100}, (_, i) => {
+                        const predicted = 75 + Math.random() * 20;
+                        const actual = predicted + (Math.random() - 0.5) * 10;
+                        return [
+                            i + 1,
+                            (Math.random() * 100).toFixed(2),
+                            (Math.random() * 100).toFixed(2),
+                            (Math.random() * 100).toFixed(2),
+                            predicted.toFixed(2),
+                            actual.toFixed(2),
+                            (actual - predicted).toFixed(2)
+                        ];
+                    });
+                    break;
+                case 'validation':
+                    columns = ['验证ID', '指标名称', '预测值', '实际值', '准确率', '召回率', 'F1分数'];
+                    data = Array.from({length: 100}, (_, i) => [
+                        i + 1,
+                        ['精度', '召回率', 'F1'][i % 3],
+                        (0.7 + Math.random() * 0.2).toFixed(3),
+                        (0.7 + Math.random() * 0.2).toFixed(3),
+                        (0.7 + Math.random() * 0.2).toFixed(3),
+                        (0.7 + Math.random() * 0.2).toFixed(3),
+                        (0.7 + Math.random() * 0.2).toFixed(3)
+                    ]);
+                    break;
+            }
+
+            return { columns, data };
+        }
+
+        // 更新预览表格
+        function updatePreviewTable(nodeId, { columns, data }) {
+            const thead = document.getElementById(`previewHeader_${nodeId}`);
+            const tbody = document.getElementById(`previewBody_${nodeId}`);
+
+            // 更新表头
+            thead.innerHTML = `
+                <tr>
+                    ${columns.map(col => `<th>${col}</th>`).join('')}
+                </tr>
+            `;
+
+            // 更新数据行
+            tbody.innerHTML = data.map(row => `
+                <tr>
+                    ${row.map(cell => `<td>${cell}</td>`).join('')}
+                </tr>
+            `).join('');
+
+            // 更新分页信息
+            document.getElementById('totalCount').textContent = data.length;
+            document.getElementById('totalPages').textContent = Math.ceil(data.length / 100);
+        }
+
+        // 刷新预览数据
+        function refreshPreviewData(nodeId) {
+            loadPreviewData(nodeId);
+        }
+
+        // 导出到Excel
+        function exportToExcel(nodeId) {
+            const node = document.getElementById(nodeId);
+            const { columns, data } = generateMockData(nodeId);
+            
+            // 创建CSV内容
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            // 添加表头
+            csvContent += columns.join(",") + "\n";
+            
+            // 添加数据行
+            data.forEach(row => {
+                csvContent += row.join(",") + "\n";
+            });
+            
+            // 创建下载链接
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `${nodeId}_data.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // 关闭数据预览
+        function closeDataPreview() {
+            const modal = document.querySelector('.data-preview-modal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        // 切换页面
+        function changePage(direction) {
+            const currentPageEl = document.getElementById('currentPage');
+            const totalPagesEl = document.getElementById('totalPages');
+            const currentPage = parseInt(currentPageEl.textContent);
+            const totalPages = parseInt(totalPagesEl.textContent);
+
+            if (direction === 'prev' && currentPage > 1) {
+                currentPageEl.textContent = currentPage - 1;
+            } else if (direction === 'next' && currentPage < totalPages) {
+                currentPageEl.textContent = currentPage + 1;
+            }
+
+            // 更新显示范围
+            const rangeEl = document.getElementById('currentRange');
+            const start = (currentPage - 1) * 100 + 1;
+            const end = Math.min(currentPage * 100, parseInt(document.getElementById('totalCount').textContent));
+            rangeEl.textContent = `${start}-${end}`;
+        }
+    </script>
+</body>
+</html> 

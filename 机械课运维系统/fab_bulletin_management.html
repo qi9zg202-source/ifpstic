@@ -1,0 +1,1735 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STIC-ME宣导栏管理 - STIC 机械课</title>
+    
+    <!-- 外部库引入 -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    
+    <!-- Flatpickr 时间选择器 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js"></script>
+    
+    <!-- Quill 富文本编辑器 -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+    
+    <style>
+        /* SAP 风格样式设计 */
+        :root {
+            --sap-blue: #0078d4;
+            --sap-blue-hover: #106ebe;
+            --sap-gray-1: #f7f7f7;
+            --sap-gray-2: #ededed;
+            --sap-gray-3: #d2d0ce;
+            --sap-gray-4: #8a8886;
+            --sap-gray-5: #605e5c;
+            --sap-white: #ffffff;
+            --sap-text: #323130;
+            --sap-border: #d2d0ce;
+            --sap-success: #107c10;
+            --sap-warning: #ffaa44;
+            --sap-error: #d13438;
+            --sap-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Segoe UI", "72", "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--sap-gray-1);
+            color: var(--sap-text);
+            line-height: 1.5;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .page-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* 页面头部 */
+        .page-header {
+            background: linear-gradient(135deg, var(--sap-blue) 0%, var(--sap-blue-hover) 100%);
+            color: var(--sap-white);
+            padding: 15px 20px;
+            box-shadow: var(--sap-shadow);
+            flex-shrink: 0;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .page-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .header-logo {
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 主要内容区域 */
+        .main-content {
+            background: var(--sap-white);
+            border: 1px solid var(--sap-border);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            margin: 10px;
+            border-radius: 6px;
+        }
+
+        /* 工具栏 */
+        .toolbar {
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--sap-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--sap-gray-1);
+            flex-shrink: 0;
+        }
+
+        .toolbar-left {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .toolbar-right {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        /* 按钮样式 */
+        .sap-button {
+            background: var(--sap-white);
+            border: 1px solid var(--sap-border);
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--sap-text);
+        }
+
+        .sap-button:hover {
+            background: var(--sap-gray-1);
+            border-color: var(--sap-blue);
+        }
+
+        .sap-button.primary {
+            background: var(--sap-blue);
+            color: var(--sap-white);
+            border-color: var(--sap-blue);
+        }
+
+        .sap-button.primary:hover {
+            background: var(--sap-blue-hover);
+            border-color: var(--sap-blue-hover);
+        }
+
+        .sap-button.success {
+            background: var(--sap-success);
+            color: var(--sap-white);
+            border-color: var(--sap-success);
+        }
+
+        .sap-button.warning {
+            background: var(--sap-warning);
+            color: var(--sap-white);
+            border-color: var(--sap-warning);
+        }
+
+        .sap-button.danger {
+            background: var(--sap-error);
+            color: var(--sap-white);
+            border-color: var(--sap-error);
+        }
+
+        .sap-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* 搜索框 */
+        .search-input {
+            border: 1px solid var(--sap-border);
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 12px;
+            transition: border-color 0.2s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--sap-blue);
+            box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+        }
+
+        /* 表格样式 */
+        .table-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            border-left: 1px solid var(--sap-border);
+            border-right: 1px solid var(--sap-border);
+        }
+
+        .sap-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12px;
+            table-layout: fixed;
+            border: none;
+        }
+
+        .sap-table th {
+            background: var(--sap-gray-2);
+            color: var(--sap-text);
+            font-weight: 600;
+            padding: 10px 12px;
+            text-align: left;
+            border-right: 1px solid var(--sap-border);
+            border-bottom: 2px solid var(--sap-border);
+            white-space: nowrap;
+            font-size: 11px;
+            position: relative;
+        }
+
+        .sap-table th:last-child {
+            border-right: none;
+        }
+
+        .sap-table thead th {
+            background: linear-gradient(180deg, #f5f5f5 0%, #e8e8e8 100%);
+            border-top: 1px solid var(--sap-border);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+        }
+
+        .sap-table tbody tr:first-child td {
+            border-top: 1px solid var(--sap-border);
+        }
+
+        .sap-table td {
+            padding: 10px 12px;
+            border-right: 1px solid var(--sap-border);
+            border-bottom: 1px solid var(--sap-border);
+            vertical-align: middle;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            background: var(--sap-white);
+        }
+
+        .sap-table td:last-child {
+            border-right: none;
+        }
+
+        /* 宣导项列特殊样式 */
+        .sap-table td:nth-child(3) {
+            white-space: normal;
+            line-height: 1.3;
+        }
+
+        .sap-table td:nth-child(3) div {
+            font-size: 11px;
+        }
+
+        .sap-table td:nth-child(3) strong {
+            font-weight: 600;
+            color: var(--sap-text);
+        }
+
+        .sap-table td:nth-child(3) ul, 
+        .sap-table td:nth-child(3) ol {
+            margin: 0;
+            padding-left: 16px;
+        }
+
+        .sap-table td:nth-child(3) li {
+            margin: 2px 0;
+        }
+
+        .sap-table td:nth-child(3) p {
+            margin: 0;
+        }
+
+        /* 生效期列防止换行 */
+        .sap-table td:nth-child(4) {
+            white-space: nowrap;
+            min-width: 280px;
+        }
+
+        /* 生效期状态颜色 */
+        .date-valid {
+            color: var(--sap-success);
+            font-weight: 600;
+        }
+
+        .date-expiring {
+            color: #ff8c00;
+            font-weight: 600;
+        }
+
+        .date-expired {
+            color: #8a8886;
+            font-weight: 600;
+        }
+
+        .sap-table tbody tr:hover td {
+            background: #e8f4ff;
+        }
+
+        .sap-table tbody tr:nth-child(even) td {
+            background: #fafafa;
+        }
+
+        .sap-table tbody tr:nth-child(even):hover td {
+            background: #e8f4ff;
+        }
+
+        /* 状态标签 */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            text-align: center;
+            min-width: 60px;
+        }
+
+        .status-valid {
+            background: #e7f5e7;
+            color: var(--sap-success);
+            border: 1px solid #c3e6c3;
+        }
+
+        .status-expired {
+            background: #ffeaea;
+            color: var(--sap-error);
+            border: 1px solid #f5c6c6;
+        }
+
+        .status-pending {
+            background: #fff4e6;
+            color: var(--sap-warning);
+            border: 1px solid #ffcc99;
+        }
+
+        .status-published {
+            background: #e7f5e7;
+            color: var(--sap-success);
+            border: 1px solid #c3e6c3;
+        }
+
+        .status-offline {
+            background: #f0f0f0;
+            color: #666666;
+            border: 1px solid #cccccc;
+        }
+
+        .status-permanent {
+            background: #e8f5e8;
+            color: #0066cc;
+            border: 1px solid #b3d9b3;
+        }
+
+        /* 操作按钮 */
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .action-button {
+            padding: 4px 8px;
+            border: 1px solid var(--sap-border);
+            border-radius: 3px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .edit-button {
+            background: var(--sap-blue);
+            color: var(--sap-white);
+            border-color: var(--sap-blue);
+        }
+
+        .edit-button:hover {
+            background: var(--sap-blue-hover);
+        }
+
+        .delete-button {
+            background: var(--sap-error);
+            color: var(--sap-white);
+            border-color: var(--sap-error);
+        }
+
+        .delete-button:hover {
+            background: #b71c1c;
+        }
+
+        .copy-button {
+            background: var(--sap-success);
+            color: var(--sap-white);
+            border-color: var(--sap-success);
+        }
+
+        .copy-button:hover {
+            background: #0e5a0e;
+        }
+
+        .offline-button {
+            background: var(--sap-warning);
+            color: var(--sap-white);
+            border-color: var(--sap-warning);
+        }
+
+        .offline-button:hover {
+            background: #ff9900;
+        }
+
+        /* 分页器 */
+        .pagination {
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--sap-border);
+            background: var(--sap-gray-1);
+            flex-shrink: 0;
+            font-size: 12px;
+        }
+
+        .pagination-info {
+            font-size: 12px;
+            color: var(--sap-gray-5);
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .page-size-select {
+            border: 1px solid var(--sap-border);
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 14px;
+        }
+
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: var(--sap-white);
+            margin: 5% auto;
+            border-radius: 6px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--sap-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--sap-gray-1);
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--sap-gray-4);
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-button:hover {
+            color: var(--sap-text);
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--sap-border);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            background: var(--sap-gray-1);
+        }
+
+        /* 表单样式 */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--sap-text);
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            border: 1px solid var(--sap-border);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--sap-blue);
+            box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+        }
+
+        .form-input[readonly] {
+            background-color: var(--sap-gray-1);
+            color: var(--sap-gray-5);
+            cursor: not-allowed;
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        /* 日期范围选择器 */
+        .date-range-container {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .date-range-separator {
+            color: var(--sap-gray-4);
+            font-weight: 500;
+        }
+
+        .status-display.valid {
+            color: var(--sap-success);
+        }
+
+        .status-display.expired {
+            color: var(--sap-error);
+        }
+
+        /* 富文本编辑器容器 */
+        .rich-text-container {
+            border: 1px solid var(--sap-border);
+            border-radius: 4px;
+            background: var(--sap-white);
+        }
+
+        .rich-text-container .ql-toolbar {
+            border-top: none;
+            border-left: none;
+            border-right: none;
+            background: var(--sap-gray-1);
+        }
+
+        .rich-text-container .ql-container {
+            border: none;
+            min-height: 150px;
+        }
+
+        /* 日期状态颜色 */
+        .date-valid {
+            color: var(--sap-success);
+            font-weight: 600;
+        }
+        
+        .date-expiring {
+            color: #ff8c00;
+            font-weight: 600;
+        }
+        
+        .date-expired {
+            color: var(--sap-error);
+            font-weight: 600;
+            background-color: #fdf2f2;
+        }
+
+        .date-permanent {
+            color: #0066cc;
+            font-weight: 600;
+            background-color: #e8f5e8;
+        }
+
+        /* 复选框样式 */
+        .checkbox-label {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 12px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            margin-right: 4px;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .checkbox-label span {
+            color: var(--sap-text);
+            font-weight: 500;
+        }
+
+        /* 显示顺序输入框样式 */
+        .display-order-input {
+            width: 60px;
+            text-align: center;
+            border: 1px solid var(--sap-border);
+            border-radius: 3px;
+            padding: 4px 6px;
+            font-size: 12px;
+            background: var(--sap-white);
+            transition: border-color 0.2s ease;
+        }
+
+        .display-order-input:focus {
+            outline: none;
+            border-color: var(--sap-blue);
+            box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+        }
+
+        .display-order-input:hover {
+            border-color: var(--sap-blue);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .page-container {
+                padding: 10px;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+            
+            .toolbar {
+                flex-direction: column;
+                gap: 12px;
+                align-items: stretch;
+            }
+            
+            .toolbar-left, .toolbar-right {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            
+            .search-input {
+                width: 100%;
+                margin-bottom: 8px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .pagination {
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            .modal-content {
+                margin: 10px;
+                width: calc(100% - 20px);
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .toolbar-right {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            
+            .search-input {
+                min-width: 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        <!-- 页面头部 -->
+        <header class="page-header">
+            <div class="header-content">
+                <div>
+                    <h1 class="page-title">STIC-ME宣导栏管理</h1>
+                </div>
+                <div class="header-logo">
+                    <span>📋</span>
+                    <span>STIC</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要内容 -->
+        <div class="main-content">
+            <!-- 工具栏 -->
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <button class="sap-button primary" onclick="openAddModal()">
+                        <span>➕</span>
+                        <span>新增宣导项</span>
+                    </button>
+                </div>
+                <div class="toolbar-right">
+                    <span style="font-weight: 600; color: var(--sap-text); margin-right: 6px; font-size: 12px;">状态：</span>
+                    <select class="search-input" id="statusFilter" onchange="onStatusFilterChange()" style="width: 100px;">
+                        <option value="all">全部</option>
+                        <option value="published">已发布</option>
+                        <option value="pending">待发布</option>
+                        <option value="offline">下线</option>
+                    </select>
+                    <span style="font-weight: 600; color: var(--sap-text); margin-right: 6px; margin-left: 15px; font-size: 12px;">宣导项：</span>
+                    <input type="text" class="search-input" id="searchContent" placeholder="宣导项内容" style="width: 120px;">
+                    <span style="font-weight: 600; color: var(--sap-text); margin-right: 6px; margin-left: 15px; font-size: 12px;">有效期：</span>
+                    <input type="text" class="search-input" id="searchStartDate" placeholder="开始时间" style="width: 110px;">
+                    <input type="text" class="search-input" id="searchEndDate" placeholder="结束时间" style="width: 110px;">
+                    <button class="sap-button primary" onclick="searchTable()">
+                        <span>🔍</span>
+                        <span>查询</span>
+                    </button>
+                    <button class="sap-button" onclick="resetSearch()">
+                        <span>🔄</span>
+                        <span>重置</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 表格区域 -->
+            <div class="table-container">
+                <table class="sap-table" id="bulletinTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 60px; text-align: center;">序号</th>
+                            <th style="width: 90px; text-align: center;">发布状态</th>
+                            <th style="width: 30%; text-align: center;">宣导项</th>
+                            <th style="width: 100px; text-align: center;">显示顺序</th>
+                            <th style="width: 200px; text-align: center;">生效期</th>
+                            <th style="width: 100px; text-align: center;">创建人</th>
+                            <th style="width: 200px; text-align: center;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bulletinTableBody">
+                        <!-- 数据将通过 JavaScript 动态生成 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页器 -->
+            <div class="pagination">
+                <div class="pagination-info">
+                    共 <span id="totalRecords">0</span> 条记录，当前第 <span id="currentPage">1</span> 页，共 <span id="totalPages">1</span> 页
+                </div>
+                <div class="pagination-controls">
+                    <label>每页显示：</label>
+                    <select class="page-size-select" id="pageSizeSelect" onchange="changePageSize()">
+                        <option value="10" selected>10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    <button class="sap-button" onclick="goToPage(1)" id="firstPageBtn">首页</button>
+                    <button class="sap-button" onclick="goToPage(currentPageNum - 1)" id="prevPageBtn">上一页</button>
+                    <span>第 <input type="number" id="pageInput" style="width: 60px; text-align: center;" min="1" onkeyup="onPageInputChange()"> 页</span>
+                    <button class="sap-button" onclick="goToPage(currentPageNum + 1)" id="nextPageBtn">下一页</button>
+                    <button class="sap-button" onclick="goToPage(totalPagesNum)" id="lastPageBtn">末页</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑模态框 -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">新增宣导项</h2>
+                <button class="close-button" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="bulletinForm">
+                    <input type="hidden" id="bulletinId">
+                    
+                    <div class="form-group">
+                        <label class="form-label">宣导项内容</label>
+                        <div class="rich-text-container">
+                            <div id="richTextEditor"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <label class="form-label" style="margin-bottom: 0;">生效期</label>
+                            <label class="checkbox-label" style="margin-bottom: 0;">
+                                <input type="checkbox" id="permanentCheckbox" onchange="togglePermanentMode()">
+                                <span>永久有效</span>
+                            </label>
+                            <span id="statusDisplay" class="status-display" style="font-weight: 600; display: none;"></span>
+                        </div>
+                        <div class="date-range-container" id="dateRangeContainer">
+                            <input type="text" class="form-input" id="startDate" placeholder="开始日期" required>
+                            <span class="date-range-separator">至</span>
+                            <input type="text" class="form-input" id="endDate" placeholder="结束日期" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">显示顺序</label>
+                        <input type="number" class="form-input" id="displayOrder" placeholder="显示顺序(数字越小越靠前)" min="0" max="9999" value="0" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">创建人</label>
+                        <input type="text" class="form-input" id="creator" value="王博" readonly required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="sap-button" onclick="closeModal()">取消</button>
+                <button class="sap-button primary" onclick="saveBulletin()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let bulletinData = [];
+        let currentPageNum = 1;
+        let pageSize = 10;
+        let totalPagesNum = 1;
+        let currentEditId = null;
+        let quillEditor = null;
+        let currentUser = '王博'; // 模拟当前登录用户
+
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            initializePage();
+        });
+
+        function initializePage() {
+            // 初始化富文本编辑器
+            initializeRichTextEditor();
+            
+            // 初始化日期选择器
+            initializeDatePickers();
+            
+            // 初始化搜索日期选择器
+            initializeSearchDatePickers();
+            
+            // 设置日期变化监听器
+            setupDateChangeListeners();
+            
+            // 加载示例数据
+            loadSampleData();
+            
+            // 设置默认筛选状态：全部
+            document.getElementById('statusFilter').value = 'all';
+            
+            // 渲染表格
+            renderTable();
+            
+            console.log('厂务宣导栏管理系统初始化完成');
+        }
+
+        // 初始化富文本编辑器
+        function initializeRichTextEditor() {
+            const toolbarOptions = [
+                ['bold', 'italic', 'underline', 'strike'],
+                ['blockquote', 'code-block'],
+                [{ 'header': 1 }, { 'header': 2 }],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                [{ 'script': 'sub'}, { 'script': 'super' }],
+                [{ 'indent': '-1'}, { 'indent': '+1' }],
+                [{ 'direction': 'rtl' }],
+                [{ 'size': ['small', false, 'large', 'huge'] }],
+                [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                [{ 'color': [] }, { 'background': [] }],
+                [{ 'font': [] }],
+                [{ 'align': [] }],
+                ['clean']
+            ];
+
+            quillEditor = new Quill('#richTextEditor', {
+                modules: {
+                    toolbar: toolbarOptions
+                },
+                theme: 'snow',
+                placeholder: '请输入宣导项内容...'
+            });
+        }
+
+        // 初始化日期选择器
+        function initializeDatePickers() {
+            flatpickr.localize(flatpickr.l10ns.zh);
+            
+            flatpickr("#startDate", {
+                dateFormat: "Y-m-d",
+                locale: "zh",
+                placeholder: "选择开始日期"
+            });
+            
+            flatpickr("#endDate", {
+                dateFormat: "Y-m-d",
+                locale: "zh",
+                placeholder: "选择结束日期"
+            });
+        }
+
+        // 初始化搜索日期选择器
+        function initializeSearchDatePickers() {
+            flatpickr("#searchStartDate", {
+                dateFormat: "Y-m-d",
+                locale: "zh",
+                placeholder: "开始时间",
+                allowInput: true,
+                clickOpens: true
+            });
+            
+            flatpickr("#searchEndDate", {
+                dateFormat: "Y-m-d",
+                locale: "zh",
+                placeholder: "结束时间",
+                allowInput: true,
+                clickOpens: true
+            });
+        }
+
+        // 监听日期变化，更新状态显示
+        function setupDateChangeListeners() {
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            
+            const updateStatus = () => {
+                updateStatusDisplay(startDateInput.value, endDateInput.value);
+            };
+            
+            startDateInput.addEventListener('change', updateStatus);
+            endDateInput.addEventListener('change', updateStatus);
+        }
+
+        // 加载示例数据
+        function loadSampleData() {
+            bulletinData = [
+                // 永久有效的数据 (3条)
+                {
+                    id: 1,
+                    content: '公司安全管理制度',
+                    contentHtml: '<h3 style="color: #d13438;">🛡️ 公司安全管理制度</h3><p>本制度长期有效，规范公司<strong>安全管理要求</strong>和<em>责任制度</em>。</p>',
+                    startDate: '2020-01-01',
+                    endDate: '2050-12-31',
+                    creator: '王博',
+                    displayOrder: 1,
+                    status: 'published',
+                    createTime: '2025-09-25 14:00:00'
+                },
+                {
+                    id: 2,
+                    content: '员工行为规范手册',
+                    contentHtml: '<h3>📖 员工行为规范手册</h3><ul><li><strong>职业道德</strong>要求</li><li><em>工作纪律</em>规定</li><li><u>奖惩制度</u>说明</li></ul>',
+                    startDate: '2020-01-01',
+                    endDate: '2055-12-31',
+                    creator: '王博',
+                    displayOrder: 2,
+                    status: 'published',
+                    createTime: '2025-09-25 15:00:00'
+                },
+                {
+                    id: 3,
+                    content: 'STIC-ME部门质量管理体系',
+                    contentHtml: '<h3 style="color: #0078d4;">📋 STIC-ME部门质量管理体系</h3><p>根据ISO 9001标准制定的<strong>质量管理体系文件</strong>，适用于<em>机械设备维护</em>和<u>工艺改进</u>全过程。</p>',
+                    startDate: '2021-01-01',
+                    endDate: '2051-12-31',
+                    creator: '王博',
+                    displayOrder: 3,
+                    status: 'offline',
+                    createTime: '2025-09-25 16:00:00'
+                },
+
+                // 正常时间段的数据 (3条) - 已发布状态
+                {
+                    id: 4,
+                    content: '关于加强厂房设备维护保养工作的通知',
+                    contentHtml: '<p><strong>关于加强厂房设备维护保养工作的通知</strong></p><p>为确保设备正常运行，请各班组<em>严格按照保养计划</em>执行。</p>',
+                    startDate: '2025-09-01',
+                    endDate: '2025-12-31',
+                    creator: '王博',
+                    displayOrder: 10,
+                    status: 'published',
+                    createTime: '2025-09-24 10:00:00'
+                },
+                {
+                    id: 5,
+                    content: '洁净室着装规范要求',
+                    contentHtml: '<h3 style="color: #0078d4;">洁净室着装规范</h3><ul><li><strong>进入前</strong>必须更换洁净服</li><li>佩戴<em>防静电手套</em>和鞋套</li><li><u>头发完全遮盖</u></li></ul>',
+                    startDate: '2025-09-10',
+                    endDate: '2025-12-10',
+                    creator: '王博',
+                    displayOrder: 11,
+                    status: 'published',
+                    createTime: '2025-09-24 15:00:00'
+                },
+                {
+                    id: 6,
+                    content: '废气排放监测要求',
+                    contentHtml: '<p><strong style="background: yellow;">废气排放监测要求</strong></p><p>每日需对废气排放数据进行<strong>监测并记录</strong>，确保符合环保标准。</p>',
+                    startDate: '2025-09-05',
+                    endDate: '2025-11-05',
+                    creator: '王博',
+                    displayOrder: 12,
+                    status: 'published',
+                    createTime: '2025-09-24 16:00:00'
+                },
+
+                // 未来时间段的数据 (3条) - 待发布状态
+                {
+                    id: 7,
+                    content: '2025年度预算执行计划',
+                    contentHtml: '<h3 style="color: #0078d4;">💰 2025年度预算执行计划</h3><p>新年度<strong>预算分配方案</strong>和<em>执行时间表</em>安排。</p>',
+                    startDate: '2025-12-01',
+                    endDate: '2026-02-28',
+                    creator: '王博',
+                    displayOrder: 13,
+                    status: 'pending',
+                    createTime: '2025-09-25 08:00:00'
+                },
+                {
+                    id: 8,
+                    content: '春节假期值班安排通知',
+                    contentHtml: '<h3 style="color: #d13438;">🏮 春节假期值班安排</h3><p>春节期间各岗位<strong>值班人员安排</strong>及<em>联系方式</em>。</p>',
+                    startDate: '2026-01-15',
+                    endDate: '2026-02-28',
+                    creator: '王博',
+                    displayOrder: 14,
+                    status: 'pending',
+                    createTime: '2025-09-24 20:00:00'
+                },
+                {
+                    id: 9,
+                    content: '新产品生产线调试计划',
+                    contentHtml: '<h3>🏭 新产品生产线调试计划</h3><ul><li><strong>设备安装</strong>进度安排</li><li><em>人员培训</em>计划</li><li><u>试生产</u>时间表</li></ul>',
+                    startDate: '2025-11-01',
+                    endDate: '2025-12-31',
+                    creator: '王博',
+                    displayOrder: 15,
+                    status: 'pending',
+                    createTime: '2025-09-25 09:00:00'
+                },
+
+                // 其他3条数据
+                {
+                    id: 10,
+                    content: '夏季高温作业安全防护措施',
+                    contentHtml: '<h3>🌡️ 夏季高温作业防护</h3><ul><li>高温时段<em>避免户外作业</em></li><li>准备充足的<strong>防暑降温用品</strong></li></ul>',
+                    startDate: '2025-06-01',
+                    endDate: '2025-08-31',
+                    creator: '王博',
+                    displayOrder: 16,
+                    status: 'offline',
+                    createTime: '2025-09-24 17:00:00'
+                },
+                {
+                    id: 11,
+                    content: '中秋节假期生产安排',
+                    contentHtml: '<h3 style="background: #f0f0f0;">🥮 中秋节假期生产安排</h3><p>假期期间<em>生产线运行计划</em>和<strong>人员配置</strong>安排。</p>',
+                    startDate: '2025-09-10',
+                    endDate: '2025-09-20',
+                    creator: '王博',
+                    displayOrder: 17,
+                    status: 'offline',
+                    createTime: '2025-09-24 23:00:00'
+                },
+                {
+                    id: 12,
+                    content: '节能减排措施实施方案',
+                    contentHtml: '<p><strong>节能减排措施实施方案</strong></p><ul><li>优化设备运行参数</li><li>定期检查管道泄漏</li><li><u>推广节能技术</u></li></ul>',
+                    startDate: '2025-10-01',
+                    endDate: '2025-11-30',
+                    creator: '王博',
+                    displayOrder: 18,
+                    status: 'published',
+                    createTime: '2025-09-24 11:00:00'
+                }
+            ];
+        }
+
+        // 渲染表格
+        function renderTable() {
+            const tbody = document.getElementById('bulletinTableBody');
+            
+            // 对数据进行排序：永久已发布 > 非永久已发布 > 待发布 > 永久下线 > 其他下线
+            const sortedData = [...bulletinData].sort((a, b) => {
+                const aIsPermanent = isPermanentBulletin(a.startDate, a.endDate);
+                const bIsPermanent = isPermanentBulletin(b.startDate, b.endDate);
+                const aIsPublishedPermanent = aIsPermanent && a.status === 'published';
+                const bIsPublishedPermanent = bIsPermanent && b.status === 'published';
+                const aIsPublishedNonPermanent = !aIsPermanent && a.status === 'published';
+                const bIsPublishedNonPermanent = !bIsPermanent && b.status === 'published';
+                const aIsOffline = a.status === 'offline';
+                const bIsOffline = b.status === 'offline';
+                
+                // 优先级1：永久且已发布的优先级最高
+                if (aIsPublishedPermanent && !bIsPublishedPermanent) return -1;
+                if (!aIsPublishedPermanent && bIsPublishedPermanent) return 1;
+                
+                // 如果都是永久且已发布，按显示顺序排序，再按ID降序
+                if (aIsPublishedPermanent && bIsPublishedPermanent) {
+                    const aOrder = a.displayOrder || 0;
+                    const bOrder = b.displayOrder || 0;
+                    if (aOrder !== bOrder) return aOrder - bOrder;
+                    return b.id - a.id;
+                }
+                
+                // 优先级2：非永久且已发布的优先级第二高
+                if (aIsPublishedNonPermanent && !bIsPublishedNonPermanent) return -1;
+                if (!aIsPublishedNonPermanent && bIsPublishedNonPermanent) return 1;
+                
+                // 如果都是非永久且已发布，按ID降序排列（新记录在前）
+                if (aIsPublishedNonPermanent && bIsPublishedNonPermanent) {
+                    return b.id - a.id;
+                }
+                
+                // 下线的优先级最低
+                if (aIsOffline && !bIsOffline) return 1;
+                if (!aIsOffline && bIsOffline) return -1;
+                
+                // 如果都是下线，永久下线排在前面
+                if (aIsOffline && bIsOffline) {
+                    if (aIsPermanent && !bIsPermanent) return -1;
+                    if (!aIsPermanent && bIsPermanent) return 1;
+                    return b.id - a.id;
+                }
+                
+                // 优先级3：待发布和其他记录
+                if (aIsPermanent && !bIsPermanent) return -1;
+                if (!aIsPermanent && bIsPermanent) return 1;
+                
+                // 按ID降序排列（新记录在前）
+                return b.id - a.id;
+            });
+            
+            const startIndex = (currentPageNum - 1) * pageSize;
+            const endIndex = startIndex + pageSize;
+            const pageData = sortedData.slice(startIndex, endIndex);
+
+            let html = '';
+            pageData.forEach((item, index) => {
+                const serialNumber = startIndex + index + 1;
+                
+                // 根据当前日期和生效期判断状态
+                const currentDate = new Date();
+                const startDate = new Date(item.startDate);
+                const endDate = new Date(item.endDate);
+                const isExpired = currentDate > endDate;
+                const isPermanent = isPermanentBulletin(item.startDate, item.endDate);
+                const isPending = currentDate < startDate;
+                
+                let statusBadge;
+                // 根据数据中的status字段确定发布状态
+                if (item.status === 'published') {
+                    statusBadge = '<span class="status-badge status-published">已发布</span>';
+                } else if (item.status === 'pending') {
+                    statusBadge = '<span class="status-badge status-pending">待发布</span>';
+                } else if (item.status === 'offline') {
+                    statusBadge = '<span class="status-badge status-offline">下线</span>';
+                } else {
+                    // 如果没有status字段，按原逻辑判断
+                    if (isExpired) {
+                        statusBadge = '<span class="status-badge status-offline">下线</span>';
+                    } else if (isPending) {
+                        statusBadge = '<span class="status-badge status-pending">待发布</span>';
+                    } else {
+                        statusBadge = '<span class="status-badge status-published">已发布</span>';
+                    }
+                }
+                
+                // 计算日期颜色状态和显示内容
+                const daysDiff = (endDate - currentDate) / (1000 * 60 * 60 * 24);
+                let dateColorClass = '';
+                let dateDisplayText = '';
+                
+                if (isExpired) {
+                    dateColorClass = 'date-expired';
+                    dateDisplayText = `${item.startDate} 至 ${item.endDate}`;
+                } else if (isPending) {
+                    dateColorClass = 'date-expiring';
+                    dateDisplayText = `${item.startDate} 至 ${item.endDate}`;
+                } else if (isPermanent) {
+                    dateColorClass = 'date-permanent';
+                    dateDisplayText = '永久';
+                } else if (daysDiff <= 7) {
+                    dateColorClass = 'date-expiring';
+                    dateDisplayText = `${item.startDate} 至 ${item.endDate}`;
+                } else {
+                    dateColorClass = 'date-valid';
+                    dateDisplayText = `${item.startDate} 至 ${item.endDate}`;
+                }
+                
+                html += `
+                    <tr>
+                        <td style="text-align: center;">${serialNumber}</td>
+                        <td style="text-align: center;">${statusBadge}</td>
+                        <td title="${item.content}"><div style="max-height: 40px; overflow: hidden;">${item.contentHtml}</div></td>
+                        <td style="text-align: center;">
+                            <input type="number" class="display-order-input" value="${item.displayOrder || 0}" min="0" max="9999" 
+                                   onchange="updateDisplayOrder(${item.id}, this.value)" onblur="updateDisplayOrder(${item.id}, this.value)">
+                        </td>
+                        <td style="text-align: center;"><span class="${dateColorClass}">${dateDisplayText}</span></td>
+                        <td style="text-align: center;">${item.creator}</td>
+                        <td style="text-align: center;">
+                            <div class="action-buttons">
+                                <button class="action-button edit-button" onclick="editBulletin(${item.id})">修改</button>
+                                <button class="action-button copy-button" onclick="copyBulletin(${item.id})">复制</button>
+                                <button class="action-button offline-button" onclick="offlineBulletin(${item.id})">下线</button>
+                                <button class="action-button delete-button" onclick="deleteBulletin(${item.id})">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+            updatePaginationInfo();
+        }
+
+        // 更新分页信息
+        function updatePaginationInfo() {
+            totalPagesNum = Math.ceil(bulletinData.length / pageSize);
+            document.getElementById('totalRecords').textContent = bulletinData.length;
+            document.getElementById('currentPage').textContent = currentPageNum;
+            document.getElementById('totalPages').textContent = totalPagesNum;
+            document.getElementById('pageInput').value = currentPageNum;
+
+            // 更新按钮状态
+            document.getElementById('firstPageBtn').disabled = currentPageNum === 1;
+            document.getElementById('prevPageBtn').disabled = currentPageNum === 1;
+            document.getElementById('nextPageBtn').disabled = currentPageNum === totalPagesNum;
+            document.getElementById('lastPageBtn').disabled = currentPageNum === totalPagesNum;
+        }
+
+        // 切换永久有效模式
+        function togglePermanentMode() {
+            const permanentCheckbox = document.getElementById('permanentCheckbox');
+            const dateRangeContainer = document.getElementById('dateRangeContainer');
+            const statusDisplay = document.getElementById('statusDisplay');
+            
+            if (permanentCheckbox.checked) {
+                // 勾选永久有效时
+                dateRangeContainer.style.display = 'none';
+                statusDisplay.style.display = 'inline';
+                statusDisplay.className = 'status-display';
+                statusDisplay.classList.add('permanent');
+                statusDisplay.textContent = '(永久有效)';
+                statusDisplay.style.color = '#0066cc';
+                
+                // 设置永久有效的日期范围（当前日期到30年后）
+                const currentDate = new Date();
+                const startDate = currentDate.toISOString().split('T')[0];
+                const endDate = new Date(currentDate);
+                endDate.setFullYear(currentDate.getFullYear() + 30);
+                const endDateStr = endDate.toISOString().split('T')[0];
+                
+                document.getElementById('startDate').value = startDate;
+                document.getElementById('endDate').value = endDateStr;
+            } else {
+                // 取消勾选时
+                dateRangeContainer.style.display = 'flex';
+                statusDisplay.style.display = 'none';
+                
+                // 恢复默认日期：当前日期+3天
+                const currentDate = new Date();
+                const startDate = currentDate.toISOString().split('T')[0];
+                const endDate = new Date(currentDate);
+                endDate.setDate(currentDate.getDate() + 3);
+                const endDateStr = endDate.toISOString().split('T')[0];
+                
+                document.getElementById('startDate').value = startDate;
+                document.getElementById('endDate').value = endDateStr;
+            }
+        }
+
+        // 打开新增模态框
+        function openAddModal() {
+            currentEditId = null;
+            document.getElementById('modalTitle').textContent = '新增宣导项';
+            document.getElementById('bulletinForm').reset();
+            quillEditor.setContents([]);
+            
+            // 自动设置当前登录用户
+            document.getElementById('creator').value = currentUser;
+            
+            // 重置永久有效复选框和显示顺序
+            document.getElementById('permanentCheckbox').checked = false;
+            document.getElementById('displayOrder').value = 0;
+            
+            // 设置默认日期：开始时间为当前日期，结束时间为当前日期+3天
+            const currentDate = new Date();
+            const startDate = currentDate.toISOString().split('T')[0]; // 格式: YYYY-MM-DD
+            
+            const endDate = new Date(currentDate);
+            endDate.setDate(currentDate.getDate() + 3);
+            const endDateStr = endDate.toISOString().split('T')[0]; // 格式: YYYY-MM-DD
+            
+            document.getElementById('startDate').value = startDate;
+            document.getElementById('endDate').value = endDateStr;
+            
+            // 显示日期选择器，隐藏状态显示
+            document.getElementById('dateRangeContainer').style.display = 'flex';
+            document.getElementById('statusDisplay').style.display = 'none';
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        // 编辑宣导项
+        function editBulletin(id) {
+            const bulletin = bulletinData.find(item => item.id === id);
+            if (!bulletin) return;
+
+            currentEditId = id;
+            document.getElementById('modalTitle').textContent = '编辑宣导项';
+            document.getElementById('bulletinId').value = bulletin.id;
+            document.getElementById('startDate').value = bulletin.startDate;
+            document.getElementById('endDate').value = bulletin.endDate;
+            document.getElementById('creator').value = bulletin.creator;
+            document.getElementById('displayOrder').value = bulletin.displayOrder || 0;
+            
+            // 设置富文本内容
+            quillEditor.root.innerHTML = bulletin.contentHtml;
+            
+            // 检查是否为永久有效
+            const isPermanent = isPermanentBulletin(bulletin.startDate, bulletin.endDate);
+            document.getElementById('permanentCheckbox').checked = isPermanent;
+            
+            if (isPermanent) {
+                document.getElementById('dateRangeContainer').style.display = 'none';
+                document.getElementById('statusDisplay').style.display = 'inline';
+                document.getElementById('statusDisplay').className = 'status-display';
+                document.getElementById('statusDisplay').classList.add('permanent');
+                document.getElementById('statusDisplay').textContent = '(永久有效)';
+                document.getElementById('statusDisplay').style.color = '#0066cc';
+            } else {
+                document.getElementById('dateRangeContainer').style.display = 'flex';
+                // 显示发布状态
+                updateStatusDisplay(bulletin.startDate, bulletin.endDate);
+            }
+            
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        // 更新状态显示
+        function updateStatusDisplay(startDate, endDate) {
+            const statusDisplay = document.getElementById('statusDisplay');
+            
+            if (!startDate || !endDate) {
+                statusDisplay.style.display = 'none';
+                return;
+            }
+            
+            const currentDate = new Date();
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const isExpired = currentDate > end;
+            const isPending = currentDate < start;
+            
+            statusDisplay.style.display = 'inline';
+            statusDisplay.className = 'status-display';
+            
+            if (isExpired) {
+                statusDisplay.classList.add('expired');
+                statusDisplay.textContent = '(已到期)';
+            } else if (isPending) {
+                statusDisplay.classList.add('valid');
+                statusDisplay.textContent = '(待发布)';
+            } else {
+                statusDisplay.classList.add('valid');
+                statusDisplay.textContent = '(有效)';
+            }
+        }
+
+        // 复制宣导项
+        function copyBulletin(id) {
+            const bulletin = bulletinData.find(item => item.id === id);
+            if (!bulletin) return;
+
+            // 计算当前日期和3天后的日期
+            const currentDate = new Date();
+            const startDate = currentDate.toISOString().split('T')[0]; // 格式: YYYY-MM-DD
+            
+            const endDate = new Date(currentDate);
+            endDate.setDate(currentDate.getDate() + 3);
+            const endDateStr = endDate.toISOString().split('T')[0]; // 格式: YYYY-MM-DD
+
+            // 创建新的宣导项
+            const newBulletin = {
+                id: Date.now(),
+                content: bulletin.content,
+                contentHtml: bulletin.contentHtml,
+                startDate: startDate,
+                endDate: endDateStr,
+                creator: currentUser,
+                displayOrder: bulletin.displayOrder || 0,
+                status: 'published', // 默认状态为已发布
+                createTime: new Date().toLocaleString('zh-CN')
+            };
+
+            // 添加到数据数组的开头
+            bulletinData.unshift(newBulletin);
+            renderTable();
+
+            alert('宣导项复制成功！生效期已设置为：' + startDate + ' 至 ' + endDateStr);
+        }
+
+        // 下线宣导项
+        function offlineBulletin(id) {
+            console.log('offlineBulletin 函数被调用，ID:', id);
+            
+            if (confirm('确定要下线这条宣导项吗？下线后发布状态将变为下线。')) {
+                const bulletin = bulletinData.find(item => item.id === id);
+                if (!bulletin) {
+                    console.log('未找到记录，ID:', id);
+                    return;
+                }
+
+                console.log('下线前记录:', JSON.stringify(bulletin));
+
+                // 将状态设置为下线
+                bulletin.status = 'offline';
+
+                console.log('下线后记录:', JSON.stringify(bulletin));
+
+                // 强制刷新页面数据 - 检查是否有搜索条件
+                const hasSearchConditions = document.getElementById('searchStartDate').value || 
+                                           document.getElementById('searchEndDate').value ||
+                                           document.getElementById('searchContent').value ||
+                                           document.getElementById('statusFilter').value !== 'all';
+                
+                if (hasSearchConditions) {
+                    // 如果有搜索条件，重新执行搜索
+                    searchTable();
+                } else {
+                    // 否则直接渲染表格
+                    renderTable();
+                }
+                
+                alert('宣导项已下线，发布状态已更改为下线。');
+            }
+        }
+
+        // 删除宣导项
+        function deleteBulletin(id) {
+            if (confirm('确定要删除这条宣导项吗？')) {
+                bulletinData = bulletinData.filter(item => item.id !== id);
+                renderTable();
+            }
+        }
+
+        // 保存宣导项
+        function saveBulletin() {
+            const form = document.getElementById('bulletinForm');
+            const formData = new FormData(form);
+            
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const creator = document.getElementById('creator').value;
+            const displayOrder = parseInt(document.getElementById('displayOrder').value) || 0;
+            const contentHtml = quillEditor.root.innerHTML;
+            const content = quillEditor.getText().trim();
+
+            // 表单验证
+            if (!startDate || !endDate || !creator || !content) {
+                alert('请填写所有必填字段');
+                return;
+            }
+
+            if (new Date(startDate) > new Date(endDate)) {
+                alert('开始日期不能晚于结束日期');
+                return;
+            }
+
+            const bulletinItem = {
+                id: currentEditId || Date.now(),
+                content,
+                contentHtml,
+                startDate,
+                endDate,
+                creator,
+                displayOrder,
+                status: 'published', // 默认状态为已发布
+                createTime: new Date().toLocaleString('zh-CN')
+            };
+
+            if (currentEditId) {
+                // 编辑现有项
+                const index = bulletinData.findIndex(item => item.id === currentEditId);
+                if (index !== -1) {
+                    bulletinData[index] = bulletinItem;
+                }
+            } else {
+                // 新增项
+                bulletinData.unshift(bulletinItem);
+            }
+
+            closeModal();
+            renderTable();
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('editModal').style.display = 'none';
+            currentEditId = null;
+        }
+
+        // 状态筛选变化处理
+        function onStatusFilterChange() {
+            searchTable();
+        }
+
+        // 搜索功能
+        function searchTable() {
+            const searchStartDate = document.getElementById('searchStartDate').value;
+            const searchEndDate = document.getElementById('searchEndDate').value;
+            const searchContent = document.getElementById('searchContent').value.trim();
+            const statusFilter = document.getElementById('statusFilter').value;
+
+            // 先对数据进行排序：永久已发布 > 非永久已发布 > 待发布 > 永久下线 > 其他下线
+            const sortedData = [...bulletinData].sort((a, b) => {
+                const aIsPermanent = isPermanentBulletin(a.startDate, a.endDate);
+                const bIsPermanent = isPermanentBulletin(b.startDate, b.endDate);
+                const aIsPublishedPermanent = aIsPermanent && a.status === 'published';
+                const bIsPublishedPermanent = bIsPermanent && b.status === 'published';
+                const aIsPublishedNonPermanent = !aIsPermanent && a.status === 'published';
+                const bIsPublishedNonPermanent = !bIsPermanent && b.status === 'published';
+                const aIsOffline = a.status === 'offline';
+                const bIsOffline = b.status === 'offline';
+                
+                // 优先级1：永久且已发布的优先级最高
+                if (aIsPublishedPermanent && !bIsPublishedPermanent) return -1;
+                if (!aIsPublishedPermanent && bIsPublishedPermanent) return 1;
+                
+                // 如果都是永久且已发布，按显示顺序排序，再按ID降序
+                if (aIsPublishedPermanent && bIsPublishedPermanent) {
+                    const aOrder = a.displayOrder || 0;
+                    const bOrder = b.displayOrder || 0;
+                    if (aOrder !== bOrder) return aOrder - bOrder;
+                    return b.id - a.id;
+                }
+                
+                // 优先级2：非永久且已发布的优先级第二高
+                if (aIsPublishedNonPermanent && !bIsPublishedNonPermanent) return -1;
+                if (!aIsPublishedNonPermanent && bIsPublishedNonPermanent) return 1;
+                
+                // 如果都是非永久且已发布，按ID降序排列（新记录在前）
+                if (aIsPublishedNonPermanent && bIsPublishedNonPermanent) {
+                    return b.id - a.id;
+                }
+                
+                // 下线的优先级最低
+                if (aIsOffline && !bIsOffline) return 1;
+                if (!aIsOffline && bIsOffline) return -1;
+                
+                // 如果都是下线，永久下线排在前面
+                if (aIsOffline && bIsOffline) {
+                    if (aIsPermanent && !bIsPermanent) return -1;
+                    if (!aIsPermanent && bIsPermanent) return 1;
+                    return b.id - a.id;
+                }
+                
+                // 优先级3：待发布和其他记录
+                if (aIsPermanent && !bIsPermanent) return -1;
+                if (!aIsPermanent && bIsPermanent) return 1;
+                
+                // 按ID降序排列（新记录在前）
+                return b.id - a.id;
+            });
+
+            let filteredData = [...sortedData];
+
+            // 宣导项内容模糊查询
+            if (searchContent) {
+                filteredData = filteredData.filter(item => {
+                    return item.content.toLowerCase().includes(searchContent.toLowerCase()) ||
+                           item.contentHtml.toLowerCase().includes(searchContent.toLowerCase());
+                });
+            }
+
+            // 状态筛选
+            if (statusFilter !== 'all') {
+                filteredData = filteredData.filter(item => {
+                    return item.status === statusFilter;
+                });
+            }
+
+            // 日期范围搜索
+            if (searchStartDate) {
+                filteredData = filteredData.filter(item => {
+                    const itemStartDate = new Date(item.startDate);
+                    const filterStartDate = new Date(searchStartDate);
+                    return itemStartDate >= filterStartDate;
+                });
+            }
+
+            if (searchEndDate) {
+                filteredData = filteredData.filter(item => {
+                    const itemEndDate = new Date(item.endDate);
+                    const filterEndDate = new Date(searchEndDate);
+                    return itemEndDate <= filterEndDate;
+                });
+            }
+
+            // 更新显示数据
+            const originalData = bulletinData;
+            bulletinData = filteredData;
+            currentPageNum = 1;
+            renderTable();
+            bulletinData = originalData;
+        }
+
+        // 判断是否为永久有效的宣导项
+        function isPermanentBulletin(startDate, endDate) {
+            // 永久有效的判断逻辑：结束日期超过3年，并且未过期
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const currentDate = new Date();
+            
+            // 如果已经过期，则不再是永久状态
+            if (currentDate > end) {
+                return false;
+            }
+            
+            const yearsDiff = (end - start) / (1000 * 60 * 60 * 24 * 365);
+            return yearsDiff >= 3;
+        }
+
+        // 重置搜索条件
+        function resetSearch() {
+            document.getElementById('searchStartDate').value = '';
+            document.getElementById('searchEndDate').value = '';
+            document.getElementById('searchContent').value = '';
+            document.getElementById('statusFilter').value = 'all';
+            renderTable();
+        }
+
+        // 刷新表格
+        function refreshTable() {
+            renderTable();
+        }
+
+        // 分页相关函数
+        function goToPage(page) {
+            if (page < 1 || page > totalPagesNum) return;
+            currentPageNum = page;
+            renderTable();
+        }
+
+        function changePageSize() {
+            pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+            currentPageNum = 1;
+            renderTable();
+        }
+
+        function onPageInputChange() {
+            const pageInput = document.getElementById('pageInput');
+            const page = parseInt(pageInput.value);
+            if (page && page >= 1 && page <= totalPagesNum) {
+                goToPage(page);
+            }
+        }
+
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('editModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // 更新显示顺序
+        function updateDisplayOrder(id, newOrder) {
+            const bulletin = bulletinData.find(item => item.id === id);
+            if (bulletin) {
+                bulletin.displayOrder = parseInt(newOrder) || 0;
+                console.log(`更新显示顺序: ID=${id}, 新顺序=${bulletin.displayOrder}`);
+            }
+        }
+
+        // 键盘快捷键
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

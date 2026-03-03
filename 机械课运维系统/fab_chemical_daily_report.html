@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="zh-cn" id="html-root">
+<head id="head-root">
+  <meta id="meta-charset" charset="utf-8">
+  <meta id="meta-viewport" name="viewport" content="width=device-width, initial-scale=1">
+  <title id="title-page">化学品日用量分析报表</title>
+  <link id="link-font" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <script id="script-d3" src="https://d3js.org/d3.v7.min.js"></script>
+  <script id="script-highcharts" src="https://code.highcharts.com/highcharts.js"></script>
+  <style id="style-main">
+    :root{
+      --sap-bg:#f4f6f8;
+      --sap-card-bg:#ffffff;
+      --sap-accent:#0a6ed1;
+      --sap-muted:#64748b;
+      --sap-border:#d7e1ed;
+      --sap-surface:#eef3f8;
+      --sap-radius:10px;
+      --sap-font:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+      --sap-header:#f3f6fb;
+      --sap-row-alt:#fafcff;
+      --sap-row-hover:#e9f1ff;
+      --sap-strong:#1b2a4a;
+    }
+
+    html,body{
+      height:100%;
+      margin:0;
+      padding:0;
+      background:var(--sap-bg);
+      font-family:var(--sap-font);
+      color:var(--sap-strong);
+      overflow-x:hidden;
+      overflow-y:auto;
+    }
+
+    #app-container{
+      display:flex;
+      flex-direction:column;
+      height:100vh;
+      max-width:1280px;
+      margin:0 auto;
+      padding:20px 24px;
+      box-sizing:border-box;
+      gap:16px;
+    }
+
+    #header-card{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      padding:0;
+    }
+
+    #title-row{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    #title-text{
+      font-size:22px;
+      font-weight:600;
+      color:var(--sap-accent);
+    }
+
+    #subtitle-text{
+      font-size:13px;
+      color:var(--sap-muted);
+    }
+
+    #query-card{
+      background:var(--sap-card-bg);
+      border-radius:var(--sap-radius);
+      box-shadow:0 1px 3px rgba(15,23,42,0.08);
+      border:1px solid rgba(15,23,42,0.03);
+      padding:14px 18px;
+      display:flex;
+      align-items:center;
+      gap:14px;
+    }
+
+    #label-month{
+      font-size:13px;
+      color:var(--sap-muted);
+      min-width:96px;
+    }
+
+    #input-month{
+      padding:8px 12px;
+      border-radius:8px;
+      border:1px solid var(--sap-border);
+      background:var(--sap-surface);
+      font-size:14px;
+      color:var(--sap-strong);
+    }
+
+    #button-load{
+      padding:9px 16px;
+      border-radius:8px;
+      border:0;
+      background:var(--sap-accent);
+      color:#fff;
+      font-weight:600;
+      cursor:pointer;
+      letter-spacing:0.3px;
+    }
+
+    #button-export{
+      padding:9px 16px;
+      border-radius:8px;
+      border:1px solid var(--sap-accent);
+      background:#fff;
+      color:var(--sap-accent);
+      font-weight:600;
+      cursor:pointer;
+      letter-spacing:0.3px;
+    }
+
+    #spacer{
+      flex:1;
+    }
+
+    #button-config{
+      padding:9px 16px;
+      border-radius:8px;
+      border:1px solid #d7e1ed;
+      background:#fff;
+      color:var(--sap-strong);
+      font-weight:600;
+      cursor:pointer;
+      letter-spacing:0.3px;
+    }
+
+    #info-note{
+      margin-left:auto;
+      font-size:12px;
+      color:var(--sap-muted);
+    }
+
+    #content-area{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      flex:1;
+      min-height:0;
+    }
+
+    #chart-card{
+      background:var(--sap-card-bg);
+      border-radius:var(--sap-radius);
+      border:1px solid rgba(15,23,42,0.04);
+      box-shadow:0 1px 3px rgba(15,23,42,0.08);
+      padding:12px 18px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      height:280px;
+      min-height:0;
+    }
+
+    #chart-title{
+      font-weight:600;
+      font-size:15px;
+      color:var(--sap-strong);
+      letter-spacing:0.2px;
+    }
+
+    #chart-container{
+      flex:1;
+      min-height:220px;
+    }
+
+    #table-card{
+      background:var(--sap-card-bg);
+      border-radius:var(--sap-radius);
+      border:1px solid rgba(15,23,42,0.04);
+      box-shadow:0 1px 3px rgba(15,23,42,0.08);
+      padding:16px 18px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      overflow:hidden;
+      flex:1;
+      min-height:320px;
+    }
+
+    #table-wrapper{
+      flex:1;
+      border:1px solid var(--sap-border);
+      border-radius:8px;
+      background:#fff;
+      overflow:auto;
+      box-shadow:inset 0 1px 0 rgba(10,110,209,0.05);
+    }
+
+    #data-table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      table-layout:fixed;
+      font-size:12.5px;
+      color:var(--sap-strong);
+    }
+
+    #data-table thead th{
+      position:sticky;
+      top:0;
+      z-index:2;
+      background:var(--sap-header);
+      padding:10px 12px;
+      border-bottom:1px solid var(--sap-border);
+      border-right:1px solid var(--sap-border);
+      text-align:left;
+      font-weight:600;
+      letter-spacing:0.2px;
+    }
+
+    #data-table thead th:first-child{
+      border-top-left-radius:8px;
+      border-left:1px solid var(--sap-border);
+    }
+
+    #data-table thead th:last-child{
+      border-right:1px solid var(--sap-border);
+      border-top-right-radius:8px;
+    }
+
+    #data-table tbody td{
+      padding:10px 12px;
+      border-bottom:1px solid var(--sap-border);
+      border-right:1px solid var(--sap-border);
+      background:#fff;
+      transition:background-color 0.2s ease,color 0.2s ease;
+    }
+
+    #data-table tbody td:first-child{
+      border-left:1px solid var(--sap-border);
+    }
+
+    #data-table tbody td:last-child{
+      border-right:1px solid var(--sap-border);
+    }
+
+    #data-table tbody tr:nth-child(even) td{
+      background:var(--sap-row-alt);
+    }
+
+    #data-table tbody tr:hover td{
+      background:var(--sap-row-hover);
+    }
+
+    #data-table tbody tr.missing-data td{
+      background:#e5f0ff;
+      color:#0a4da1;
+      font-weight:600;
+      border-bottom:1px solid rgba(10,110,209,0.35);
+    }
+
+    #data-table tbody tr.missing-data:hover td{
+      background:#d9e7ff;
+    }
+
+    #data-table tbody tr:last-child td{
+      border-bottom:none;
+    }
+
+    #data-table tbody tr:last-child td:first-child{
+      border-bottom-left-radius:8px;
+    }
+
+    #data-table tbody tr:last-child td:last-child{
+      border-bottom-right-radius:8px;
+    }
+
+    #data-table th[col-id-chemical], #data-table td[col-id-chemical]{
+      white-space:nowrap;
+    }
+
+    #data-table th[col-highlight], #data-table td[col-highlight]{
+      color:#054ada;
+      font-weight:600;
+    }
+
+    #data-table th:nth-child(1),#data-table td:nth-child(1){width:12%;}
+    #data-table th:nth-child(2),#data-table td:nth-child(2){width:8.8%;}
+    #data-table th:nth-child(3),#data-table td:nth-child(3){width:8.8%;}
+    #data-table th:nth-child(4),#data-table td:nth-child(4){width:8.8%;}
+    #data-table th:nth-child(5),#data-table td:nth-child(5){width:8.8%;}
+    #data-table th:nth-child(6),#data-table td:nth-child(6){width:8.8%;}
+    #data-table th:nth-child(7),#data-table td:nth-child(7){width:8.8%;}
+    #data-table th:nth-child(8),#data-table td:nth-child(8){width:8.8%;}
+    #data-table th:nth-child(9),#data-table td:nth-child(9){width:8.8%;}
+    #data-table th:nth-child(10),#data-table td:nth-child(10){width:8.8%;}
+    #data-table th:nth-child(11),#data-table td:nth-child(11){width:8.8%;}
+
+    @media (max-width:1100px){
+      #app-container{padding:16px;}
+      #chart-card{height:260px;}
+      #chart-container{min-height:200px;}
+    }
+
+    #config-mask{
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,0.35);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:100;
+    }
+
+    #config-mask.config-active{
+      display:flex;
+    }
+
+    #config-dialog{
+      background:#fff;
+      border-radius:12px;
+      padding:22px 26px;
+      width:360px;
+      box-shadow:0 16px 36px rgba(15,23,42,0.18);
+      border:1px solid rgba(15,23,42,0.08);
+      display:flex;
+      flex-direction:column;
+      gap:18px;
+    }
+
+    #config-title{
+      font-size:17px;
+      font-weight:600;
+      color:var(--sap-strong);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding-bottom:8px;
+      border-bottom:1px solid var(--sap-border);
+    }
+
+    #config-note{
+      font-size:12.5px;
+      color:var(--sap-muted);
+      line-height:1.5;
+    }
+
+    #config-body{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:14px;
+      font-size:14px;
+      color:var(--sap-muted);
+    }
+
+    .config-field{
+      background:#f6f9ff;
+      border:1px solid #d6e2ff;
+      border-radius:10px;
+      padding:12px 14px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+
+    .config-label{
+      font-weight:600;
+      color:var(--sap-strong);
+    }
+
+    .config-input{
+      padding:8px 10px;
+      border-radius:8px;
+      border:1px solid var(--sap-border);
+      font-size:14px;
+      color:var(--sap-strong);
+      background:#fff;
+    }
+
+    .config-input:focus{
+      outline:2px solid rgba(10,110,209,0.25);
+      border-color:var(--sap-accent);
+    }
+
+    #config-actions{
+      display:flex;
+      justify-content:flex-end;
+      gap:12px;
+    }
+
+    #button-config-cancel{
+      padding:8px 18px;
+      border-radius:8px;
+      border:1px solid var(--sap-border);
+      background:#fff;
+      color:var(--sap-strong);
+      font-weight:600;
+      cursor:pointer;
+    }
+
+    #button-config-confirm{
+      padding:8px 18px;
+      border-radius:8px;
+      border:0;
+      background:var(--sap-accent);
+      color:#fff;
+      font-weight:600;
+      cursor:pointer;
+      box-shadow:0 4px 10px rgba(10,110,209,0.24);
+    }
+
+  </style>
+</head>
+<body id="body-root">
+  <div id="app-container">
+    <div id="header-card">
+      <div id="title-row">
+        <div id="title-text">化学品日用量分析报表</div>
+        <div id="subtitle-text">厂务部门 · 排气系统 · H2SO4 和 NaOH 消耗</div>
+      </div>
+      <div id="query-card">
+        <label id="label-month" for="input-month">选择月份</label>
+        <input id="input-month" type="month" name="input-month" aria-label="选择月份">
+        <button id="button-load" type="button">查询</button>
+        <button id="button-export" type="button">导出</button>
+        <div id="spacer"></div>
+        <button id="button-config" type="button">配置</button>
+      </div>
+    </div>
+
+    <div id="content-area">
+      <div id="chart-card">
+        <div id="chart-title">H2SO4 / NaOH 日度趋势</div>
+        <div id="chart-container"></div>
+      </div>
+
+      <div id="table-card">
+        <div id="table-wrapper">
+          <table id="data-table" role="table">
+            <thead id="table-head">
+              <tr id="head-row">
+                <th id="col-date" scope="col">日期</th>
+                <th id="col-h2so4-level" scope="col" col-id-chemical>H2SO4 液位 (tons)</th>
+                <th id="col-h2so4-daily" scope="col">H2SO4 日耗量 (tons)</th>
+                <th id="col-h2so4-refill" scope="col">H2SO4 补液量 (tons)</th>
+                <th id="col-h2so4-avg" scope="col">H2SO4 日均耗量 (tons)</th>
+                <th id="col-h2so4-month" scope="col" col-highlight>H2SO4 月累计 (tons)</th>
+                <th id="col-naoh-level" scope="col">NaOH 液位 (tons)</th>
+                <th id="col-naoh-daily" scope="col">NaOH 日耗量 (tons)</th>
+                <th id="col-naoh-refill" scope="col">NaOH 补液量 (tons)</th>
+                <th id="col-naoh-avg" scope="col">NaOH 日均耗量 (tons)</th>
+                <th id="col-naoh-month" scope="col" col-highlight>NaOH 月累计 (tons)</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="config-mask" role="presentation" aria-hidden="true">
+    <div id="config-dialog" role="dialog" aria-modal="true" aria-labelledby="config-title">
+      <div id="config-title">告警液位设置</div>
+      <div id="config-note">设置 H2SO4 / NaOH 的液位告警阈值，图表将显示对应的 Spec 线。</div>
+      <div id="config-body">
+        <div class="config-field">
+          <label class="config-label" for="input-alarm-h2so4">H2SO4 液位告警 (tons)</label>
+          <input class="config-input" id="input-alarm-h2so4" type="number" min="0" step="0.1" placeholder="例如 35.0" value="10">
+        </div>
+        <div class="config-field">
+          <label class="config-label" for="input-alarm-naoh">NaOH 液位告警 (tons)</label>
+          <input class="config-input" id="input-alarm-naoh" type="number" min="0" step="0.1" placeholder="例如 28.0" value="10">
+        </div>
+      </div>
+      <div id="config-actions">
+        <button id="button-config-cancel" type="button">取消</button>
+        <button id="button-config-confirm" type="button">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <script id="script-main">
+    (function(){
+      const monthInput = document.getElementById('input-month');
+      const btnLoad = document.getElementById('button-load');
+      const btnExport = document.getElementById('button-export');
+      const btnConfig = document.getElementById('button-config');
+      const tableBody = document.getElementById('table-body');
+      const chartContainerId = 'chart-container';
+      const configMask = document.getElementById('config-mask');
+      const btnConfigConfirm = document.getElementById('button-config-confirm');
+      const btnConfigCancel = document.getElementById('button-config-cancel');
+      const inputAlarmH2 = document.getElementById('input-alarm-h2so4');
+      const inputAlarmNaoh = document.getElementById('input-alarm-naoh');
+
+      const now = new Date();
+      const defaultMonth = `${now.getFullYear()}-${String(10).padStart(2,'0')}`;
+      monthInput.value = defaultMonth;
+
+      function daysInMonth(year,month){
+        return new Date(year, month, 0).getDate();
+      }
+
+      function pad(num){ return String(num).padStart(2,'0'); }
+
+      function generateChemData(year, month){
+        const totalDays = daysInMonth(year, month);
+        const h2so4Area = 30;
+        const naohArea = 26;
+        const dataset = [];
+        let h2so4Cum = 0;
+        let naohCum = 0;
+        let h2so4Days = 0;
+        let naohDays = 0;
+        let h2so4Prev = (Math.random()*0.3 + 0.7) * h2so4Area;
+        let naohPrev = (Math.random()*0.3 + 0.6) * naohArea;
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        const currentDay = now.getDate();
+        const isCurrentMonth = year === currentYear && month === currentMonth;
+
+        for(let d=1; d<=totalDays; d++){
+          const dateStr = `${year}-${pad(month)}-${pad(d)}`;
+          const isPastOrToday = isCurrentMonth && d <= currentDay;
+          const isFutureDay = isCurrentMonth && d > currentDay;
+          const isTargetOct2 = month === 10 && d === 2;
+          const missingData = isTargetOct2 || (isPastOrToday && Math.random() < 0.12);
+
+          if(missingData || isFutureDay){
+            dataset.push({
+              date:dateStr,
+              h2so4Level:null,
+              h2so4Daily:null,
+              h2so4Refill:null,
+              h2so4Avg:null,
+              h2so4Month:null,
+              naohLevel:null,
+              naohDaily:null,
+              naohRefill:null,
+              naohAvg:null,
+              naohMonth:null,
+              missing:true,
+              missingHighlight: missingData,
+              message: missingData ? '未录入巡检液位数据' : '待巡检抄表'
+            });
+            continue;
+          }
+
+          const h2so4Level = +(0.8 * h2so4Prev + Math.random()*3).toFixed(2);
+          let h2so4Daily = +(Math.max(0, h2so4Prev - h2so4Level) + Math.random()*0.3).toFixed(2);
+          let h2so4Refill = 0;
+          if(h2so4Level > h2so4Prev){
+            h2so4Refill = +(h2so4Level - h2so4Prev).toFixed(2);
+            h2so4Daily = +(0.15 + Math.random()*0.2).toFixed(2);
+          }
+          h2so4Prev = h2so4Level;
+          h2so4Cum += parseFloat(h2so4Daily);
+          h2so4Days++;
+
+          const naohLevel = +(0.82 * naohPrev + Math.random()*2.6).toFixed(2);
+          let naohDaily = +(Math.max(0, naohPrev - naohLevel) + Math.random()*0.25).toFixed(2);
+          let naohRefill = 0;
+          if(naohLevel > naohPrev){
+            naohRefill = +(naohLevel - naohPrev).toFixed(2);
+            naohDaily = +(0.12 + Math.random()*0.18).toFixed(2);
+          }
+          naohPrev = naohLevel;
+          naohCum += parseFloat(naohDaily);
+          naohDays++;
+
+          dataset.push({
+            date:dateStr,
+            h2so4Level,
+            h2so4Daily:parseFloat(h2so4Daily),
+            h2so4Refill:parseFloat(h2so4Refill),
+            h2so4Avg:+(h2so4Cum / h2so4Days).toFixed(2),
+            h2so4Month:+h2so4Cum.toFixed(2),
+            naohLevel,
+            naohDaily:parseFloat(naohDaily),
+            naohRefill:parseFloat(naohRefill),
+            naohAvg:+(naohCum / naohDays).toFixed(2),
+            naohMonth:+naohCum.toFixed(2),
+            missing:false,
+            missingHighlight:false,
+            message:null
+          });
+        }
+        return dataset;
+      }
+
+      function buildSeries(data){
+        const categories = data.map(d=>d.date);
+        return {
+          categories,
+          series:[
+            {id:'series-h2so4-level', name:'H2SO4 液位 (tons)', type:'line', data:data.map(d=>d.h2so4Level), yAxis:0, color:'#0a6ed1'},
+            {id:'series-h2so4-daily', name:'H2SO4 日耗量 (tons)', type:'line', data:data.map(d=>d.h2so4Daily), yAxis:1, color:'#1f8a6e'},
+            {id:'series-h2so4-refill', name:'H2SO4 补液量 (tons)', type:'line', data:data.map(d=>d.h2so4Refill), yAxis:1, color:'#ff7f0e', dashStyle:'ShortDot'},
+            {id:'series-h2so4-avg', name:'H2SO4 日均耗量 (tons)', type:'line', data:data.map(d=>d.h2so4Avg), yAxis:1, color:'#3a86ff', dashStyle:'ShortDash'},
+            {id:'series-h2so4-month', name:'H2SO4 月累计 (tons)', type:'line', data:data.map(d=>d.h2so4Month), yAxis:1, color:'#054ada', dashStyle:'LongDash'},
+            {id:'series-naoh-level', name:'NaOH 液位 (tons)', type:'line', data:data.map(d=>d.naohLevel), yAxis:0, color:'#7b61ff', dashStyle:'ShortDash'},
+            {id:'series-naoh-daily', name:'NaOH 日耗量 (tons)', type:'line', data:data.map(d=>d.naohDaily), yAxis:1, color:'#f2a900'},
+            {id:'series-naoh-refill', name:'NaOH 补液量 (tons)', type:'line', data:data.map(d=>d.naohRefill), yAxis:1, color:'#fb5607', dashStyle:'ShortDot'},
+            {id:'series-naoh-avg', name:'NaOH 日均耗量 (tons)', type:'line', data:data.map(d=>d.naohAvg), yAxis:1, color:'#46c2cb', dashStyle:'ShortDash'},
+            {id:'series-naoh-month', name:'NaOH 月累计 (tons)', type:'line', data:data.map(d=>d.naohMonth), yAxis:1, color:'#2f56d6', dashStyle:'LongDash'}
+          ]
+        };
+      }
+
+      let chartInstance = null;
+      let alarmLevelH2 = Number.isFinite(parseFloat(inputAlarmH2.value)) ? parseFloat(inputAlarmH2.value) : null;
+      let alarmLevelNaoh = Number.isFinite(parseFloat(inputAlarmNaoh.value)) ? parseFloat(inputAlarmNaoh.value) : null;
+
+      function renderChart(cfg){
+        if(chartInstance && chartInstance.yAxis && chartInstance.yAxis[0]){
+          chartInstance.yAxis[0].removePlotLine('plotline-h2so4');
+          chartInstance.yAxis[0].removePlotLine('plotline-naoh');
+        }
+        const options = {
+          chart:{renderTo:chartContainerId, backgroundColor:'transparent', zoomType:'x'},
+          title:{text:null},
+          xAxis:{categories:cfg.categories, crosshair:true, lineColor:'#cbd5f5'},
+          yAxis:[
+            {
+              title:{text:'液位 (tons)'},
+              labels:{format:'{value}'},
+              gridLineColor:'rgba(15,23,42,0.06)',
+              plotLines:[]
+            },
+            {
+              title:{text:'耗量 / 补液 (tons)'},
+              labels:{format:'{value}'},
+              opposite:true,
+              gridLineColor:'rgba(15,23,42,0.06)'
+            }
+          ],
+          legend:{align:'center', verticalAlign:'bottom', layout:'horizontal'},
+          tooltip:{shared:true, valueDecimals:2},
+          plotOptions:{series:{marker:{enabled:false}}},
+          series:[...cfg.series],
+          credits:{enabled:false}
+        };
+        if(Number.isFinite(alarmLevelH2)){
+          options.yAxis[0].plotLines.push({
+            id:'plotline-h2so4',
+            value:alarmLevelH2,
+            color:'#ef4444',
+            width:2,
+            dashStyle:'ShortDash',
+            label:{
+              text:`H2SO4 告警 ${alarmLevelH2.toFixed(1)} tons`,
+              align:'right',
+              x:0,
+              style:{color:'#ef4444', fontWeight:'600'}
+            },
+            zIndex:5
+          });
+        }
+        if(Number.isFinite(alarmLevelNaoh)){
+          options.yAxis[0].plotLines.push({
+            id:'plotline-naoh',
+            value:alarmLevelNaoh,
+            color:'#8a3ffc',
+            width:2,
+            dashStyle:'ShortDash',
+            label:{
+              text:`NaOH 告警 ${alarmLevelNaoh.toFixed(1)} tons`,
+              align:'right',
+              x:0,
+              style:{color:'#8a3ffc', fontWeight:'600'}
+            },
+            zIndex:5
+          });
+        }
+        if(chartInstance){ chartInstance.update(options, true, true); }
+        else{ chartInstance = Highcharts.chart(options); }
+      }
+
+      function getLastNumericValue(arr, key){
+        for(let i=arr.length-1;i>=0;i--){
+          const v = arr[i][key];
+          if(typeof v === 'number' && Number.isFinite(v)){
+            return v;
+          }
+        }
+        return null;
+      }
+
+      function renderTable(data){
+        tableBody.innerHTML = '';
+        const formatValue = (value)=> typeof value === 'number' ? value.toFixed(2) : '—';
+        const spanRows = data.length;
+        const h2AvgFinal = getLastNumericValue(data, 'h2so4Avg');
+        const h2MonthFinal = getLastNumericValue(data, 'h2so4Month');
+        const naAvgFinal = getLastNumericValue(data, 'naohAvg');
+        const naMonthFinal = getLastNumericValue(data, 'naohMonth');
+
+        data.forEach((row, index)=>{
+          const tr = document.createElement('tr');
+          tr.id = `row-${row.date}`;
+          if(row.missingHighlight){ tr.classList.add('missing-data'); }
+          if(row.message){ tr.title = row.message; }
+
+          const cellDate = document.createElement('td');
+          cellDate.id = `cell-${row.date}-date`;
+          cellDate.textContent = row.date;
+          if(row.message){ cellDate.title = row.message; }
+          tr.appendChild(cellDate);
+
+          const cellHLevel = document.createElement('td');
+          cellHLevel.id = `cell-${row.date}-h2so4-level`;
+          cellHLevel.textContent = formatValue(row.h2so4Level);
+          if(row.message){ cellHLevel.title = row.message; }
+          tr.appendChild(cellHLevel);
+
+          const cellHDaily = document.createElement('td');
+          cellHDaily.id = `cell-${row.date}-h2so4-daily`;
+          cellHDaily.textContent = formatValue(row.h2so4Daily);
+          if(row.message){ cellHDaily.title = row.message; }
+          tr.appendChild(cellHDaily);
+
+          const cellHRefill = document.createElement('td');
+          cellHRefill.id = `cell-${row.date}-h2so4-refill`;
+          cellHRefill.textContent = formatValue(row.h2so4Refill);
+          if(row.message){ cellHRefill.title = row.message; }
+          tr.appendChild(cellHRefill);
+
+          if(index === 0){
+            const cellHAvg = document.createElement('td');
+            cellHAvg.id = `cell-${row.date}-h2so4-avg`;
+            cellHAvg.textContent = formatValue(h2AvgFinal);
+            cellHAvg.rowSpan = spanRows;
+            tr.appendChild(cellHAvg);
+
+            const cellHMonth = document.createElement('td');
+            cellHMonth.id = `cell-${row.date}-h2so4-month`;
+            cellHMonth.setAttribute('col-highlight','');
+            cellHMonth.textContent = formatValue(h2MonthFinal);
+            cellHMonth.rowSpan = spanRows;
+            tr.appendChild(cellHMonth);
+          }
+
+          const cellNLevel = document.createElement('td');
+          cellNLevel.id = `cell-${row.date}-naoh-level`;
+          cellNLevel.textContent = formatValue(row.naohLevel);
+          if(row.message){ cellNLevel.title = row.message; }
+          tr.appendChild(cellNLevel);
+
+          const cellNDaily = document.createElement('td');
+          cellNDaily.id = `cell-${row.date}-naoh-daily`;
+          cellNDaily.textContent = formatValue(row.naohDaily);
+          if(row.message){ cellNDaily.title = row.message; }
+          tr.appendChild(cellNDaily);
+
+          const cellNRefill = document.createElement('td');
+          cellNRefill.id = `cell-${row.date}-naoh-refill`;
+          cellNRefill.textContent = formatValue(row.naohRefill);
+          if(row.message){ cellNRefill.title = row.message; }
+          tr.appendChild(cellNRefill);
+
+          if(index === 0){
+            const cellNAvg = document.createElement('td');
+            cellNAvg.id = `cell-${row.date}-naoh-avg`;
+            cellNAvg.textContent = formatValue(naAvgFinal);
+            cellNAvg.rowSpan = spanRows;
+            tr.appendChild(cellNAvg);
+
+            const cellNMonth = document.createElement('td');
+            cellNMonth.id = `cell-${row.date}-naoh-month`;
+            cellNMonth.setAttribute('col-highlight','');
+            cellNMonth.textContent = formatValue(naMonthFinal);
+            cellNMonth.rowSpan = spanRows;
+            tr.appendChild(cellNMonth);
+          }
+
+          tableBody.appendChild(tr);
+        });
+      }
+
+      let lastData = [];
+
+      function loadMonth(monthValue){
+        const [yearStr, monthStr] = monthValue.split('-');
+        const year = parseInt(yearStr, 10);
+        const month = parseInt(monthStr, 10);
+        const data = generateChemData(year, month);
+        lastData = data;
+        const cfg = buildSeries(data);
+        renderChart(cfg);
+        renderTable(data);
+      }
+
+      function exportCSV(){
+        if(!lastData.length){
+          alert('暂无数据，请先载入月份。');
+          return;
+        }
+        const headers = ['日期','H2SO4 液位 (tons)','H2SO4 日耗量 (tons)','H2SO4 补液量 (tons)','H2SO4 日均耗量 (tons)','H2SO4 月累计 (tons)','NaOH 液位 (tons)','NaOH 日耗量 (tons)','NaOH 补液量 (tons)','NaOH 日均耗量 (tons)','NaOH 月累计 (tons)'];
+        const formatCsv = (value)=> typeof value === 'number' ? value.toFixed(2) : '';
+        const h2AvgFinal = getLastNumericValue(lastData,'h2so4Avg');
+        const h2MonthFinal = getLastNumericValue(lastData,'h2so4Month');
+        const naAvgFinal = getLastNumericValue(lastData,'naohAvg');
+        const naMonthFinal = getLastNumericValue(lastData,'naohMonth');
+        const rows = lastData.map((item, idx)=>[
+          item.date,
+          formatCsv(item.h2so4Level),
+          formatCsv(item.h2so4Daily),
+          formatCsv(item.h2so4Refill),
+          idx===0 ? formatCsv(h2AvgFinal) : '',
+          idx===0 ? formatCsv(h2MonthFinal) : '',
+          formatCsv(item.naohLevel),
+          formatCsv(item.naohDaily),
+          formatCsv(item.naohRefill),
+          idx===0 ? formatCsv(naAvgFinal) : '',
+          idx===0 ? formatCsv(naMonthFinal) : ''
+        ]);
+        const csv = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+        const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const existingLink = document.getElementById('temp-download-link');
+        if(existingLink){ existingLink.remove(); }
+        const link = document.createElement('a');
+        link.id = 'temp-download-link';
+        link.href = url;
+        link.download = `chemical_usage_${monthInput.value}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+
+      loadMonth(monthInput.value);
+      function openConfig(){
+        configMask.classList.add('config-active');
+        configMask.setAttribute('aria-hidden','false');
+      }
+
+      function closeConfig(){
+        configMask.classList.remove('config-active');
+        configMask.setAttribute('aria-hidden','true');
+      }
+
+      function applyAlarm(){
+        const valueH2 = parseFloat(inputAlarmH2.value);
+        const valueNaoh = parseFloat(inputAlarmNaoh.value);
+        if(!Number.isFinite(valueH2) || !Number.isFinite(valueNaoh)){
+          alert('请输入有效的 H2SO4 / NaOH 液位值（数字）。');
+          return;
+        }
+        alarmLevelH2 = valueH2;
+        alarmLevelNaoh = valueNaoh;
+        closeConfig();
+        if(lastData.length){
+          const cfg = buildSeries(lastData);
+          renderChart(cfg);
+        }
+      }
+
+      btnLoad.addEventListener('click', ()=>loadMonth(monthInput.value));
+      monthInput.addEventListener('keydown', (evt)=>{ if(evt.key === 'Enter'){ loadMonth(monthInput.value); } });
+      btnExport.addEventListener('click', exportCSV);
+      btnConfig.addEventListener('click', openConfig);
+      btnConfigConfirm.addEventListener('click', applyAlarm);
+      btnConfigCancel.addEventListener('click', closeConfig);
+      configMask.addEventListener('click', (evt)=>{ if(evt.target === configMask){ closeConfig(); } });
+    })();
+  </script>
+</body>
+</html>

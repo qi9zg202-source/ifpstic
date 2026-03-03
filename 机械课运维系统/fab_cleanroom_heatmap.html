@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAB Cleanroom 热力图</title>
+    
+    <!-- 引入 ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    
+    <style>
+        .container {
+            position: relative;
+            width: 100%;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            margin: 10px 0;  /* 减小标题的上下边距 */
+            font-size: 24px; /* 减小标题字体大小 */
+            text-align: center;
+        }
+        
+        #fabMap {
+            position: relative;
+            width: 100%;
+            height: 800px;       /* 调整地图容器的高度 */
+            background-color: #f5f5f5;
+        }
+
+        .fab-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            z-index: 1;
+        }
+
+        #heatmapContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        .controls {
+            margin: 10px 0;  /* 减小控制面板的上下边距 */
+            text-align: center;
+        }
+
+        .view-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 3;
+        }
+
+        .view-controls button {
+            padding: 10px 20px;
+            margin: 0 5px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .view-controls button:hover {
+            background-color: #f0f0f0;
+        }
+
+        .time-controls {
+            margin-bottom: 10px;  /* 减小底部边距 */
+            padding: 5px;         /* 减小内边距 */
+            background: #f8f8f8;
+            border-radius: 4px;
+        }
+
+        .time-controls select,
+        .time-controls input {
+            padding: 5px 10px;
+            margin: 0 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #realtimeInfo {
+            display: inline-block;
+            margin-left: 20px;
+            color: #666;
+        }
+
+        #historyControls {
+            display: inline-block;
+        }
+
+        #historyControls span {
+            margin: 0 2px;
+            font-weight: bold;
+        }
+
+        #hourSelect, #minuteSelect {
+            width: 70px;
+        }
+
+        .time-controls input[type="datetime-local"] {
+            padding: 5px 10px;
+            margin: 0 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>FAB Cleanroom 热力溯源</h1>
+        
+        <div class="view-controls">
+            <button onclick="toggleView('temperature')">温度视图</button>
+            <button onclick="toggleView('humidity')">湿度视图</button>
+        </div>
+        
+        <div class="controls">
+            <div class="time-controls">
+                <select id="timeMode" onchange="switchTimeMode()">
+                    <option value="realtime">实时监控</option>
+                    <option value="history">历史查询</option>
+                </select>
+                
+                <div id="historyControls" style="display: none;">
+                    <input type="datetime-local" 
+                           id="datetimePicker" 
+                           onchange="updateHistoryData()"
+                           step="60">
+                </div>
+
+                <div id="realtimeInfo">
+                    最后更新时间：<span id="lastUpdateTime"></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="fabMap">
+            <img src="fab7425541758808.png" class="fab-image" alt="FAB平面图">
+            <div id="heatmapContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        // 定义工艺区域及其传感器位置
+        const areas = [
+            {
+                name: 'WS&OQI',
+                x: 0.2,
+                y: 0.2,
+                temp: 22.5,
+                humidity: 48
+            },
+            {
+                name: 'LITHO',
+                x: 0.4,
+                y: 0.2,
+                temp: 23.1,
+                humidity: 50
+            },
+            {
+                name: 'GPVD',
+                x: 0.6,
+                y: 0.2,
+                temp: 21.8,
+                humidity: 47
+            },
+            {
+                name: 'DRY ETCH',
+                x: 0.3,
+                y: 0.5,
+                temp: 24.2,
+                humidity: 52
+            },
+            {
+                name: 'WET',
+                x: 0.5,
+                y: 0.5,
+                temp: 22.7,
+                humidity: 49
+            }
+        ];
+
+        let currentView = 'temperature';
+        let myChart;
+
+        // 添加时间相关的变量
+        let isRealtime = true;
+        let currentDateTime = new Date();
+        let updateInterval;
+
+        // 初始化 ECharts
+        function initializeChart() {
+            myChart = echarts.init(document.getElementById('heatmapContainer'));
+            
+            // 设置默认时间为当前时间
+            const now = new Date();
+            const datetimeStr = now.toISOString().slice(0, 16); // 格式化为 YYYY-MM-DDTHH:mm
+            document.getElementById('datetimePicker').value = datetimeStr;
+            
+            // 开始实时更新
+            startRealtimeUpdate();
+        }
+
+        // 修改生成热力图数据的函数，增加数据点密度
+        function generateHeatmapData() {
+            const data = [];
+            const xData = [];
+            const yData = [];
+            
+            // 增加数据点密度，从100增加到200
+            for (let i = 0; i <= 200; i++) {
+                xData.push(i/200);
+                yData.push(i/200);
+            }
+
+            // 为每个区域生成热力数据
+            areas.forEach(area => {
+                const value = currentView === 'temperature' ? area.temp : area.humidity;
+                
+                // 增加采样密度
+                for (let dx = -0.45; dx <= 0.45; dx += 0.005) {  // 步长从0.01减小到0.005
+                    for (let dy = -0.45; dy <= 0.45; dy += 0.005) {
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        if (distance <= 0.45) {
+                            const intensity = Math.exp(-distance * 2.5);
+                            const centerBoost = distance < 0.1 ? 1.2 : 1.0;
+                            data.push([
+                                Math.round((area.x + dx) * 200),  // 坐标精度翻倍
+                                Math.round((area.y + dy) * 200),
+                                value * (1 - distance * 1) * centerBoost
+                            ]);
+                        }
+                    }
+                }
+            });
+
+            return { data, xData, yData };
+        }
+
+        // 修改更新图表的函数
+        function updateChart() {
+            const { data, xData, yData } = generateHeatmapData();
+            
+            const option = {
+                animation: false,
+                grid: {
+                    top: 10,
+                    right: 10,
+                    bottom: 10,
+                    left: 10,
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: xData,
+                    show: false,
+                    splitLine: { show: false }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: yData,
+                    show: false,
+                    splitLine: { show: false }
+                },
+                visualMap: {
+                    type: 'continuous',
+                    min: currentView === 'temperature' ? 20 : 45,
+                    max: currentView === 'temperature' ? 25 : 55,
+                    calculable: true,
+                    orient: 'horizontal',
+                    left: 'center',
+                    bottom: '5%',
+                    text: currentView === 'temperature' 
+                        ? ['高温', '低温']
+                        : ['高湿', '低湿'],
+                    inRange: {
+                        color: currentView === 'temperature'
+                            ? [
+                                'rgba(255,255,255,0)',      // 完全透明的起始色
+                                'rgba(255,240,240,0.1)',    // 更平滑的过渡
+                                'rgba(255,220,220,0.2)',
+                                'rgba(255,180,180,0.4)',
+                                'rgba(255,120,120,0.6)',
+                                'rgba(255,60,60,0.8)',
+                                'rgba(255,0,0,1)'
+                            ]
+                            : [
+                                'rgba(255,255,255,0)',
+                                'rgba(240,240,255,0.1)',
+                                'rgba(220,220,255,0.2)',
+                                'rgba(180,180,255,0.4)',
+                                'rgba(120,120,255,0.6)',
+                                'rgba(60,60,255,0.8)',
+                                'rgba(0,0,255,1)'
+                            ]
+                    }
+                },
+                series: [{
+                    name: currentView === 'temperature' ? '温度' : '湿度',
+                    type: 'heatmap',
+                    data: data,
+                    // 增加平滑度配置
+                    emphasis: {
+                        itemStyle: {
+                            borderColor: 'rgba(0,0,0,0)',  // 去掉边框
+                            shadowBlur: 10,
+                            shadowColor: 'rgba(0, 0, 0, 0.5)'
+                        }
+                    },
+                    itemStyle: {
+                        borderWidth: 0,        // 去掉边框
+                        opacity: 0.95          // 略微提高不透明度
+                    },
+                    progressive: 2000,         // 增加渐进式渲染的数量
+                    progressiveThreshold: 3000, // 提高阈值
+                    animation: false,
+                    label: {
+                        show: true,
+                        formatter: function(params) {
+                            const area = areas.find(a => 
+                                Math.abs(a.x * 200 - params.data[0]) < 1 && 
+                                Math.abs(a.y * 200 - params.data[1]) < 1
+                            );
+                            if (area) {
+                                const value = currentView === 'temperature' 
+                                    ? area.temp.toFixed(1) + '°C'
+                                    : area.humidity + '%';
+                                return area.name + '\n' + value;
+                            }
+                            return '';
+                        },
+                        color: '#000',
+                        fontSize: 14,
+                        fontWeight: 'bold',
+                        textShadowColor: '#fff',
+                        textShadowBlur: 3
+                    }
+                }]
+            };
+
+            myChart.setOption(option);
+        }
+
+        // 切换视图
+        function toggleView(type) {
+            currentView = type;
+            updateChart();
+        }
+
+        // 切换时间模式
+        function switchTimeMode() {
+            const mode = document.getElementById('timeMode').value;
+            isRealtime = mode === 'realtime';
+            
+            document.getElementById('historyControls').style.display = 
+                isRealtime ? 'none' : 'inline-block';
+            document.getElementById('realtimeInfo').style.display = 
+                isRealtime ? 'inline-block' : 'none';
+
+            if (isRealtime) {
+                startRealtimeUpdate();
+            } else {
+                stopRealtimeUpdate();
+            }
+        }
+
+        // 开始实时更新
+        function startRealtimeUpdate() {
+            updateRealtimeData();
+            updateInterval = setInterval(updateRealtimeData, 60000); // 每分钟更新一次
+        }
+
+        // 停止实时更新
+        function stopRealtimeUpdate() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+        }
+
+        // 更新实时数据
+        function updateRealtimeData() {
+            currentDateTime = new Date();
+            document.getElementById('lastUpdateTime').textContent = 
+                currentDateTime.toLocaleString();
+            
+            // 这里添加获取实时数据的逻辑
+            fetchData('realtime');
+        }
+
+        // 更新历史数据
+        function updateHistoryData() {
+            const datetimeStr = document.getElementById('datetimePicker').value;
+            const historyDateTime = new Date(datetimeStr);
+            
+            // 这里添加获取历史数据的逻辑
+            fetchData('history', historyDateTime);
+        }
+
+        // 获取数据的函数
+        function fetchData(type, datetime = null) {
+            // 这里添加与后端API交互的代码
+            if (type === 'realtime') {
+                // 获取实时数据
+                // fetch('/api/realtime-data')...
+            } else {
+                // 获取历史数据
+                // fetch(`/api/history-data?datetime=${datetime.toISOString()}`)...
+            }
+            
+            // 临时使用模拟数据
+            updateChart();
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', initializeChart);
+
+        // 响应窗口大小变化
+        window.addEventListener('resize', function() {
+            myChart && myChart.resize();
+        });
+
+        // 在页面卸载时清理定时器
+        window.addEventListener('beforeunload', function() {
+            stopRealtimeUpdate();
+        });
+    </script>
+</body>
+</html> 

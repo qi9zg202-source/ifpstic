@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAB晶圆厂 - 高效制冷机房COP分析</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/highcharts-more.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #34495e;
+        }
+        
+        .header h2 {
+            font-size: 1.5em;
+            color: #7f8c8d;
+            font-weight: normal;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .metrics-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        .metric-label {
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-normal { background-color: #27ae60; }
+        .status-warning { background-color: #f39c12; }
+        .status-alert { background-color: #e74c3c; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>FAB晶圆厂制冷系统</h1>
+        <h2>高效制冷机房COP分析与预测</h2>
+    </div>
+    
+    <div class="metrics-panel">
+        <div class="metric-card">
+            <div class="metric-value" id="currentCOP">--</div>
+            <div class="metric-label">当前COP值</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value" id="avgCOP">--</div>
+            <div class="metric-label">24小时平均COP</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value" id="predictedCOP">--</div>
+            <div class="metric-label">预测COP (1小时后)</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value" id="energySavingIntegral">--</div>
+            <div class="metric-label">节省能效积分 (COP·h)</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value" id="energySavingPercent">--</div>
+            <div class="metric-label">节能效率 (%)</div>
+        </div>
+        <div class="metric-card">
+            <div>
+                <span class="status-indicator status-normal"></span>
+                <span id="systemStatus">系统正常</span>
+            </div>
+            <div class="metric-label">系统状态</div>
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <div id="copChart" style="height: 500px;"></div>
+    </div>
+
+    <script>
+        // 生成模拟数据
+        function generateCOPData() {
+            const now = new Date();
+            const historicalActualData = [];
+            const historicalPredictedData = [];
+            const futurePredictedData = [];
+            
+            // 生成过去24小时的实际数据和AI预测数据（历史对比）
+            for (let i = -24; i <= 0; i++) {
+                const timestamp = new Date(now.getTime() + i * 60 * 60 * 1000);
+                
+                // 实际COP值
+                const actualBaseValue = 4.5 + Math.sin(i / 12 * Math.PI) * 0.8;
+                const actualNoise = (Math.random() - 0.5) * 0.3;
+                const actualCopValue = Math.max(3.0, Math.min(6.0, actualBaseValue + actualNoise));
+                historicalActualData.push([timestamp.getTime(), parseFloat(actualCopValue.toFixed(2))]);
+                
+                // 历史AI预测值（通常比实际值稍高，显示优化潜力）
+                const predictedBaseValue = 4.8 + Math.sin(i / 12 * Math.PI) * 0.7;
+                const predictedNoise = (Math.random() - 0.5) * 0.2;
+                const predictedCopValue = Math.max(3.5, Math.min(6.2, predictedBaseValue + predictedNoise));
+                historicalPredictedData.push([timestamp.getTime(), parseFloat(predictedCopValue.toFixed(2))]);
+            }
+            
+            // 生成未来72小时的AI预测数据
+            for (let i = 1; i <= 72; i++) {
+                const timestamp = new Date(now.getTime() + i * 60 * 60 * 1000);
+                // AI预测趋势稍微平滑一些
+                const baseValue = 4.9 + Math.sin(i / 12 * Math.PI) * 0.6;
+                const trend = i * 0.001; // 轻微上升趋势
+                const noise = (Math.random() - 0.5) * 0.15;
+                const copValue = Math.max(3.5, Math.min(6.0, baseValue + trend + noise));
+                
+                futurePredictedData.push([timestamp.getTime(), parseFloat(copValue.toFixed(2))]);
+            }
+            
+            return { historicalActualData, historicalPredictedData, futurePredictedData };
+        }
+        
+        // 计算两条线之间的面积积分（节省能效）
+        function calculateEnergySavingIntegral(actualData, predictedData) {
+            let energySavingIntegral = 0;
+            const minLength = Math.min(actualData.length, predictedData.length);
+            
+            // 使用梯形法计算两条线之间的面积积分
+            for (let i = 0; i < minLength - 1; i++) {
+                const timeDiff = (actualData[i + 1][0] - actualData[i][0]) / (1000 * 60 * 60); // 时间间隔（小时）
+                
+                // 当前时间段的COP差值
+                const copDiff1 = predictedData[i][1] - actualData[i][1];
+                const copDiff2 = predictedData[i + 1][1] - actualData[i + 1][1];
+                
+                // 使用梯形公式计算面积：(h1 + h2) * width / 2
+                const areaSegment = (copDiff1 + copDiff2) * timeDiff / 2;
+                energySavingIntegral += areaSegment;
+            }
+            
+            // 计算节能百分比
+            const totalHours = minLength > 0 ? (actualData[minLength - 1][0] - actualData[0][0]) / (1000 * 60 * 60) : 1;
+            const avgActualCOP = actualData.reduce((sum, item) => sum + item[1], 0) / actualData.length;
+            const totalActualEnergy = avgActualCOP * totalHours;
+            const energySavingPercentage = totalActualEnergy > 0 ? (energySavingIntegral / totalActualEnergy) * 100 : 0;
+            
+            return { 
+                energySavingIntegral: energySavingIntegral,
+                energySavingPercentage: energySavingPercentage,
+                totalHours: totalHours
+            };
+        }
+        
+        // 更新指标卡片
+        function updateMetrics(historicalActualData, historicalPredictedData, futurePredictedData) {
+            const currentCOP = historicalActualData[historicalActualData.length - 1][1];
+            const avgCOP = historicalActualData.reduce((sum, item) => sum + item[1], 0) / historicalActualData.length;
+            const predictedCOP = futurePredictedData[0][1];
+            
+            // 计算节省能效积分
+            const energySaving = calculateEnergySavingIntegral(historicalActualData, historicalPredictedData);
+            
+            document.getElementById('currentCOP').textContent = currentCOP.toFixed(2);
+            document.getElementById('avgCOP').textContent = avgCOP.toFixed(2);
+            document.getElementById('predictedCOP').textContent = predictedCOP.toFixed(2);
+            document.getElementById('energySavingIntegral').textContent = energySaving.energySavingIntegral.toFixed(2);
+            document.getElementById('energySavingPercent').textContent = energySaving.energySavingPercentage.toFixed(1);
+            
+            // 更新系统状态
+            let status = '系统正常';
+            let statusClass = 'status-normal';
+            
+            if (currentCOP < 3.5) {
+                status = '效率偏低';
+                statusClass = 'status-warning';
+            } else if (currentCOP < 3.0) {
+                status = '需要维护';
+                statusClass = 'status-alert';
+            }
+            
+            // 根据节省能效积分判断优化潜力
+            if (energySaving.energySavingIntegral > 10) {
+                status = '优化潜力大';
+                statusClass = 'status-warning';
+            } else if (energySaving.energySavingIntegral < 0) {
+                status = 'AI预测低于实际';
+                statusClass = 'status-alert';
+            }
+            
+            document.getElementById('systemStatus').textContent = status;
+            document.querySelector('.status-indicator').className = `status-indicator ${statusClass}`;
+        }
+        
+        // 初始化图表
+        function initChart() {
+            const { historicalActualData, historicalPredictedData, futurePredictedData } = generateCOPData();
+            updateMetrics(historicalActualData, historicalPredictedData, futurePredictedData);
+            
+            Highcharts.chart('copChart', {
+                chart: {
+                    type: 'line',
+                    backgroundColor: '#ffffff',
+                    style: {
+                        fontFamily: 'Microsoft YaHei, Arial, sans-serif'
+                    }
+                },
+                title: {
+                    text: 'COP值趋势分析与预测 - 节能效率对比',
+                    style: {
+                        fontSize: '18px',
+                        color: '#2c3e50'
+                    }
+                },
+                subtitle: {
+                    text: '两条线之间的面积积分 = 节省能效 (小时级别)',
+                    style: {
+                        color: '#7f8c8d'
+                    }
+                },
+                xAxis: {
+                    type: 'datetime',
+                    plotLines: [{
+                        color: '#e74c3c',
+                        dashStyle: 'dash',
+                        value: Date.now(),
+                        width: 2,
+                        label: {
+                            text: '当前时间',
+                            style: {
+                                color: '#e74c3c'
+                            }
+                        }
+                    }],
+                    title: {
+                        text: '时间'
+                    }
+                },
+                yAxis: {
+                    title: {
+                        text: 'COP值 (制冷性能系数)'
+                    },
+                    min: 2.5,
+                    max: 6.5,
+                    plotBands: [{
+                        from: 4.0,
+                        to: 5.5,
+                        color: 'rgba(46, 204, 113, 0.1)',
+                        label: {
+                            text: '优秀范围',
+                            style: {
+                                color: '#27ae60'
+                            }
+                        }
+                    }, {
+                        from: 3.0,
+                        to: 4.0,
+                        color: 'rgba(243, 156, 18, 0.1)',
+                        label: {
+                            text: '警告范围',
+                            style: {
+                                color: '#f39c12'
+                            }
+                        }
+                    }]
+                },
+                tooltip: {
+                    shared: true,
+                    crosshairs: true,
+                    formatter: function() {
+                        let tooltip = '<b>' + Highcharts.dateFormat('%Y-%m-%d %H:%M', this.x) + '</b><br/>';
+                        this.points.forEach(function(point) {
+                            tooltip += '<span style="color:' + point.color + '">' + point.series.name + '</span>: <b>' + point.y.toFixed(2) + '</b><br/>';
+                        });
+                        return tooltip;
+                    }
+                },
+                legend: {
+                    align: 'center',
+                    verticalAlign: 'bottom',
+                    layout: 'horizontal'
+                },
+                plotOptions: {
+                    line: {
+                        marker: {
+                            enabled: false,
+                            states: {
+                                hover: {
+                                    enabled: true,
+                                    radius: 5
+                                }
+                            }
+                        },
+                        lineWidth: 2
+                    },
+                    area: {
+                        fillOpacity: 0.1,
+                        lineWidth: 1,
+                        marker: {
+                            enabled: false
+                        }
+                    }
+                },
+                series: [{
+                    name: '历史实际COP值',
+                    data: historicalActualData,
+                    color: '#3498db',
+                    lineWidth: 3,
+                    marker: {
+                        symbol: 'circle'
+                    }
+                }, {
+                    name: '历史AI预测COP值',
+                    data: historicalPredictedData,
+                    color: '#27ae60',
+                    lineWidth: 2,
+                    marker: {
+                        symbol: 'square'
+                    }
+                }, {
+                    name: '节能潜力区域',
+                    type: 'arearange',
+                    data: historicalActualData.map((point, index) => {
+                        const predictedPoint = historicalPredictedData[index];
+                        if (predictedPoint) {
+                            const low = Math.min(point[1], predictedPoint[1]);
+                            const high = Math.max(point[1], predictedPoint[1]);
+                            return [point[0], low, high];
+                        }
+                        return null;
+                    }).filter(point => point !== null),
+                    color: 'rgba(46, 204, 113, 0.3)',
+                    fillOpacity: 0.3,
+                    lineWidth: 0,
+                    zIndex: 0,
+                    enableMouseTracking: false
+                }, {
+                    name: '未来AI预测COP值',
+                    data: futurePredictedData,
+                    color: '#e67e22',
+                    dashStyle: 'ShortDash',
+                    lineWidth: 2,
+                    marker: {
+                        symbol: 'diamond'
+                    }
+                }],
+                accessibility: {
+                    enabled: false
+                },
+                credits: {
+                    enabled: false
+                },
+                exporting: {
+                    enabled: true,
+                    buttons: {
+                        contextButton: {
+                            menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG']
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 页面加载完成后初始化
+        window.addEventListener('load', function() {
+            initChart();
+            
+            // 每5分钟更新一次数据
+            setInterval(function() {
+                initChart();
+            }, 5 * 60 * 1000);
+        });
+    </script>
+</body>
+</html>

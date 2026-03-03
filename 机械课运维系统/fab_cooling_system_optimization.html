@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAB晶圆厂 - 高效制冷机房系统优化参数</title>
+    
+    <!-- Highcharts CDN -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    
+    <!-- D3.js CDN -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header h2 {
+            font-size: 18px;
+            color: #4CAF50;
+            font-weight: normal;
+        }
+        
+        .header-buttons {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .header-btn {
+            background: #0076A8;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .header-btn:hover {
+            background: #005c8a;
+        }
+        
+        .history-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .clock-icon {
+            font-size: 14px;
+        }
+        
+        .history-content {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        
+        .history-header {
+            display: grid;
+            grid-template-columns: 2fr 2fr 1fr 1fr;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 2px solid #0076A8;
+            font-weight: bold;
+            font-size: 12px;
+            color: #0076A8;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+        
+        .history-col {
+            text-align: center;
+        }
+        
+        .history-item {
+            display: grid;
+            grid-template-columns: 2fr 2fr 1fr 1fr;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 11px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            align-items: center;
+        }
+        
+        .history-item:hover {
+            background: #f8f9fa;
+        }
+        
+        
+        .history-action {
+            text-align: center;
+        }
+        
+        .history-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 2px 6px;
+            border-radius: 2px;
+            font-size: 10px;
+            cursor: pointer;
+            margin: 0 2px;
+        }
+        
+        .history-btn:hover {
+            background: #0056b3;
+        }
+        
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 0px 20px 20px 20px;
+            height: 600px;
+        }
+        
+        .chart-wrapper {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        
+        .info-panel {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            padding: 20px;
+        }
+        
+        .metric-card {
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .metric-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .status-indicators {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .status-item {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .status-item.warning {
+            border-left-color: #FF9800;
+        }
+        
+        .status-item.error {
+            border-left-color: #f44336;
+        }
+        
+        .time-query-panel {
+            background: white;
+            padding: 15px 20px 12px 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .query-form {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .time-query-panel h3 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #495057;
+            font-weight: 600;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .form-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #495057;
+            white-space: nowrap;
+            min-width: 60px;
+        }
+        
+        .form-group input {
+            padding: 6px 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.3s;
+            width: 160px;
+        }
+        
+        .form-group input:focus {
+            border-color: #4CAF50;
+        }
+        
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            height: 31px;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(45deg, #45a049, #3d8b40);
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(45deg, #6c757d, #5a6268);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: linear-gradient(45deg, #5a6268, #4e555b);
+            transform: translateY(-2px);
+        }
+        
+        .chart-section {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .optimization-table {
+            background: #f8f9fa;
+            border: 2px solid #0076A8;
+            border-radius: 4px;
+            padding: 20px;
+            margin-top: 20px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+        
+        .table-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            color: #0076A8;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-family: 'Arial', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .optimization-icon {
+            width: 28px;
+            height: 28px;
+            background: #0076A8;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .strategy-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            border: 1px solid #666;
+            background: white;
+        }
+        
+        .strategy-table th {
+            background: #0076A8;
+            color: white;
+            padding: 8px 12px;
+            text-align: center;
+            font-weight: normal;
+            border-right: 1px solid #004d6b;
+            border-bottom: 1px solid #004d6b;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .strategy-table th:last-child {
+            border-right: none;
+        }
+        
+        .strategy-table td {
+            padding: 6px 12px;
+            text-align: center;
+            border-right: 1px solid #ccc;
+            border-bottom: 1px solid #ccc;
+            background: white;
+            font-size: 11px;
+        }
+        
+        .strategy-table td:last-child {
+            border-right: none;
+        }
+        
+        .strategy-table tbody tr:nth-child(even) td {
+            background: #f8f9fa;
+        }
+        
+        .strategy-table tbody tr:hover td {
+            background: #e6f3ff;
+        }
+        
+        .status-badge {
+            padding: 2px 6px;
+            border-radius: 2px;
+            font-size: 10px;
+            font-weight: normal;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        .status-deployed {
+            background: #28a745;
+            color: white;
+        }
+        
+        .status-pending {
+            background: #ffc107;
+            color: #333;
+        }
+        
+        .efficiency-gain {
+            color: #28a745;
+            font-weight: bold;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+        
+        .strategy-id {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-weight: bold;
+            color: #0076A8;
+        }
+        
+        .strategy-time {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 9px;
+            color: #666;
+            display: block;
+            margin-top: 2px;
+        }
+        
+        .param-count {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            color: #333;
+        }
+        
+        .deploy-btn {
+            background: #0076A8;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            font-size: 10px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            transition: background 0.2s;
+        }
+        
+        .deploy-btn:hover {
+            background: #005c8a;
+        }
+        
+        .deploy-btn:disabled {
+            background: #28a745;
+            cursor: not-allowed;
+        }
+        
+        .deploy-time {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 8px;
+            color: #666;
+            text-align: center;
+            margin-top: 2px;
+            line-height: 1;
+        }
+        
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border: 2px solid #0076A8;
+            border-radius: 4px;
+            width: 500px;
+            max-width: 90vw;
+            padding: 20px;
+            font-family: 'Arial', sans-serif;
+            position: relative;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .modal-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #0076A8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0;
+        }
+        
+        .close-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        
+        .close-btn:hover {
+            background: #c82333;
+        }
+        
+        .action-select {
+            background: white;
+            border: 1px solid #0076A8;
+            border-radius: 2px;
+            padding: 3px 6px;
+            font-size: 10px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            color: #333;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            min-width: 80px;
+        }
+        
+        .action-select:disabled {
+            background: #f8f9fa;
+            border-color: #ccc;
+            color: #666;
+            cursor: not-allowed;
+        }
+        
+        .action-select.completed {
+            background: #e8f5e8 !important;
+            border-color: #28a745 !important;
+            color: #155724 !important;
+            cursor: pointer !important;
+        }
+        
+        .action-select.completed:focus {
+            outline: 2px solid #28a745 !important;
+        }
+        
+        .action-select:focus {
+            outline: 2px solid #0076A8;
+            outline-offset: 1px;
+        }
+        
+        .action-select option {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 10px;
+        }
+        
+        .log-textarea {
+            width: 100%;
+            height: 200px;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            padding: 10px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            resize: vertical;
+            margin-bottom: 15px;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .modal-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        .modal-btn-primary {
+            background: #0076A8;
+            color: white;
+        }
+        
+        .modal-btn-primary:hover {
+            background: #005c8a;
+        }
+        
+        .modal-btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .modal-btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        .last-modified {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 10px;
+            color: #666;
+            text-align: right;
+            margin-bottom: 10px;
+            padding-right: 5px;
+            border-top: 1px solid #eee;
+            padding-top: 8px;
+        }
+        
+        .system-toggle {
+            background: white;
+            padding: 12px 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .system-toggle h4 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #495057;
+            font-weight: 600;
+        }
+        
+        .toggle-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .toggle-btn {
+            padding: 6px 14px;
+            border: 1px solid #ced4da;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+            color: #495057;
+        }
+        
+        .toggle-btn:hover {
+            border-color: #4CAF50;
+            color: #4CAF50;
+        }
+        
+        .toggle-btn.active {
+            background: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>FAB晶圆厂 - 高效制冷机房监控系统</h1>
+        <h2>系统优化参数实时分析</h2>
+        <div class="header-buttons">
+            <button class="header-btn" onclick="downloadTemplate()">模版下载</button>
+            <button class="header-btn" onclick="uploadConfig()">上传系统配置文件</button>
+            <button class="header-btn history-btn" onclick="showUploadHistory()" title="上传历史记录">
+                <span class="clock-icon">🕐</span> 历史配置文件
+            </button>
+            <input type="file" id="configFileInput" accept=".json,.xml,.cfg,.txt" style="display: none;" onchange="handleFileUpload(event)">
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="chart-section">
+            <div class="chart-wrapper">
+                <div class="time-query-panel">
+                    <div class="query-form">
+                        <div class="form-group">
+                            <label for="start-time">开始时间</label>
+                            <input type="datetime-local" id="start-time" name="start-time">
+                        </div>
+                        <div class="form-group">
+                            <label for="end-time">结束时间</label>
+                            <input type="datetime-local" id="end-time" name="end-time">
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-primary" onclick="queryData()">查询</button>
+                            <button class="btn btn-secondary" onclick="resetQuery()">重置</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="system-toggle">
+                    <div class="toggle-buttons">
+                        <button class="toggle-btn active" onclick="switchSystem('all')">机房（低温+中温）</button>
+                        <button class="toggle-btn" onclick="switchSystem('low')">低温系统</button>
+                        <button class="toggle-btn" onclick="switchSystem('mid')">中温系统</button>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <div id="main-chart"></div>
+                </div>
+                
+                <div class="optimization-table">
+                    <div class="table-title">
+                        <div class="optimization-icon">∫</div>
+                        历史参数寻优
+                    </div>
+                    <table class="strategy-table">
+                        <thead>
+                            <tr>
+                                <th>策略包ID</th>
+                                <th>是否下发</th>
+                                <th>优化参数个数</th>
+                                <th>效率提升</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="strategy-table-body">
+                            <!-- 表格内容将通过JavaScript动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 下发弹窗 -->
+        <div class="modal-overlay" id="deployModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">执行日志记录</div>
+                    <button class="close-btn" onclick="closeDeployModal()">×</button>
+                </div>
+                <textarea class="log-textarea" id="logTextarea" placeholder="请输入执行日志记录..."></textarea>
+                <div class="last-modified" id="deployLastModified">最后修改时间: --</div>
+                <div class="modal-buttons">
+                    <button class="modal-btn modal-btn-primary" onclick="confirmDeploy()">下发</button>
+                    <button class="modal-btn modal-btn-secondary" onclick="closeDeployModal()">取消</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 判定依据弹窗 -->
+        <div class="modal-overlay" id="judgmentModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">判别依据</div>
+                    <button class="close-btn" onclick="closeJudgmentModal()">×</button>
+                </div>
+                <textarea class="log-textarea" id="judgmentTextarea" placeholder="请输入判别依据..."></textarea>
+                <div class="last-modified" id="judgmentLastModified">最后修改时间: --</div>
+                <div class="modal-buttons">
+                    <button class="modal-btn modal-btn-primary" onclick="confirmJudgment()">确定</button>
+                    <button class="modal-btn modal-btn-secondary" onclick="closeJudgmentModal()">取消</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 上传历史记录弹窗 -->
+        <div class="modal-overlay" id="historyModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">上传历史记录</div>
+                    <button class="close-btn" onclick="closeHistoryModal()">×</button>
+                </div>
+                <div class="history-content">
+                    <div class="history-header">
+                        <span class="history-col">时间</span>
+                        <span class="history-col">文件名</span>
+                        <span class="history-col">大小</span>
+                        <span class="history-col">操作</span>
+                    </div>
+                    <div class="history-list" id="historyList">
+                        <!-- 历史记录将在这里动态生成 -->
+                    </div>
+                </div>
+                <div class="modal-buttons">
+                    <button class="modal-btn modal-btn-primary" onclick="closeHistoryModal()">关闭</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info-panel">
+            <h3>系统状态监控</h3>
+            
+            <div class="metric-card">
+                <div class="metric-value">95.2%</div>
+                <div class="metric-label">系统效率</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-value">3.8</div>
+                <div class="metric-label">平均 EER</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-value">320kW</div>
+                <div class="metric-label">当前负荷</div>
+            </div>
+            
+            <div class="status-indicators">
+                <div class="status-item">
+                    <div>冷却水温</div>
+                    <div><strong>22.5°C</strong></div>
+                </div>
+                <div class="status-item">
+                    <div>压缩机状态</div>
+                    <div><strong>正常</strong></div>
+                </div>
+                <div class="status-item warning">
+                    <div>能耗偏差</div>
+                    <div><strong>+3.2%</strong></div>
+                </div>
+                <div class="status-item">
+                    <div>制冷剂压力</div>
+                    <div><strong>4.2 MPa</strong></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 模拟数据生成 - 未来72小时
+        function generateTimeData() {
+            const now = new Date();
+            const times = [];
+            for (let i = 1; i <= 48; i++) {
+                const time = new Date(now.getTime() + i * 60 * 60 * 1000);
+                const month = time.getMonth() + 1;
+                const day = time.getDate();
+                const hour = time.getHours();
+                times.push(`${month}/${day} ${hour}:00`);
+            }
+            return times;
+        }
+        
+        function generateEnergyData() {
+            const data = [];
+            for (let i = 0; i < 48; i++) {
+                // 模拟工厂用电规律：白天高，夜晚低，周期性变化
+                const hourOfDay = i % 24;
+                const dayPattern = 800 + Math.sin((hourOfDay - 6) * Math.PI / 12) * 300;
+                const weekPattern = 1 + Math.sin(i * Math.PI / 84) * 0.1; // 一周的波动
+                const base = dayPattern * weekPattern;
+                
+                const baseline = Math.round(base + (Math.random() - 0.5) * 60);
+                const optimized = Math.round(baseline * (0.75 + Math.random() * 0.15)); // AI优化后节能15-25%
+                
+                data.push({
+                    baseline: baseline,
+                    optimized: optimized
+                });
+            }
+            return data;
+        }
+        
+        function generateEERData() {
+            const data = [];
+            for (let i = 0; i < 48; i++) {
+                const baseline = 3.2 + Math.sin(i * Math.PI / 8) * 0.8 + (Math.random() - 0.5) * 0.3;
+                const optimized = baseline * (1.1 + Math.random() * 0.15); // AI优化后EER提升10-25%
+                data.push({
+                    baseline: baseline,
+                    optimized: optimized
+                });
+            }
+            return data;
+        }
+        
+        function generateLoadData() {
+            return Array.from({length: 48}, (_, i) => {
+                // 模拟制冷负荷规律：跟随环境温度和工厂作业变化
+                const hourOfDay = i % 24;
+                const dayPattern = 300 + Math.sin((hourOfDay - 8) * Math.PI / 12) * 150; // 白天高负荷
+                const weekPattern = 1 + Math.sin(i * Math.PI / 56) * 0.1;
+                const base = dayPattern * weekPattern;
+                
+                return Math.round(base + (Math.random() - 0.5) * 40);
+            });
+        }
+        
+        // 全局变量
+        let chart;
+        let originalTimeLabels = generateTimeData();
+        let originalEnergyData = generateEnergyData();
+        let originalEERData = generateEERData();
+        let originalLoadData = generateLoadData();
+        
+        // 数据准备
+        let timeLabels = originalTimeLabels;
+        let energyData = originalEnergyData;
+        let eerData = originalEERData;
+        let loadData = originalLoadData;
+        
+        // 初始化时间选择器默认值 - 未来72小时
+        function initTimeInputs() {
+            const now = new Date();
+            const startTime = new Date(now.getTime() + 60 * 60 * 1000); // 从下一小时开始
+            const endTime = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+            
+            document.getElementById('start-time').value = formatDateTimeLocal(startTime);
+            document.getElementById('end-time').value = formatDateTimeLocal(endTime);
+        }
+        
+        function formatDateTimeLocal(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+        
+        // 查询数据函数
+        function queryData() {
+            const startTime = document.getElementById('start-time').value;
+            const endTime = document.getElementById('end-time').value;
+            
+            if (!startTime || !endTime) {
+                alert('请选择开始时间和结束时间');
+                return;
+            }
+            
+            if (new Date(startTime) >= new Date(endTime)) {
+                alert('开始时间必须早于结束时间');
+                return;
+            }
+            
+            // 模拟根据时间范围生成数据
+            const start = new Date(startTime);
+            const end = new Date(endTime);
+            const hoursDiff = Math.ceil((end - start) / (1000 * 60 * 60));
+            
+            // 生成新的时间数据（结合当前系统类型）
+            const newTimeLabels = [];
+            const newEnergyData = [];
+            const newEERData = [];
+            const newLoadData = [];
+            
+            // 根据当前系统设置基准值
+            let powerBase, eerBase, loadBase;
+            switch(currentSystem) {
+                case 'all':
+                    powerBase = 800;
+                    eerBase = 3.2;
+                    loadBase = 60;
+                    break;
+                case 'low':
+                    powerBase = 450;
+                    eerBase = 3.8;
+                    loadBase = 55;
+                    break;
+                case 'mid':
+                    powerBase = 350;
+                    eerBase = 2.9;
+                    loadBase = 65;
+                    break;
+            }
+            
+            for (let i = 0; i < hoursDiff; i++) {
+                const currentTime = new Date(start.getTime() + i * 60 * 60 * 1000);
+                // 确保显示的是未来时间
+                if (currentTime <= new Date()) {
+                    continue;
+                }
+                newTimeLabels.push(currentTime.getMonth() + 1 + '/' + currentTime.getDate() + ' ' + currentTime.getHours() + ':00');
+                
+                // 生成对应的数据
+                const base = powerBase + Math.sin(i * Math.PI / 12) * 150;
+                newEnergyData.push({
+                    predicted: Math.round(base + (Math.random() - 0.5) * 50),
+                    actual: Math.round(base + (Math.random() - 0.5) * 80)
+                });
+                
+                newEERData.push(eerBase + Math.sin(i * Math.PI / 8) * 0.6 + (Math.random() - 0.5) * 0.3);
+                newLoadData.push(loadBase + Math.sin(i * Math.PI / 6) * 20 + (Math.random() - 0.5) * 10);
+            }
+            
+            // 更新图表
+            updateChart(newTimeLabels, newEnergyData, newEERData, newLoadData);
+        }
+        
+        // 重置查询函数
+        function resetQuery() {
+            initTimeInputs();
+            updateChart(originalTimeLabels, originalEnergyData, originalEERData, originalLoadData);
+        }
+        
+        // 当前系统状态
+        let currentSystem = 'all';
+        
+        // 系统切换函数
+        function switchSystem(systemType) {
+            currentSystem = systemType;
+            
+            // 更新按钮状态
+            document.querySelectorAll('.toggle-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 生成对应系统的数据
+            const systemData = generateSystemData(systemType);
+            updateChart(systemData.timeLabels, systemData.energyData, systemData.eerData, systemData.loadData);
+            
+            // 更新图表标题
+            const titles = {
+                'all': '机房系统 - 能耗&负荷分析预测',
+                'low': '低温系统 - 能耗&负荷分析预测',
+                'mid': '中温系统 - 能耗&负荷分析预测'
+            };
+            
+            chart.setTitle({ text: titles[systemType] });
+        }
+        
+        // 生成不同系统的数据
+        function generateSystemData(systemType) {
+            const timeLabels = generateTimeData();
+            const energyData = [];
+            const eerData = [];
+            const loadData = [];
+            
+            // 根据系统类型调整数据基准值
+            let powerBase, eerBase, loadBase;
+            
+            switch(systemType) {
+                case 'all':
+                    powerBase = 800;
+                    eerBase = 3.2;
+                    loadBase = 300;
+                    break;
+                case 'low':
+                    powerBase = 450;
+                    eerBase = 3.8;
+                    loadBase = 180;
+                    break;
+                case 'mid':
+                    powerBase = 350;
+                    eerBase = 2.9;
+                    loadBase = 120;
+                    break;
+            }
+            
+            for (let i = 0; i < 24; i++) {
+                const base = powerBase + Math.sin(i * Math.PI / 12) * 150;
+                energyData.push({
+                    predicted: Math.round(base + (Math.random() - 0.5) * 50),
+                    actual: Math.round(base + (Math.random() - 0.5) * 80)
+                });
+                
+                const eerBaseline = eerBase + Math.sin(i * Math.PI / 8) * 0.6 + (Math.random() - 0.5) * 0.3;
+                const eerOptimized = eerBaseline * (1.1 + Math.random() * 0.15);
+                eerData.push({
+                    baseline: eerBaseline,
+                    optimized: eerOptimized
+                });
+                loadData.push(loadBase + Math.sin(i * Math.PI / 6) * 80 + (Math.random() - 0.5) * 40);
+            }
+            
+            return { timeLabels, energyData, eerData, loadData };
+        }
+        
+        // 更新图表函数
+        function updateChart(timeLabels, energyData, eerData, loadData) {
+            
+            chart.update({
+                xAxis: {
+                    categories: timeLabels
+                },
+                series: [{
+                    data: energyData.map(d => d.baseline)
+                }, {
+                    data: energyData.map(d => d.optimized)
+                }, {
+                    data: eerData.map(d => d.baseline)
+                }, {
+                    data: eerData.map(d => d.optimized)
+                }, {
+                    data: loadData
+                }]
+            });
+        }
+        
+        // 创建图表
+        chart = Highcharts.chart('main-chart', {
+            chart: {
+                type: 'column',
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: '能耗&负荷分析预测',
+                style: {
+                    fontSize: '16px',
+                    fontWeight: 'bold'
+                }
+            },
+            xAxis: {
+                categories: timeLabels,
+                title: {
+                    text: '时间（未来72小时预测）'
+                },
+                labels: {
+                    rotation: -45,
+                    style: {
+                        fontSize: '10px'
+                    },
+                    step: 2
+                }
+            },
+            yAxis: [
+                {
+                    // 左侧Y轴 - 功率
+                    title: {
+                        text: '功率 (kW)',
+                        style: {
+                            color: '#2b908f'
+                        }
+                    },
+                    labels: {
+                        style: {
+                            color: '#2b908f'
+                        }
+                    },
+                    min: 0
+                },
+                {
+                    // 右侧Y轴1 - EER
+                    title: {
+                        text: 'EER',
+                        style: {
+                            color: '#f45b5b'
+                        }
+                    },
+                    labels: {
+                        style: {
+                            color: '#f45b5b'
+                        }
+                    },
+                    opposite: true,
+                    min: 0,
+                    max: 6
+                },
+                {
+                    // 右侧Y轴2 - 负荷
+                    title: {
+                        text: '负荷 (kW)',
+                        style: {
+                            color: '#8085e9'
+                        }
+                    },
+                    labels: {
+                        style: {
+                            color: '#8085e9'
+                        }
+                    },
+                    opposite: true,
+                    min: 0,
+                    offset: 60
+                }
+            ],
+            tooltip: {
+                shared: true,
+                formatter: function() {
+                    let s = '<b>' + this.x + '</b>';
+                    this.points.forEach(function(point) {
+                        s += '<br/><span style="color:' + point.color + '">' + 
+                             point.series.name + '</span>: <b>' + 
+                             Highcharts.numberFormat(point.y, 1) + 
+                             (point.series.name.indexOf('EER') > -1 ? '' : 'kW') + '</b>';
+                    });
+                    return s;
+                }
+            },
+            legend: {
+                layout: 'horizontal',
+                align: 'center',
+                verticalAlign: 'bottom'
+            },
+            plotOptions: {
+                column: {
+                    pointPadding: 0.2,
+                    borderWidth: 0,
+                    groupPadding: 0.15,
+                    dataLabels: {
+                        enabled: false
+                    }
+                },
+                line: {
+                    lineWidth: 3,
+                    marker: {
+                        enabled: true,
+                        radius: 4
+                    },
+                    dataLabels: {
+                        enabled: false
+                    }
+                }
+            },
+            series: [
+                {
+                    name: '基准能耗预测',
+                    type: 'column',
+                    data: energyData.map(d => d.baseline),
+                    color: '#ff7f7f',
+                    yAxis: 0
+                },
+                {
+                    name: 'AI优化后能耗',
+                    type: 'column', 
+                    data: energyData.map(d => d.optimized),
+                    color: '#4CAF50',
+                    yAxis: 0
+                },
+                {
+                    name: '基准EER预测',
+                    type: 'line',
+                    data: eerData.map(d => d.baseline),
+                    color: '#f45b5b',
+                    yAxis: 1,
+                    marker: {
+                        symbol: 'circle'
+                    }
+                },
+                {
+                    name: 'AI优化后EER',
+                    type: 'line',
+                    data: eerData.map(d => d.optimized),
+                    color: '#ff9800',
+                    yAxis: 1,
+                    marker: {
+                        symbol: 'circle'
+                    }
+                },
+                {
+                    name: '负荷预测',
+                    type: 'line',
+                    data: loadData,
+                    color: '#8085e9',
+                    yAxis: 2,
+                    marker: {
+                        symbol: 'diamond'
+                    }
+                }
+            ],
+            credits: {
+                enabled: false
+            },
+            exporting: {
+                enabled: true
+            }
+        });
+        
+        // 定时更新数据
+        setInterval(function() {
+            // 更新状态指示器中的数值
+            const efficiencyElement = document.querySelector('.metric-card:nth-child(1) .metric-value');
+            const eerElement = document.querySelector('.metric-card:nth-child(2) .metric-value'); 
+            const loadElement = document.querySelector('.metric-card:nth-child(3) .metric-value');
+            
+            if (efficiencyElement) {
+                efficiencyElement.textContent = (94 + Math.random() * 2).toFixed(1) + '%';
+            }
+            if (eerElement) {
+                eerElement.textContent = (3.5 + Math.random() * 0.6).toFixed(1);
+            }
+            if (loadElement) {
+                loadElement.textContent = Math.round(280 + Math.random() * 80) + 'kW';
+            }
+        }, 5000);
+        
+        // 生成历史寻优策略包数据
+        function generateStrategyData() {
+            const strategies = [];
+            const currentTime = new Date();
+            
+            for (let i = 1; i <= 12; i++) {
+                const deployTime = new Date(currentTime.getTime() - (i * 6 + Math.random() * 24) * 60 * 60 * 1000);
+                const isDeployed = Math.random() > 0.3; // 70%概率已下发
+                const paramCount = Math.floor(Math.random() * 8) + 3; // 3-10个参数
+                const efficiency = (Math.random() * 15 + 5).toFixed(1); // 5-20%效率提升
+                
+                // 格式化时间为 YYYY/MM/DD/HH:mm
+                const timeStr = deployTime.getFullYear() + '/' + 
+                              String(deployTime.getMonth() + 1).padStart(2, '0') + '/' + 
+                              String(deployTime.getDate()).padStart(2, '0') + '/' + 
+                              String(deployTime.getHours()).padStart(2, '0') + ':' + 
+                              String(deployTime.getMinutes()).padStart(2, '0');
+                
+                // 随机选择默认操作状态
+                const defaultAction = Math.random() > 0.6 ? '判定-正' : Math.random() > 0.3 ? '判定-负' : '';
+                
+                strategies.push({
+                    id: `OPT-${String(i).padStart(3, '0')}`,
+                    deployed: isDeployed,
+                    paramCount: paramCount,
+                    efficiency: efficiency + '%',
+                    deployTime: deployTime,
+                    timeStr: timeStr,
+                    action: defaultAction
+                });
+            }
+            
+            // 按时间倒序排列
+            return strategies.sort((a, b) => b.deployTime - a.deployTime);
+        }
+        
+        // 渲染策略包表格
+        function renderStrategyTable() {
+            const strategies = generateStrategyData();
+            const tbody = document.getElementById('strategy-table-body');
+            
+            tbody.innerHTML = strategies.map(strategy => {
+                const isCompleted = judgmentResults[strategy.id];
+                const completedValue = isCompleted ? judgmentResults[strategy.id].type : strategy.action;
+                
+                return `
+                <tr>
+                    <td>
+                        <span class="strategy-id">${strategy.id}</span>
+                        <span class="strategy-time">${strategy.timeStr}</span>
+                    </td>
+                    <td>
+                        <button class="deploy-btn" ${strategy.deployed ? 'disabled' : ''} 
+                                onclick="openDeployModal('${strategy.id}', ${strategy.deployed})">
+                            ${strategy.deployed ? 'DEPLOYED' : '下发'}
+                        </button>
+                        ${strategy.deployed ? `<div class="deploy-time">${strategy.timeStr}</div>` : ''}
+                    </td>
+                    <td><span class="param-count">${strategy.paramCount}</span></td>
+                    <td><span class="efficiency-gain">${strategy.deployed ? '+' + strategy.efficiency : 'NA'}</span></td>
+                    <td>
+                        <select class="action-select ${isCompleted ? 'completed' : ''}" 
+                                onchange="${isCompleted ? `handleCompletedJudgmentClick('${strategy.id}')` : `handleActionChange('${strategy.id}', this.value)`}"
+                                onclick="${isCompleted ? `handleCompletedJudgmentClick('${strategy.id}')` : ''}">
+                            <option value="" ${!isCompleted && strategy.action === '' ? 'selected' : ''}>请判定</option>
+                            <option value="判定-正" ${completedValue === '判定-正' ? 'selected' : ''}>判定-正</option>
+                            <option value="判定-负" ${completedValue === '判定-负' ? 'selected' : ''}>判定-负</option>
+                        </select>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+        }
+        
+        // 弹窗相关变量
+        let currentStrategyId = null;
+        let currentJudgmentType = null;
+        let previousSelectValue = null;
+        let judgmentResults = {}; // 存储判定结果
+        let uploadHistory = []; // 存储上传历史记录
+        
+        // 获取当前时间格式化字符串
+        function getCurrentTimeString() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            
+            return `[${year}/${month}/${day} ${hours}:${minutes}:${seconds}] `;
+        }
+        
+        // 获取当前时间显示格式
+        function getCurrentTimeDisplay() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            
+            return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+        }
+        
+        // 更新最后修改时间
+        function updateLastModified(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = `最后修改时间: ${getCurrentTimeDisplay()}`;
+            }
+        }
+        
+        // 打开下发弹窗
+        function openDeployModal(strategyId, isDeployed) {
+            if (isDeployed) return; // 已下发的策略不能再次下发
+            
+            currentStrategyId = strategyId;
+            
+            // 自动插入当前系统时间
+            const timeStamp = getCurrentTimeString();
+            const defaultLog = `${timeStamp}开始执行策略包 ${strategyId} 下发操作...\n`;
+            
+            document.getElementById('logTextarea').value = defaultLog;
+            
+            // 更新最后修改时间
+            updateLastModified('deployLastModified');
+            
+            document.getElementById('deployModal').style.display = 'flex';
+            
+            // 将光标定位到文本框末尾
+            const textarea = document.getElementById('logTextarea');
+            textarea.focus();
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+            
+            // 监听文本框内容变化
+            textarea.addEventListener('input', function() {
+                updateLastModified('deployLastModified');
+            });
+        }
+        
+        // 关闭弹窗
+        function closeDeployModal() {
+            document.getElementById('deployModal').style.display = 'none';
+            currentStrategyId = null;
+        }
+        
+        // 确认下发
+        function confirmDeploy() {
+            const logContent = document.getElementById('logTextarea').value.trim();
+            
+            if (!logContent) {
+                alert('请输入执行日志记录');
+                return;
+            }
+            
+            // 在日志末尾添加完成时间戳
+            const completeTimeStamp = getCurrentTimeString();
+            const finalLog = logContent + `\n${completeTimeStamp}策略包 ${currentStrategyId} 下发完成。`;
+            
+            // 模拟下发操作
+            console.log(`下发策略包 ${currentStrategyId}，日志：${finalLog}`);
+            
+            // 可以在这里添加实际的下发逻辑
+            alert(`策略包 ${currentStrategyId} 下发成功！`);
+            
+            // 关闭弹窗并刷新表格
+            closeDeployModal();
+            renderStrategyTable();
+        }
+        
+        // 点击弹窗外部关闭
+        document.addEventListener('click', function(event) {
+            const deployModal = document.getElementById('deployModal');
+            const judgmentModal = document.getElementById('judgmentModal');
+            const historyModal = document.getElementById('historyModal');
+            
+            if (event.target === deployModal) {
+                closeDeployModal();
+            }
+            
+            if (event.target === judgmentModal) {
+                closeJudgmentModal();
+            }
+            
+            if (event.target === historyModal) {
+                closeHistoryModal();
+            }
+        });
+        
+        // ESC键关闭弹窗
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                if (document.getElementById('deployModal').style.display === 'flex') {
+                    closeDeployModal();
+                }
+                if (document.getElementById('judgmentModal').style.display === 'flex') {
+                    closeJudgmentModal();
+                }
+                if (document.getElementById('historyModal').style.display === 'flex') {
+                    closeHistoryModal();
+                }
+            }
+        });
+        
+        // 处理操作下拉选择变化
+        function handleActionChange(strategyId, action) {
+            const selectElement = event.target;
+            
+            // 如果是已完成判定的策略，显示历史判定结果
+            if (judgmentResults[strategyId] && (action === '判定-正' || action === '判定-负')) {
+                showJudgmentResult(strategyId);
+                return;
+            }
+            
+            // 如果选择的是判定选项，弹出判别依据窗口
+            if (action === '判定-正' || action === '判定-负') {
+                currentStrategyId = strategyId;
+                currentJudgmentType = action;
+                
+                // 清空文本框并打开弹窗
+                document.getElementById('judgmentTextarea').value = '';
+                
+                // 更新最后修改时间
+                updateLastModified('judgmentLastModified');
+                
+                document.getElementById('judgmentModal').style.display = 'flex';
+                
+                // 聚焦到文本框
+                const judgmentTextarea = document.getElementById('judgmentTextarea');
+                judgmentTextarea.focus();
+                
+                // 监听文本框内容变化
+                judgmentTextarea.addEventListener('input', function() {
+                    updateLastModified('judgmentLastModified');
+                });
+                
+                // 临时恢复下拉选择器为“请判定”
+                selectElement.value = '';
+            } else {
+                console.log(`策略包 ${strategyId} 操作状态变更为: ${action}`);
+            }
+        }
+        
+        // 处理已完成判定的点击事件
+        function handleCompletedJudgmentClick(strategyId) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            // 如果是onchange事件，也调用showJudgmentResult
+            if (event.type === 'change') {
+                // 恢复原来的值，防止下拉选择改变
+                const selectElement = event.target;
+                const result = judgmentResults[strategyId];
+                if (result) {
+                    selectElement.value = result.type;
+                }
+            }
+            
+            showJudgmentResult(strategyId);
+            return false;
+        }
+        
+        // 显示判定结果
+        function showJudgmentResult(strategyId) {
+            const result = judgmentResults[strategyId];
+            if (!result) return;
+            
+            // 在文本框中显示历史判定结果
+            document.getElementById('judgmentTextarea').value = result.fullText;
+            document.getElementById('judgmentTextarea').readOnly = true; // 设置为只读
+            
+            // 更新最后修改时间为历史时间
+            document.getElementById('judgmentLastModified').textContent = `最后修改时间: ${result.timestamp.replace(/[\[\]]/g, '').trim()}`;
+            
+            // 修改按钮文本
+            const confirmBtn = document.querySelector('#judgmentModal .modal-btn-primary');
+            confirmBtn.textContent = '关闭';
+            confirmBtn.onclick = function() {
+                closeJudgmentModal();
+                // 恢复原始状态
+                confirmBtn.textContent = '确定';
+                confirmBtn.onclick = confirmJudgment;
+                document.getElementById('judgmentTextarea').readOnly = false;
+            };
+            
+            document.getElementById('judgmentModal').style.display = 'flex';
+        }
+        
+        // 关闭判定弹窗
+        function closeJudgmentModal() {
+            document.getElementById('judgmentModal').style.display = 'none';
+            currentStrategyId = null;
+            currentJudgmentType = null;
+            previousSelectValue = null;
+        }
+        
+        // 确认判定
+        function confirmJudgment() {
+            const judgmentContent = document.getElementById('judgmentTextarea').value.trim();
+            
+            if (!judgmentContent) {
+                alert('请输入判别依据');
+                return;
+            }
+            
+            // 添加时间戳
+            const timeStamp = getCurrentTimeString();
+            const finalJudgment = `${timeStamp}${currentJudgmentType}\n判别依据: ${judgmentContent}`;
+            
+            // 保存判定结果
+            judgmentResults[currentStrategyId] = {
+                type: currentJudgmentType,
+                content: judgmentContent,
+                timestamp: timeStamp,
+                fullText: finalJudgment
+            };
+            
+            console.log(`策略包 ${currentStrategyId} 判定结果:`, finalJudgment);
+            
+            alert(`策略包 ${currentStrategyId} 判定完成！`);
+            
+            // 关闭弹窗
+            closeJudgmentModal();
+            
+            // 重新渲染表格以更新状态
+            renderStrategyTable();
+        }
+        
+        // 下载配置模版
+        function downloadTemplate() {
+            const template = {
+                "系统配置模版": {
+                    "版本": "v1.0",
+                    "创建时间": getCurrentTimeDisplay(),
+                    "净化系统参数": {
+                        "机房系统": {
+                            "温度范围": "18-22°C",
+                            "湿度范围": "45-55%RH",
+                            "压差": "10-15Pa",
+                            "换气次数": "15-20次/小时",
+                            "过滤等级": "HEPA H14"
+                        },
+                        "低温系统": {
+                            "目标温度": "15-18°C",
+                            "制冷功率": "450kW",
+                            "EER系数": "3.8",
+                            "负荷率": "55%"
+                        },
+                        "中温系统": {
+                            "目标温度": "20-24°C",
+                            "制冷功率": "350kW",
+                            "EER系数": "2.9",
+                            "负荷率": "65%"
+                        }
+                    },
+                    "监控参数": {
+                        "能耗监控": true,
+                        "温湿度监控": true,
+                        "压差监控": true,
+                        "过滤器状态": true,
+                        "报警阈值": {
+                            "温度偏差": "±2°C",
+                            "湿度偏差": "±5%RH",
+                            "压差异常": "<5Pa"
+                        }
+                    }
+                }
+            };
+            
+            const dataStr = JSON.stringify(template, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'FAB净化系统配置模版_' + new Date().toISOString().split('T')[0] + '.json';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            console.log('配置模版下载完成');
+        }
+        
+        // 触发文件上传
+        function uploadConfig() {
+            document.getElementById('configFileInput').click();
+        }
+        
+        // 处理文件上传
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const uploadTime = getCurrentTimeDisplay();
+            const fileSize = (file.size / 1024).toFixed(2) + ' KB';
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                let status = 'success';
+                let statusText = '成功';
+                
+                try {
+                    const configData = JSON.parse(e.target.result);
+                    console.log('上传的配置文件:', configData);
+                    
+                    // 记录上传历史
+                    const historyItem = {
+                        id: Date.now(),
+                        fileName: file.name,
+                        fileSize: fileSize,
+                        uploadTime: uploadTime,
+                        status: status,
+                        statusText: statusText,
+                        data: configData
+                    };
+                    
+                    uploadHistory.unshift(historyItem); // 添加到数组开头
+                    
+                    // 这里可以添加配置文件解析和应用逻辑
+                    alert('配置文件上传成功！\n文件名: ' + file.name + '\n大小: ' + fileSize);
+                    
+                    // 可以在这里添加配置文件验证和应用逻辑
+                    applyConfiguration(configData);
+                    
+                } catch (error) {
+                    console.error('配置文件解析错误:', error);
+                    status = 'error';
+                    statusText = '失败';
+                    
+                    // 记录失败的上传历史
+                    const historyItem = {
+                        id: Date.now(),
+                        fileName: file.name,
+                        fileSize: fileSize,
+                        uploadTime: uploadTime,
+                        status: status,
+                        statusText: statusText,
+                        error: error.message
+                    };
+                    
+                    uploadHistory.unshift(historyItem);
+                    
+                    alert('配置文件格式错误，请检查文件格式是否正确！');
+                }
+            };
+            
+            reader.readAsText(file);
+            
+            // 清空input，允许重复上传同一文件
+            event.target.value = '';
+        }
+        
+        // 应用配置文件
+        function applyConfiguration(config) {
+            console.log('应用配置:', config);
+            
+            // 这里可以根据配置文件更新系统参数
+            // 例如更新图表数据、系统设置等
+            
+            // 模拟配置应用过程
+            if (config['系统配置模版']) {
+                console.log('检测到标准配置模版格式');
+                
+                // 可以在这里添加具体的配置应用逻辑
+                // 比如更新系统参数、重新生成数据等
+                
+                // 重新渲染表格以反映配置变化
+                renderStrategyTable();
+            }
+        }
+        
+        // 显示上传历史记录
+        function showUploadHistory() {
+            document.getElementById('historyModal').style.display = 'flex';
+            renderHistoryList();
+        }
+        
+        // 关闭历史记录弹窗
+        function closeHistoryModal() {
+            document.getElementById('historyModal').style.display = 'none';
+        }
+        
+        // 渲染历史记录列表
+        function renderHistoryList() {
+            const historyList = document.getElementById('historyList');
+            
+            if (uploadHistory.length === 0) {
+                historyList.innerHTML = `
+                    <div class="history-item" style="text-align: center; color: #666; grid-column: 1 / -1;">
+                        暂无上传记录
+                    </div>
+                `;
+                return;
+            }
+            
+            historyList.innerHTML = uploadHistory.map(item => `
+                <div class="history-item">
+                    <div>${item.uploadTime}</div>
+                    <div>${item.fileName}</div>
+                    <div>${item.fileSize}</div>
+                    <div class="history-action">
+                        <button class="history-btn" onclick="downloadHistoryFile(${item.id})">下载</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 下载历史文件
+        function downloadHistoryFile(id) {
+            const item = uploadHistory.find(h => h.id === id);
+            if (!item) {
+                alert('找不到该文件记录');
+                return;
+            }
+            
+            let fileContent = '';
+            let fileName = item.fileName;
+            
+            // 如果有配置数据，下载JSON格式
+            if (item.data) {
+                fileContent = JSON.stringify(item.data, null, 2);
+                // 确保文件扩展名是.json
+                if (!fileName.endsWith('.json')) {
+                    fileName = fileName.replace(/\.[^.]*$/, '.json');
+                }
+            } else {
+                // 如果没有数据（失败的上传），创建一个错误信息文件
+                fileContent = `文件上传失败记录\n\n文件名: ${item.fileName}\n上传时间: ${item.uploadTime}\n文件大小: ${item.fileSize}\n错误信息: ${item.error || '未知错误'}`;
+                fileName = item.fileName.replace(/\.[^.]*$/, '_error_log.txt');
+            }
+            
+            // 创建下载
+            const dataBlob = new Blob([fileContent], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            console.log('文件下载完成:', fileName);
+        }
+        
+        // 初始化示例历史数据
+        function initSampleHistoryData() {
+            const now = new Date();
+            
+            // 添加一些示例历史数据
+            uploadHistory = [
+                {
+                    id: 1001,
+                    fileName: 'FAB_System_Config_v2.3.json',
+                    fileSize: '15.4 KB',
+                    uploadTime: new Date(now.getTime() - 2 * 60 * 60 * 1000).toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    }).replace(/\//g, '/'),
+                    status: 'success',
+                    statusText: '成功',
+                    data: {
+                        "系统配置模版": {
+                            "版本": "v2.3",
+                            "净化系统参数": {
+                                "机房系统": {"温度范围": "18-22°C", "湿度范围": "45-55%RH"},
+                                "低温系统": {"目标温度": "15-18°C", "制冷功率": "450kW"},
+                                "中温系统": {"目标温度": "20-24°C", "制冷功率": "350kW"}
+                            }
+                        }
+                    }
+                },
+                {
+                    id: 1002,
+                    fileName: 'CleanRoom_Parameters_20241225.json',
+                    fileSize: '8.7 KB',
+                    uploadTime: new Date(now.getTime() - 5 * 60 * 60 * 1000).toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    }).replace(/\//g, '/'),
+                    status: 'success',
+                    statusText: '成功',
+                    data: {
+                        "系统配置模版": {
+                            "版本": "v1.8",
+                            "净化系统参数": {
+                                "机房系统": {"温度范围": "19-23°C", "湿度范围": "40-60%RH"},
+                                "过滤系统": {"过滤等级": "HEPA H14", "换气次数": "18次/小时"}
+                            }
+                        }
+                    }
+                },
+                {
+                    id: 1003,
+                    fileName: 'InvalidConfig.txt',
+                    fileSize: '2.1 KB',
+                    uploadTime: new Date(now.getTime() - 8 * 60 * 60 * 1000).toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    }).replace(/\//g, '/'),
+                    status: 'error',
+                    statusText: '失败',
+                    error: 'JSON格式错误'
+                },
+                {
+                    id: 1004,
+                    fileName: 'FAB_Cooling_Optimization_v1.5.json',
+                    fileSize: '22.3 KB',
+                    uploadTime: new Date(now.getTime() - 24 * 60 * 60 * 1000).toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    }).replace(/\//g, '/'),
+                    status: 'success',
+                    statusText: '成功',
+                    data: {
+                        "系统配置模版": {
+                            "版本": "v1.5",
+                            "净化系统参数": {
+                                "机房系统": {"温度范围": "17-21°C", "湿度范围": "45-50%RH"},
+                                "低温系统": {"目标温度": "14-17°C", "制冷功率": "480kW", "EER系数": "4.0"},
+                                "中温系统": {"目标温度": "19-23°C", "制冷功率": "380kW", "EER系数": "3.2"}
+                            },
+                            "优化策略": {
+                                "自适应控制": true,
+                                "能效比优化": true,
+                                "负荷预测": true
+                            }
+                        }
+                    }
+                },
+                {
+                    id: 1005,
+                    fileName: 'Emergency_Backup_Config.json',
+                    fileSize: '11.8 KB',
+                    uploadTime: new Date(now.getTime() - 48 * 60 * 60 * 1000).toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    }).replace(/\//g, '/'),
+                    status: 'success',
+                    statusText: '成功',
+                    data: {
+                        "系统配置模版": {
+                            "版本": "Emergency_v1.0",
+                            "净化系统参数": {
+                                "机房系统": {"温度范围": "16-24°C", "湿度范围": "40-60%RH"},
+                                "应急模式": {"降级运行": true, "备用制冷": true}
+                            }
+                        }
+                    }
+                },
+                {
+                    id: 1006,
+                    fileName: 'corrupted_file.xml',
+                    fileSize: '0.3 KB',
+                    uploadTime: new Date(now.getTime() - 72 * 60 * 60 * 1000).toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    }).replace(/\//g, '/'),
+                    status: 'error',
+                    statusText: '失败',
+                    error: '文件损坏或格式不支持'
+                }
+            ];
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initTimeInputs();
+            renderStrategyTable();
+            initSampleHistoryData(); // 初始化示例历史数据
+        });
+    </script>
+</body>
+</html>

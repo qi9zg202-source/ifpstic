@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High-Efficiency Data Center - 设备监控</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .header h1 {
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        .main-container {
+            position: relative;
+            width: 100%;
+            height: calc(100vh - 80px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .datacenter-view {
+            position: relative;
+            max-width: 1200px;
+            max-height: 800px;
+            width: 100%;
+            height: 100%;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        .datacenter-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        
+        /* 设备热点区域 */
+        .equipment-hotspot {
+            position: absolute;
+            border: 3px solid #00ff88;
+            border-radius: 8px;
+            background: rgba(0, 255, 136, 0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            animation: pulse 2s infinite;
+        }
+        
+        .equipment-hotspot:hover {
+            background: rgba(0, 255, 136, 0.4);
+            border-color: #00cc6a;
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.6);
+        }
+        
+        .equipment-hotspot .label {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .equipment-hotspot:hover .label {
+            opacity: 1;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); }
+        }
+        
+        /* 弹出框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 900px;
+            height: 80%;
+            max-height: 600px;
+            display: flex;
+            overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+            animation: modalAppear 0.4s ease-out;
+        }
+        
+        @keyframes modalAppear {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+        
+        .modal-left {
+            flex: 1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            color: white;
+            position: relative;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+        
+        .equipment-image {
+            width: 200px;
+            height: 200px;
+            border-radius: 15px;
+            object-fit: cover;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .equipment-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .equipment-desc {
+            font-size: 14px;
+            text-align: center;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+        
+        .modal-right {
+            flex: 1.5;
+            padding: 30px;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .data-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .data-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .status-normal {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .data-table-container {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        .data-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+            border: none;
+        }
+        
+        .data-table th:first-child {
+            width: 40%;
+        }
+        
+        .data-table th:nth-child(2) {
+            width: 25%;
+            text-align: center;
+        }
+        
+        .data-table th:nth-child(3) {
+            width: 20%;
+            text-align: center;
+        }
+        
+        .data-table th:last-child {
+            width: 15%;
+            text-align: center;
+        }
+        
+        .data-table td {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: middle;
+        }
+        
+        .data-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .parameter-name {
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .parameter-icon {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #667eea;
+        }
+        
+        .parameter-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            text-align: center;
+        }
+        
+        .parameter-unit {
+            font-size: 12px;
+            color: #666;
+            margin-left: 3px;
+        }
+        
+        .parameter-range {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+        
+        .parameter-trend {
+            text-align: center;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .trend-up {
+            color: #28a745;
+        }
+        
+        .trend-down {
+            color: #dc3545;
+        }
+        
+        .trend-stable {
+            color: #6c757d;
+        }
+        
+        .data-timestamp {
+            text-align: center;
+            color: #999;
+            font-size: 12px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .modal-content {
+                flex-direction: column;
+                width: 95%;
+                height: 90%;
+            }
+            
+            .modal-left {
+                flex: none;
+                height: 200px;
+            }
+            
+            .equipment-image {
+                width: 120px;
+                height: 120px;
+            }
+            
+            .data-table th,
+            .data-table td {
+                padding: 10px 8px;
+                font-size: 12px;
+            }
+            
+            .parameter-value {
+                font-size: 16px;
+            }
+            
+            .parameter-trend {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>High-Efficiency Data Center</h1>
+        <p>高效机房设备实时监控系统</p>
+    </div>
+    
+    <div class="main-container">
+        <div class="datacenter-view" id="datacenter-view">
+            <img src="datacenter.png" alt="数据中心布局图" class="datacenter-image" id="datacenter-image">
+            
+            <!-- 低温冰机设备热点 -->
+            <div class="equipment-hotspot" id="chiller-1" 
+                 style="top: 25%; left: 15%; width: 120px; height: 80px;"
+                 data-equipment="低温冰机1号" data-type="low-temp">
+                <div class="label">低温冰机 #1</div>
+            </div>
+            
+            <div class="equipment-hotspot" id="chiller-2" 
+                 style="top: 25%; left: 45%; width: 120px; height: 80px;"
+                 data-equipment="低温冰机2号" data-type="low-temp">
+                <div class="label">低温冰机 #2</div>
+            </div>
+            
+            <div class="equipment-hotspot" id="chiller-3" 
+                 style="top: 60%; left: 15%; width: 120px; height: 80px;"
+                 data-equipment="低温冰机3号" data-type="low-temp">
+                <div class="label">低温冰机 #3</div>
+            </div>
+            
+            <!-- 中温冰机设备热点 -->
+            <div class="equipment-hotspot" id="mid-chiller-1" 
+                 style="top: 25%; left: 70%; width: 120px; height: 80px;"
+                 data-equipment="中温冰机1号" data-type="mid-temp">
+                <div class="label">中温冰机 #1</div>
+            </div>
+            
+            <div class="equipment-hotspot" id="mid-chiller-2" 
+                 style="top: 60%; left: 45%; width: 120px; height: 80px;"
+                 data-equipment="中温冰机2号" data-type="mid-temp">
+                <div class="label">中温冰机 #2</div>
+            </div>
+            
+            <!-- 中温热回收冰机设备热点 -->
+            <div class="equipment-hotspot" id="heat-recovery-chiller-1" 
+                 style="top: 60%; left: 70%; width: 120px; height: 80px;"
+                 data-equipment="中温热回收冰机1号" data-type="heat-recovery">
+                <div class="label">中温热回收 #1</div>
+            </div>
+            
+            <div class="equipment-hotspot" id="heat-recovery-chiller-2" 
+                 style="top: 45%; left: 25%; width: 120px; height: 80px;"
+                 data-equipment="中温热回收冰机2号" data-type="heat-recovery">
+                <div class="label">中温热回收 #2</div>
+            </div>
+            
+            <!-- 冷却塔设备热点 -->
+            <div class="equipment-hotspot" id="cooling-tower-1" 
+                 style="top: 10%; left: 25%; width: 120px; height: 80px;"
+                 data-equipment="冷却塔1号" data-type="cooling-tower">
+                <div class="label">冷却塔 #1</div>
+            </div>
+            
+            <div class="equipment-hotspot" id="cooling-tower-2" 
+                 style="top: 10%; left: 50%; width: 120px; height: 80px;"
+                 data-equipment="冷却塔2号" data-type="cooling-tower">
+                <div class="label">冷却塔 #2</div>
+            </div>
+            
+            <div class="equipment-hotspot" id="cooling-tower-3" 
+                 style="top: 10%; left: 75%; width: 120px; height: 80px;"
+                 data-equipment="冷却塔3号" data-type="cooling-tower">
+                <div class="label">冷却塔 #3</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 设备详情弹出框 -->
+    <div class="modal" id="equipment-modal">
+        <div class="modal-content">
+            <div class="modal-left">
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+                <img src="CHILLER.jpeg" 
+                     alt="低温冰机设备图片" class="equipment-image" id="equipment-image">
+                <div class="equipment-title" id="equipment-title">低温冰机</div>
+                <div class="equipment-desc" id="equipment-desc">
+                    高效节能制冷设备<br>
+                    额定制冷量: 1000RT<br>
+                    能效比: COP 6.2
+                </div>
+            </div>
+            
+            <div class="modal-right">
+                <div class="data-header">
+                    <div class="data-title">实时运行参数</div>
+                    <div class="status-indicator status-normal" id="equipment-status">
+                        <span>●</span> 运行正常
+                    </div>
+                </div>
+                
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>监测参数</th>
+                                <th>当前值</th>
+                                <th>正常范围</th>
+                                <th>趋势</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr id="param-row-1">
+                                <td>
+                                    <div class="parameter-name">
+                                        <div class="parameter-icon" style="background: #007bff;"></div>
+                                        <span id="param-name-1">冷冻水供水温度</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-value">
+                                        <span id="param-value-1">7.2</span>
+                                        <span class="parameter-unit">°C</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-range" id="param-range-1">6.5 ~ 8.0°C</div>
+                                </td>
+                                <td>
+                                    <div class="parameter-trend trend-stable" id="param-trend-1">→</div>
+                                </td>
+                            </tr>
+                            <tr id="param-row-2">
+                                <td>
+                                    <div class="parameter-name">
+                                        <div class="parameter-icon" style="background: #28a745;"></div>
+                                        <span id="param-name-2">冷冻水回水温度</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-value">
+                                        <span id="param-value-2">12.8</span>
+                                        <span class="parameter-unit">°C</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-range" id="param-range-2">12.0 ~ 14.0°C</div>
+                                </td>
+                                <td>
+                                    <div class="parameter-trend trend-up" id="param-trend-2">↗</div>
+                                </td>
+                            </tr>
+                            <tr id="param-row-3">
+                                <td>
+                                    <div class="parameter-name">
+                                        <div class="parameter-icon" style="background: #ffc107;"></div>
+                                        <span id="param-name-3">冷却水进水温度</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-value">
+                                        <span id="param-value-3">32.5</span>
+                                        <span class="parameter-unit">°C</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-range" id="param-range-3">30.0 ~ 35.0°C</div>
+                                </td>
+                                <td>
+                                    <div class="parameter-trend trend-down" id="param-trend-3">↘</div>
+                                </td>
+                            </tr>
+                            <tr id="param-row-4">
+                                <td>
+                                    <div class="parameter-name">
+                                        <div class="parameter-icon" style="background: #dc3545;"></div>
+                                        <span id="param-name-4">冷却水出水温度</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-value">
+                                        <span id="param-value-4">37.1</span>
+                                        <span class="parameter-unit">°C</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-range" id="param-range-4">35.0 ~ 40.0°C</div>
+                                </td>
+                                <td>
+                                    <div class="parameter-trend trend-stable" id="param-trend-4">→</div>
+                                </td>
+                            </tr>
+                            <tr id="param-row-5" style="display: none;">
+                                <td>
+                                    <div class="parameter-name">
+                                        <div class="parameter-icon" style="background: #e91e63;"></div>
+                                        <span id="param-name-5">热回收供水温度</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-value">
+                                        <span id="param-value-5">45.0</span>
+                                        <span class="parameter-unit">°C</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-range" id="param-range-5">40.0 ~ 50.0°C</div>
+                                </td>
+                                <td>
+                                    <div class="parameter-trend trend-stable" id="param-trend-5">→</div>
+                                </td>
+                            </tr>
+                            <tr id="param-row-6" style="display: none;">
+                                <td>
+                                    <div class="parameter-name">
+                                        <div class="parameter-icon" style="background: #9c27b0;"></div>
+                                        <span id="param-name-6">热回收回水温度</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-value">
+                                        <span id="param-value-6">40.0</span>
+                                        <span class="parameter-unit" id="param-unit-6">°C</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-range" id="param-range-6">35.0 ~ 45.0°C</div>
+                                </td>
+                                <td>
+                                    <div class="parameter-trend trend-stable" id="param-trend-6">→</div>
+                                </td>
+                            </tr>
+                            <tr id="param-row-7" style="display: none;">
+                                <td>
+                                    <div class="parameter-name">
+                                        <div class="parameter-icon" style="background: #17a2b8;"></div>
+                                        <span id="param-name-7">风机频率</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-value">
+                                        <span id="param-value-7">45.0</span>
+                                        <span class="parameter-unit" id="param-unit-7">Hz</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-range" id="param-range-7">30.0 ~ 50.0Hz</div>
+                                </td>
+                                <td>
+                                    <div class="parameter-trend trend-stable" id="param-trend-7">→</div>
+                                </td>
+                            </tr>
+                            <tr id="param-row-8" style="display: none;">
+                                <td>
+                                    <div class="parameter-name">
+                                        <div class="parameter-icon" style="background: #6f42c1;"></div>
+                                        <span id="param-name-8">冷塔液位</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-value">
+                                        <span id="param-value-8">150</span>
+                                        <span class="parameter-unit" id="param-unit-8">cm</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="parameter-range" id="param-range-8">100 ~ 200cm</div>
+                                </td>
+                                <td>
+                                    <div class="parameter-trend trend-stable" id="param-trend-8">→</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="data-timestamp" id="data-timestamp">
+                    最后更新: 2024-07-08 14:35:22
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class DataCenterMonitor {
+            constructor() {
+                this.equipmentData = new Map();
+                this.currentEquipment = null;
+                this.updateInterval = null;
+                this.init();
+            }
+            
+            init() {
+                this.setupEventListeners();
+                this.initializeEquipmentData();
+                this.startDataSimulation();
+            }
+            
+            setupEventListeners() {
+                // 设备热点点击事件
+                document.querySelectorAll('.equipment-hotspot').forEach(hotspot => {
+                    hotspot.addEventListener('click', (e) => {
+                        const equipmentId = e.currentTarget.id;
+                        const equipmentName = e.currentTarget.dataset.equipment;
+                        this.openEquipmentModal(equipmentId, equipmentName);
+                    });
+                });
+                
+                // 点击弹框外部关闭
+                document.getElementById('equipment-modal').addEventListener('click', (e) => {
+                    if (e.target.id === 'equipment-modal') {
+                        this.closeModal();
+                    }
+                });
+                
+                // ESC键关闭弹框
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        this.closeModal();
+                    }
+                });
+            }
+            
+            initializeEquipmentData() {
+                // 初始化低温设备数据
+                const lowTempEquipments = ['chiller-1', 'chiller-2', 'chiller-3'];
+                lowTempEquipments.forEach(id => {
+                    this.equipmentData.set(id, {
+                        type: 'low-temp',
+                        chwSupplyTemp: this.generateRandomValue(6.5, 8.0, 7.2),
+                        chwReturnTemp: this.generateRandomValue(12.0, 14.0, 12.8),
+                        cwInletTemp: this.generateRandomValue(30.0, 35.0, 32.5),
+                        cwOutletTemp: this.generateRandomValue(35.0, 40.0, 37.1),
+                        status: 'normal',
+                        lastUpdate: new Date()
+                    });
+                });
+                
+                // 初始化中温设备数据
+                const midTempEquipments = ['mid-chiller-1', 'mid-chiller-2'];
+                midTempEquipments.forEach(id => {
+                    this.equipmentData.set(id, {
+                        type: 'mid-temp',
+                        chwSupplyTemp: this.generateRandomValue(8.0, 12.0, 10.0),
+                        chwReturnTemp: this.generateRandomValue(15.0, 18.0, 16.5),
+                        cwInletTemp: this.generateRandomValue(28.0, 33.0, 30.5),
+                        cwOutletTemp: this.generateRandomValue(33.0, 38.0, 35.5),
+                        status: 'normal',
+                        lastUpdate: new Date()
+                    });
+                });
+                
+                // 初始化热回收设备数据
+                const heatRecoveryEquipments = ['heat-recovery-chiller-1', 'heat-recovery-chiller-2'];
+                heatRecoveryEquipments.forEach(id => {
+                    this.equipmentData.set(id, {
+                        type: 'heat-recovery',
+                        chwSupplyTemp: this.generateRandomValue(8.0, 12.0, 10.0),
+                        chwReturnTemp: this.generateRandomValue(15.0, 18.0, 16.5),
+                        cwInletTemp: this.generateRandomValue(28.0, 33.0, 30.5),
+                        cwOutletTemp: this.generateRandomValue(33.0, 38.0, 35.5),
+                        hrSupplyTemp: this.generateRandomValue(40.0, 50.0, 45.0),
+                        hrReturnTemp: this.generateRandomValue(35.0, 45.0, 40.0),
+                        status: 'normal',
+                        lastUpdate: new Date()
+                    });
+                });
+                
+                // 初始化冷却塔设备数据
+                const coolingTowerEquipments = ['cooling-tower-1', 'cooling-tower-2', 'cooling-tower-3'];
+                coolingTowerEquipments.forEach(id => {
+                    this.equipmentData.set(id, {
+                        type: 'cooling-tower',
+                        fanFrequency: this.generateRandomValue(30.0, 50.0, 45.0),
+                        waterLevel: this.generateRandomValue(100, 200, 150),
+                        status: 'normal',
+                        lastUpdate: new Date()
+                    });
+                });
+            }
+            
+            generateRandomValue(min, max, base) {
+                const variance = (max - min) * 0.1;
+                return +(base + (Math.random() - 0.5) * variance).toFixed(1);
+            }
+            
+            openEquipmentModal(equipmentId, equipmentName) {
+                this.currentEquipment = equipmentId;
+                
+                // 获取设备类型
+                const equipmentElement = document.getElementById(equipmentId);
+                const equipmentType = equipmentElement.dataset.type;
+                
+                // 更新弹框标题
+                document.getElementById('equipment-title').textContent = equipmentName;
+                
+                // 根据设备类型更新描述和参数
+                if (equipmentType === 'mid-temp') {
+                    const desc = `中温制冷设备<br>设备编号: ${equipmentId.toUpperCase()}<br>额定制冷量: 800RT<br>能效比: COP 5.8`;
+                    document.getElementById('equipment-desc').innerHTML = desc;
+                    this.updateTableForMidTemp();
+                } else if (equipmentType === 'heat-recovery') {
+                    const desc = `中温热回收制冷设备<br>设备编号: ${equipmentId.toUpperCase()}<br>额定制冷量: 600RT<br>热回收量: 400RT<br>能效比: COP 5.5`;
+                    document.getElementById('equipment-desc').innerHTML = desc;
+                    this.updateTableForHeatRecovery();
+                } else if (equipmentType === 'cooling-tower') {
+                    const desc = `高效冷却塔<br>设备编号: ${equipmentId.toUpperCase()}<br>额定冷却量: 1200RT<br>风机功率: 75kW<br>循环水量: 2000t/h`;
+                    document.getElementById('equipment-desc').innerHTML = desc;
+                    this.updateTableForCoolingTower();
+                } else {
+                    const desc = `低温制冷设备<br>设备编号: ${equipmentId.toUpperCase()}<br>额定制冷量: 1000RT<br>能效比: COP 6.2`;
+                    document.getElementById('equipment-desc').innerHTML = desc;
+                    this.updateTableForLowTemp();
+                }
+                
+                // 显示弹框
+                document.getElementById('equipment-modal').style.display = 'block';
+                document.body.style.overflow = 'hidden';
+                
+                // 开始实时数据更新
+                this.startRealTimeUpdate();
+                
+                // 立即更新一次数据
+                this.updateEquipmentData();
+            }
+            
+            updateTableForLowTemp() {
+                // 低温冰机参数配置
+                const params = [
+                    { name: '冷冻水供水温度', range: '6.5 ~ 8.0°C', color: '#007bff' },
+                    { name: '冷冻水回水温度', range: '12.0 ~ 14.0°C', color: '#28a745' },
+                    { name: '冷却水进水温度', range: '30.0 ~ 35.0°C', color: '#ffc107' },
+                    { name: '冷却水出水温度', range: '35.0 ~ 40.0°C', color: '#dc3545' }
+                ];
+                
+                this.updateTableParameters(params);
+                this.hideHeatRecoveryRows();
+                this.hideCoolingTowerRows();
+            }
+            
+            updateTableForMidTemp() {
+                // 中温冰机参数配置
+                const params = [
+                    { name: '冷冻水供水温度', range: '8.0 ~ 12.0°C', color: '#007bff' },
+                    { name: '冷冻水回水温度', range: '15.0 ~ 18.0°C', color: '#28a745' },
+                    { name: '冷却水进水温度', range: '28.0 ~ 33.0°C', color: '#ffc107' },
+                    { name: '冷却水出水温度', range: '33.0 ~ 38.0°C', color: '#dc3545' }
+                ];
+                
+                this.updateTableParameters(params);
+                this.hideHeatRecoveryRows();
+                this.hideCoolingTowerRows();
+            }
+            
+            updateTableForHeatRecovery() {
+                // 热回收冰机参数配置
+                const params = [
+                    { name: '冷冻水供水温度', range: '8.0 ~ 12.0°C', color: '#007bff' },
+                    { name: '冷冻水回水温度', range: '15.0 ~ 18.0°C', color: '#28a745' },
+                    { name: '冷却水进水温度', range: '28.0 ~ 33.0°C', color: '#ffc107' },
+                    { name: '冷却水出水温度', range: '33.0 ~ 38.0°C', color: '#dc3545' },
+                    { name: '热回收供水温度', range: '40.0 ~ 50.0°C', color: '#e91e63' },
+                    { name: '热回收回水温度', range: '35.0 ~ 45.0°C', color: '#9c27b0' }
+                ];
+                
+                this.updateTableParameters(params);
+                this.showHeatRecoveryRows();
+                this.hideCoolingTowerRows();
+            }
+            
+            updateTableForCoolingTower() {
+                // 冷却塔参数配置
+                const params = [
+                    { name: '风机频率', range: '30.0 ~ 50.0Hz', color: '#17a2b8' },
+                    { name: '冷塔液位', range: '100 ~ 200cm', color: '#6f42c1' }
+                ];
+                
+                this.updateTableParameters(params);
+                this.hideHeatRecoveryRows();
+                this.showCoolingTowerRows();
+            }
+            
+            showHeatRecoveryRows() {
+                document.getElementById('param-row-5').style.display = 'table-row';
+                document.getElementById('param-row-6').style.display = 'table-row';
+            }
+            
+            hideHeatRecoveryRows() {
+                document.getElementById('param-row-5').style.display = 'none';
+                document.getElementById('param-row-6').style.display = 'none';
+            }
+            
+            showCoolingTowerRows() {
+                document.getElementById('param-row-7').style.display = 'table-row';
+                document.getElementById('param-row-8').style.display = 'table-row';
+            }
+            
+            hideCoolingTowerRows() {
+                document.getElementById('param-row-7').style.display = 'none';
+                document.getElementById('param-row-8').style.display = 'none';
+            }
+            
+            updateTableParameters(params) {
+                params.forEach((param, index) => {
+                    const rowIndex = index + 1;
+                    document.getElementById(`param-name-${rowIndex}`).textContent = param.name;
+                    document.getElementById(`param-range-${rowIndex}`).textContent = param.range;
+                    
+                    // 更新图标颜色
+                    const icon = document.querySelector(`#param-row-${rowIndex} .parameter-icon`);
+                    icon.style.background = param.color;
+                });
+            }
+            
+            closeModal() {
+                document.getElementById('equipment-modal').style.display = 'none';
+                document.body.style.overflow = 'auto';
+                this.stopRealTimeUpdate();
+                this.currentEquipment = null;
+            }
+            
+            startRealTimeUpdate() {
+                this.updateInterval = setInterval(() => {
+                    this.updateEquipmentData();
+                }, 3000); // 每3秒更新一次
+            }
+            
+            stopRealTimeUpdate() {
+                if (this.updateInterval) {
+                    clearInterval(this.updateInterval);
+                    this.updateInterval = null;
+                }
+            }
+            
+            updateEquipmentData() {
+                if (!this.currentEquipment) return;
+                
+                const data = this.equipmentData.get(this.currentEquipment);
+                if (!data) return;
+                
+                // 根据设备类型模拟数据变化
+                if (data.type === 'mid-temp') {
+                    data.chwSupplyTemp = this.generateRandomValue(8.0, 12.0, data.chwSupplyTemp);
+                    data.chwReturnTemp = this.generateRandomValue(15.0, 18.0, data.chwReturnTemp);
+                    data.cwInletTemp = this.generateRandomValue(28.0, 33.0, data.cwInletTemp);
+                    data.cwOutletTemp = this.generateRandomValue(33.0, 38.0, data.cwOutletTemp);
+                } else if (data.type === 'heat-recovery') {
+                    data.chwSupplyTemp = this.generateRandomValue(8.0, 12.0, data.chwSupplyTemp);
+                    data.chwReturnTemp = this.generateRandomValue(15.0, 18.0, data.chwReturnTemp);
+                    data.cwInletTemp = this.generateRandomValue(28.0, 33.0, data.cwInletTemp);
+                    data.cwOutletTemp = this.generateRandomValue(33.0, 38.0, data.cwOutletTemp);
+                    data.hrSupplyTemp = this.generateRandomValue(40.0, 50.0, data.hrSupplyTemp);
+                    data.hrReturnTemp = this.generateRandomValue(35.0, 45.0, data.hrReturnTemp);
+                } else if (data.type === 'cooling-tower') {
+                    data.fanFrequency = this.generateRandomValue(30.0, 50.0, data.fanFrequency);
+                    data.waterLevel = this.generateRandomValue(100, 200, data.waterLevel);
+                } else {
+                    data.chwSupplyTemp = this.generateRandomValue(6.5, 8.0, data.chwSupplyTemp);
+                    data.chwReturnTemp = this.generateRandomValue(12.0, 14.0, data.chwReturnTemp);
+                    data.cwInletTemp = this.generateRandomValue(30.0, 35.0, data.cwInletTemp);
+                    data.cwOutletTemp = this.generateRandomValue(35.0, 40.0, data.cwOutletTemp);
+                }
+                
+                data.lastUpdate = new Date();
+                
+                // 更新界面显示
+                this.updateModalDisplay(data);
+            }
+            
+            updateModalDisplay(data) {
+                if (data.type === 'cooling-tower') {
+                    // 冷却塔设备显示
+                    document.getElementById('param-value-7').textContent = data.fanFrequency;
+                    document.getElementById('param-value-8').textContent = data.waterLevel;
+                    
+                    // 设置基准值
+                    const baseValues = {
+                        fanFrequency: 45.0,
+                        waterLevel: 150
+                    };
+                    
+                    // 更新趋势指示
+                    this.updateTrend('param-trend-7', data.fanFrequency, baseValues.fanFrequency);
+                    this.updateTrend('param-trend-8', data.waterLevel, baseValues.waterLevel);
+                } else {
+                    // 冰机设备显示
+                    document.getElementById('param-value-1').textContent = data.chwSupplyTemp;
+                    document.getElementById('param-value-2').textContent = data.chwReturnTemp;
+                    document.getElementById('param-value-3').textContent = data.cwInletTemp;
+                    document.getElementById('param-value-4').textContent = data.cwOutletTemp;
+                    
+                    // 根据设备类型设置基准值
+                    let baseValues;
+                    if (data.type === 'mid-temp' || data.type === 'heat-recovery') {
+                    baseValues = {
+                        chwSupply: 10.0,
+                        chwReturn: 16.5,
+                        cwInlet: 30.5,
+                        cwOutlet: 35.5,
+                        hrSupply: 45.0,
+                        hrReturn: 40.0
+                    };
+                } else {
+                    baseValues = {
+                        chwSupply: 7.2,
+                        chwReturn: 12.8,
+                        cwInlet: 32.5,
+                        cwOutlet: 37.1
+                    };
+                }
+                
+                // 更新趋势指示
+                this.updateTrend('param-trend-1', data.chwSupplyTemp, baseValues.chwSupply);
+                this.updateTrend('param-trend-2', data.chwReturnTemp, baseValues.chwReturn);
+                this.updateTrend('param-trend-3', data.cwInletTemp, baseValues.cwInlet);
+                this.updateTrend('param-trend-4', data.cwOutletTemp, baseValues.cwOutlet);
+                
+                    // 更新热回收参数（如果有）
+                    if (data.type === 'heat-recovery') {
+                        document.getElementById('param-value-5').textContent = data.hrSupplyTemp;
+                        document.getElementById('param-value-6').textContent = data.hrReturnTemp;
+                        this.updateTrend('param-trend-5', data.hrSupplyTemp, baseValues.hrSupply);
+                        this.updateTrend('param-trend-6', data.hrReturnTemp, baseValues.hrReturn);
+                    }
+                }
+                
+                // 更新时间戳
+                document.getElementById('data-timestamp').textContent = 
+                    `最后更新: ${data.lastUpdate.toLocaleString('zh-CN')}`;
+                
+                // 更新状态指示
+                this.updateStatus(data);
+            }
+            
+            updateTrend(elementId, currentValue, baseValue) {
+                const element = document.getElementById(elementId);
+                const diff = currentValue - baseValue;
+                
+                if (Math.abs(diff) < 0.2) {
+                    element.className = 'parameter-trend trend-stable';
+                    element.textContent = '→';
+                } else if (diff > 0) {
+                    element.className = 'parameter-trend trend-up';
+                    element.textContent = '↗';
+                } else {
+                    element.className = 'parameter-trend trend-down';
+                    element.textContent = '↘';
+                }
+            }
+            
+            updateStatus(data) {
+                const statusElement = document.getElementById('equipment-status');
+                
+                if (data.type === 'cooling-tower') {
+                    // 冷却塔状态判断
+                    const fanFreqNormal = data.fanFrequency >= 25.0 && data.fanFrequency <= 55.0;
+                    const waterLevelNormal = data.waterLevel >= 80 && data.waterLevel <= 220;
+                    
+                    const allNormal = fanFreqNormal && waterLevelNormal;
+                    const criticalError = !waterLevelNormal; // 液位异常为关键故障
+                    
+                    if (allNormal) {
+                        statusElement.className = 'status-indicator status-normal';
+                        statusElement.innerHTML = '<span>●</span> 运行正常';
+                    } else if (criticalError) {
+                        statusElement.className = 'status-indicator status-error';
+                        statusElement.innerHTML = '<span>●</span> 异常告警';
+                    } else {
+                        statusElement.className = 'status-indicator status-warning';
+                        statusElement.innerHTML = '<span>●</span> 注意监控';
+                    }
+                    return;
+                }
+                
+                // 冰机设备状态判断
+                let chwSupplyNormal, chwReturnNormal, cwInletNormal, cwOutletNormal;
+                let hrSupplyNormal = true, hrReturnNormal = true;
+                
+                // 根据设备类型设置不同的判断标准
+                if (data.type === 'mid-temp' || data.type === 'heat-recovery') {
+                    chwSupplyNormal = data.chwSupplyTemp >= 7.5 && data.chwSupplyTemp <= 12.5;
+                    chwReturnNormal = data.chwReturnTemp >= 14.0 && data.chwReturnTemp <= 19.0;
+                    cwInletNormal = data.cwInletTemp >= 26.0 && data.cwInletTemp <= 34.0;
+                    cwOutletNormal = data.cwOutletTemp >= 31.0 && data.cwOutletTemp <= 39.0;
+                    
+                    // 热回收参数判断
+                    if (data.type === 'heat-recovery') {
+                        hrSupplyNormal = data.hrSupplyTemp >= 38.0 && data.hrSupplyTemp <= 52.0;
+                        hrReturnNormal = data.hrReturnTemp >= 33.0 && data.hrReturnTemp <= 47.0;
+                    }
+                } else {
+                    chwSupplyNormal = data.chwSupplyTemp >= 6.0 && data.chwSupplyTemp <= 8.5;
+                    chwReturnNormal = data.chwReturnTemp >= 11.0 && data.chwReturnTemp <= 15.0;
+                    cwInletNormal = data.cwInletTemp >= 28.0 && data.cwInletTemp <= 36.0;
+                    cwOutletNormal = data.cwOutletTemp >= 33.0 && data.cwOutletTemp <= 42.0;
+                }
+                
+                const allNormal = chwSupplyNormal && chwReturnNormal && cwInletNormal && cwOutletNormal && hrSupplyNormal && hrReturnNormal;
+                const criticalError = !chwSupplyNormal || !chwReturnNormal || !hrSupplyNormal || !hrReturnNormal;
+                
+                if (allNormal) {
+                    statusElement.className = 'status-indicator status-normal';
+                    statusElement.innerHTML = '<span>●</span> 运行正常';
+                } else if (criticalError) {
+                    statusElement.className = 'status-indicator status-error';
+                    statusElement.innerHTML = '<span>●</span> 异常告警';
+                } else {
+                    statusElement.className = 'status-indicator status-warning';
+                    statusElement.innerHTML = '<span>●</span> 注意监控';
+                }
+            }
+            
+            startDataSimulation() {
+                // 模拟所有设备的数据变化
+                setInterval(() => {
+                    this.equipmentData.forEach((data, equipmentId) => {
+                        if (data.type === 'mid-temp') {
+                            data.chwSupplyTemp = this.generateRandomValue(8.0, 12.0, data.chwSupplyTemp);
+                            data.chwReturnTemp = this.generateRandomValue(15.0, 18.0, data.chwReturnTemp);
+                            data.cwInletTemp = this.generateRandomValue(28.0, 33.0, data.cwInletTemp);
+                            data.cwOutletTemp = this.generateRandomValue(33.0, 38.0, data.cwOutletTemp);
+                        } else if (data.type === 'heat-recovery') {
+                            data.chwSupplyTemp = this.generateRandomValue(8.0, 12.0, data.chwSupplyTemp);
+                            data.chwReturnTemp = this.generateRandomValue(15.0, 18.0, data.chwReturnTemp);
+                            data.cwInletTemp = this.generateRandomValue(28.0, 33.0, data.cwInletTemp);
+                            data.cwOutletTemp = this.generateRandomValue(33.0, 38.0, data.cwOutletTemp);
+                            data.hrSupplyTemp = this.generateRandomValue(40.0, 50.0, data.hrSupplyTemp);
+                            data.hrReturnTemp = this.generateRandomValue(35.0, 45.0, data.hrReturnTemp);
+                        } else if (data.type === 'cooling-tower') {
+                            data.fanFrequency = this.generateRandomValue(30.0, 50.0, data.fanFrequency);
+                            data.waterLevel = this.generateRandomValue(100, 200, data.waterLevel);
+                        } else {
+                            data.chwSupplyTemp = this.generateRandomValue(6.5, 8.0, data.chwSupplyTemp);
+                            data.chwReturnTemp = this.generateRandomValue(12.0, 14.0, data.chwReturnTemp);
+                            data.cwInletTemp = this.generateRandomValue(30.0, 35.0, data.cwInletTemp);
+                            data.cwOutletTemp = this.generateRandomValue(35.0, 40.0, data.cwOutletTemp);
+                        }
+                        data.lastUpdate = new Date();
+                    });
+                }, 5000); // 每5秒更新所有设备数据
+            }
+        }
+        
+        // 全局函数
+        function closeModal() {
+            window.dataCenterMonitor.closeModal();
+        }
+        
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', () => {
+            window.dataCenterMonitor = new DataCenterMonitor();
+        });
+    </script>
+</body>
+</html>
